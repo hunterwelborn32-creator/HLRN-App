@@ -1,9 +1,10 @@
-const CACHE = 'hlrn-v7-0-everything';
+const CACHE = 'hlrn-v8-0-full-network';
 const APP_SHELL = [
   './',
   './index.html',
   './style.css',
   './app.js',
+  './rules-data.js',
   './manifest.json',
   './apple-touch-icon.png',
   './icon-192.png',

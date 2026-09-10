@@ -1,5 +1,10 @@
 const HOSTED_SHEET = '1YfY22x2dnI9T6Fi69pT3L91NAkmVQWdvL0IWbWhB-tM';
 
+const HLRN_ENDPOINTS = {
+  leagueApi: 'https://script.google.com/macros/s/AKfycbwo4C9RyV-H-F4ekKFcgmrYVpyOUsh9dmFf2jVhJwvieCTKpKzAR_k6lNcppBuehj58/exec',
+  announcements: 'https://hlrn-discord.hunterwelborn32.workers.dev/api/announcements'
+};
+
 const LIVE = {
   standingsSheet: '1yWa2-nHM4VnUXDS8EQwB0G2k0ockpAU55Xuj9MPccJo',
   newsroomSheet: '1_o7gV4CDMDDmm6XfqXBqlxJPuoK8FBV1Rcf3ugg0v8M',
@@ -69,10 +74,12 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '7.0',
+  appVersion: '8.0',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
-  teamStandings: []
+  teamStandings: {Sunday: [], Monday: []},
+  announcementsStatus: 'Connecting…',
+  rulesQuery: ''
 };
 
 const fallback = {
@@ -81,10 +88,10 @@ const fallback = {
     Monday: [['Ethan Eckert',192],['Trevor Aswarnauth',148],['Bill Daniels',143],['Chris James',124],['Joshua McKinney2',123]]
   },
   schedule: [
-    {league:'Sunday',date:'2026-09-13',time:'8:30 PM EST',track:'Kansas Speedway',status:'UPCOMING'},
-    {league:'Monday',date:'2026-09-14',time:'8:30 PM EST',track:'Bristol Motor Speedway',status:'UPCOMING'},
-    {league:'Sunday',date:'2026-09-20',time:'8:30 PM EST',track:'Talladega Superspeedway',status:'UPCOMING'},
-    {league:'Monday',date:'2026-09-21',time:'8:30 PM EST',track:'Charlotte Motor Speedway',status:'UPCOMING'}
+    {league:'Sunday',date:'2026-09-13',time:'8:30 PM EST',track:'Homestead Miami',status:'UPCOMING'},
+    {league:'Monday',date:'2026-09-14',time:'8:30 PM EST',track:'Echo Park',status:'UPCOMING'},
+    {league:'Sunday',date:'2026-09-20',time:'8:30 PM EST',track:'Michigan',status:'UPCOMING'},
+    {league:'Monday',date:'2026-09-21',time:'8:30 PM EST',track:'Charloette',status:'UPCOMING'}
   ],
   announcements: [{tag:'APP',title:'HLRN mobile app is live',text:'Live HLRN data is being connected to the app.',time:'New'}]
 };
@@ -124,7 +131,7 @@ function addPageMotion(){
 function refreshNow(){
   const btn=document.querySelector('#refreshDataBtn');
   if(btn) btn.classList.add('spinning');
-  Promise.allSettled([refreshLiveData(),refreshHostedData(false)]).finally(()=>{
+  Promise.allSettled([refreshLiveData(),refreshHostedData(false),refreshTeamStandings(),refreshDiscordAnnouncements()]).finally(()=>{
     setTimeout(()=>btn?.classList.remove('spinning'),500);
   });
 }
@@ -254,8 +261,8 @@ function renderHome(){
       <button onclick="openFeature('favorites')"><span>★</span><strong>Favorites</strong><small>Your saved drivers</small></button>
       <button onclick="openFeature('sharecards')"><span>📣</span><strong>Share Cards</strong><small>Screenshot-ready stats</small></button>
       <button onclick="openFeature('notifications')"><span>🔔</span><strong>Notifications</strong><small>HLRN news & race updates</small></button>
-      <button onclick="openFeature('admin')"><span>🎛️</span><strong>Race Control</strong><small>Admin & league resources</small></button>
-      <button onclick="openFeature('halloffame')"><span>🏛️</span><strong>Hall of Fame</strong><small>HLRN legends & records</small></button>
+      <button onclick="openFeature('rules')"><span>📕</span><strong>Official Rules</strong><small>Full searchable HLRN rulebook</small></button>
+      <button onclick="openFeature('admin')"><span>🎛️</span><strong>Race Control</strong><small>Rules • incidents • operations</small></button>
     </section>
 
     <div class="section-head"><h3>Season Snapshot</h3><span>Live HLRN numbers</span></div>
@@ -670,12 +677,22 @@ function renderTrackHub(){
 }
 
 function renderTeams(){
-  const body=state.teamStandings.length
-    ? `<div class="team-list">${state.teamStandings.map((t,i)=>`<article><b>${i+1}</b><strong>${escapeHtml(t.name)}</strong><span>${t.points} pts</span></article>`).join('')}</div>`
-    : `<section class="coming-live"><span>👥</span><h3>Team Championship Center is ready</h3><p>The current app feeds do not include driver-to-team assignments, so I did not invent team standings. Once a Team Standings sheet/feed is connected, this page is already reserved for live team points, wins, Top 5s and comparisons.</p><button class="btn primary" onclick="setView('standings')">VIEW DRIVER STANDINGS</button></section>`;
-  featureShell('Team Standings','Sunday + Monday team championship center.',body,'teams-page');
+  const league=state.teamLeague||'Sunday';
+  const data=state.teamStandings[league]||[];
+  const rows=data.length?data.map((t,i)=>`<button class="team-standing-row">
+    <b class="team-rank">${i+1}</b>
+    <div><strong>${escapeHtml(t.name)}</strong><span>${t.drivers?escapeHtml(t.drivers):'HLRN TEAM'}</span></div>
+    <div class="team-mini"><b>${t.wins||0}<small>WINS</small></b><b>${t.top5||0}<small>TOP 5</small></b></div>
+    <em>${Number(t.points||0).toFixed(1).replace('.0','')}<small>PTS</small></em>
+  </button>`).join(''):`<div class="empty">Connecting to ${league} team standings…</div>`;
+  const body=`<div class="tabs premium-tabs team-tabs">
+    <button class="${league==='Sunday'?'active':''}" onclick="state.teamLeague='Sunday';renderTeams()">SUNDAY</button>
+    <button class="${league==='Monday'?'active':''}" onclick="state.teamLeague='Monday';renderTeams()">MONDAY</button>
+  </div>
+  <section class="team-command-card ${league.toLowerCase()}"><div><small>${league.toUpperCase()} TEAM CHAMPIONSHIP</small><strong>${data.length||'--'}</strong><span>teams loaded live</span></div><div><small>LEADER</small><strong>${escapeHtml(data[0]?.name||'Loading')}</strong><span>${data[0]?.points||'--'} points</span></div></section>
+  <div class="team-standing-list">${rows}</div>`;
+  featureShell('Team Standings','Live team championship data from the same Sunday and Monday feeds used by the HLRN website.',body,'teams-page');
 }
-
 function spotlightDriver(){
   const ds=hostedDriverStats(); if(!ds.length)return null;
   return [...ds].sort((a,b)=>(b.wins*20+b.top5*5+b.top10*2+b.lapsLed*.1)-(a.wins*20+a.top5*5+a.top10*2+a.lapsLed*.1))[0];
@@ -747,36 +764,61 @@ function renderShareCards(){
 
 function renderNotifications(){
   const nextSun=state.nextRaces.Sunday,nextMon=state.nextRaces.Monday;
-  const items=[
-    {icon:'🏁',type:'NEXT SUNDAY',title:nextSun.track,text:`${nextSun.date} • ${nextSun.time}`},
-    {icon:'🏁',type:'NEXT MONDAY',title:nextMon.track,text:`${nextMon.date} • ${nextMon.time}`},
-    ...state.announcements.slice(0,12).map(a=>({icon:'🔔',type:a.tag||'NEWS',title:a.title,text:`${a.time||''} ${a.text||''}`.trim()}))
+  const raceItems=[
+    {icon:'S',type:'NEXT SUNDAY',title:nextSun.track,text:`${nextSun.date} • ${nextSun.time}`,cls:'sun'},
+    {icon:'M',type:'NEXT MONDAY',title:nextMon.track,text:`${nextMon.date} • ${nextMon.time}`,cls:'mon'}
   ];
-  featureShell('Notifications','Race dates, HLRN announcements and important updates.',`<div class="notification-list">${items.map(x=>`<article><span>${x.icon}</span><div><small>${escapeHtml(x.type)}</small><strong>${escapeHtml(x.title)}</strong><p>${escapeHtml(x.text)}</p></div></article>`).join('')}</div>`,'notifications-page');
+  const bulletinHtml=state.announcements.slice(0,15).map((a,i)=>`<article class="notification-bulletin ${i===0?'latest':''}" ${a.jumpUrl?`onclick="openSocial('${escapeHtml(a.jumpUrl)}')"`:''}>
+    <div class="notification-avatar">${a.avatar?`<img src="${escapeHtml(a.avatar)}" alt="">`:'HLRN'}</div>
+    <div><small>${i===0?'LATEST OFFICIAL BULLETIN':escapeHtml(a.author||'HLRN')}</small><strong>${escapeHtml(a.title)}</strong><p>${escapeHtml(a.text)}</p><em>${escapeHtml(a.time)}</em></div>
+    ${a.jumpUrl?'<b>›</b>':''}
+  </article>`).join('');
+  const body=`<section class="notification-status"><span class="${state.announcementsStatus==='LIVE'?'live':''}"></span><div><small>DISCORD ANNOUNCEMENT BRIDGE</small><strong>${escapeHtml(state.announcementsStatus)}</strong></div><button onclick="refreshDiscordAnnouncements().then(()=>renderNotifications())">↻ REFRESH</button></section>
+  <div class="notification-races">${raceItems.map(x=>`<article class="${x.cls}"><b>${x.icon}</b><div><small>${x.type}</small><strong>${escapeHtml(x.title)}</strong><span>${escapeHtml(x.text)}</span></div></article>`).join('')}</div>
+  <div class="section-head"><h3>Official Bulletins</h3><span>${state.announcements.length} loaded</span></div>
+  <div class="notification-list">${bulletinHtml||'<div class="empty">Connecting to HLRN announcements…</div>'}</div>`;
+  featureShell('Notifications','Live race dates and official Discord-connected HLRN announcements.',body,'notifications-page');
+}
+function ruleMatches(section,query){
+  if(!query) return true;
+  const hay=[section.title,...section.rules.flatMap(r=>[r.title,...r.lines])].join(' ').toLowerCase();
+  return hay.includes(query.toLowerCase());
+}
+function renderRules(query=''){
+  state.rulesQuery=query;
+  const q=String(query||'').trim().toLowerCase();
+  const sections=(typeof HLRN_RULES!=='undefined'?HLRN_RULES:[]);
+  let matchCount=0;
+  const sectionHtml=sections.map((s,si)=>{
+    const rules=s.rules.filter(r=>{
+      if(!q)return true;
+      const hit=[r.title,...r.lines].join(' ').toLowerCase().includes(q);
+      if(hit) matchCount++;
+      return hit;
+    });
+    if(q && !rules.length)return '';
+    if(!q) matchCount+=rules.length;
+    return `<section class="rulebook-section"><button class="rulebook-section-head" onclick="this.parentElement.classList.toggle('open')"><span>${si+1}</span><div><small>OFFICIAL HLRN RULEBOOK</small><strong>${escapeHtml(s.title.replace(/^Section\s*\d+\s*\|\s*/i,''))}</strong></div><b>⌄</b></button><div class="rulebook-rules">${rules.map(r=>`<article class="rulebook-rule"><h3>${escapeHtml(r.title)}</h3>${r.lines.map(line=>`<p>${escapeHtml(line)}</p>`).join('')}</article>`).join('')}</div></section>`;
+  }).join('');
+  const body=`<section class="rules-command"><div><small>OFFICIAL RULE BOOK</small><strong>7 SECTIONS</strong><span>48 HR protest window • 3 wreck levels • 2 GWC attempts</span></div><button onclick="openFeature('admin')">RACE CONTROL ›</button></section>
+  <div class="rule-search"><input id="ruleSearchInput" value="${escapeHtml(query)}" placeholder="Search caution, restart, yellow line, protest..." oninput="renderRules(this.value)"><span>⌕</span></div>
+  <div class="rule-search-meta"><strong>${matchCount}</strong> ${q?'matching rules':'rules indexed'} • Published HLRN rulebook</div>
+  <div class="rulebook">${sectionHtml||'<div class="empty">No rules match that search.</div>'}</div>`;
+  featureShell('Official Rules','Full searchable HLRN rulebook — conduct, procedures, penalties, protests, championship, broadcast and officials.',body,'rules-page');
 }
 
 function renderAdmin(){
   const body=`<section class="admin-command"><div class="admin-status"><span></span><div><small>HLRN RACE CONTROL</small><strong>Operations Center</strong></div></div>
   <div class="admin-tools">
-    <button onclick="setView('schedule')"><span>🗓️</span><strong>Schedule Control</strong><small>Verify Sunday & Monday race weeks</small></button>
-    <button onclick="openFeature('incidents')"><span>🚨</span><strong>Incident Watch</strong><small>Hosted incident review</small></button>
-    <button onclick="openFeature('racestats')"><span>📊</span><strong>Race Intelligence</strong><small>Latest hosted race breakdown</small></button>
+    <button onclick="openFeature('rules')"><span>📕</span><strong>Official Rulebook</strong><small>Search all 7 published rule sections</small></button>
+    <button onclick="setView('schedule')"><span>🗓️</span><strong>Schedule Control</strong><small>Sunday Week ${seasonWeek('Sunday')} • Monday Week ${seasonWeek('Monday')}</small></button>
+    <button onclick="openFeature('incidents')"><span>🚨</span><strong>Incident Watch</strong><small>Hosted incident review and clean-racing data</small></button>
+    <button onclick="openFeature('racestats')"><span>📊</span><strong>Race Intelligence</strong><small>Latest Hosted race breakdown</small></button>
+    <button onclick="openFeature('notifications')"><span>🔔</span><strong>Official Bulletins</strong><small>Live Discord-connected announcements</small></button>
     <button onclick="openSocial(state.links['HLRN Website']||'https://sites.google.com/view/highlineracingnetwork/home')"><span>🌐</span><strong>HLRN Website</strong><small>Open official network site</small></button>
-  </div><div class="admin-note"><strong>Private admin data is not exposed in this public app.</strong><p>This page provides race-control shortcuts without publishing penalties, private notes or other restricted information.</p></div></section>`;
-  featureShell('Race Control','Admin and league-management shortcuts.',body,'admin-page');
-}
-
-function renderHallOfFame(){
-  const ds=hostedDriverStats();
-  const mostWins=[...ds].sort((a,b)=>b.wins-a.wins)[0], starts=[...ds].sort((a,b)=>b.races-a.races)[0], led=[...ds].sort((a,b)=>b.lapsLed-a.lapsLed)[0];
-  const body=`<section class="hof-hero"><span>🏛️</span><small>HIGH LINE RACING NETWORK</small><h3>Hall of Fame</h3><p>Celebrating the drivers who have left the biggest mark on HLRN Hosted Racing.</p></section>
-  <div class="hof-pillars">
-    ${recordCard('👑','WIN KING',mostWins,mostWins?.wins,'career hosted victories')}
-    ${recordCard('🏁','IRON DRIVER',starts,starts?.races,'career hosted starts')}
-    ${recordCard('🔥','LAPS LED KING',led,led?.lapsLed,'career laps led')}
   </div>
-  <section class="coming-live small-coming"><h3>Champions Wing</h3><p>The current live feeds do not identify historical Sunday/Monday season champions. The Hall of Fame is ready for them once a champions source is connected, while the Hosted record book above is live now.</p></section>`;
-  featureShell('Hall of Fame','HLRN legends, career record holders and future champions wing.',body,'hall-page');
+  <div class="admin-note"><strong>PUBLIC RACE CONTROL REFERENCE</strong><p>The app shows published rules, schedules, incidents and official bulletins. Private steward notes and private administrative information are not exposed.</p></div></section>`;
+  featureShell('Race Control','Official rules, race-week operations, incident intelligence and HLRN bulletins.',body,'admin-page');
 }
 
 function renderFeature(name){
@@ -784,7 +826,7 @@ function renderFeature(name){
     records:renderRecords,headtohead:renderHeadToHead,racestats:renderRaceStats,power:renderPowerRankings,
     tracks:renderTrackHub,teams:renderTeams,spotlight:renderSpotlight,recap:renderRecap,incidents:renderIncidentWatch,
     achievements:renderAchievements,favorites:renderFavorites,sharecards:renderShareCards,notifications:renderNotifications,
-    admin:renderAdmin,halloffame:renderHallOfFame
+    rules:renderRules,admin:renderAdmin
   };
   (map[name]||renderRecords)();
 }
@@ -876,6 +918,86 @@ function applySchedule(rows){
       state.nextRaces[league]={date:d.toLocaleString('en-US',{month:'short',day:'numeric'}).toUpperCase(),iso:d.toISOString(),track:upcoming.track,series:`${league} League`,time,broadcast:state.links[`${league} Broadcast`]||''};
     }
   });
+}
+
+
+function loadEndpointJsonp(url){
+  return new Promise((resolve,reject)=>{
+    const callback='HLRNAPP_'+Date.now()+'_'+Math.floor(Math.random()*100000);
+    const script=document.createElement('script');
+    const timer=setTimeout(()=>cleanup(new Error('Team standings timed out')),12000);
+    function cleanup(err,data){
+      clearTimeout(timer);
+      try{delete window[callback]}catch(e){window[callback]=undefined}
+      script.remove();
+      if(err) reject(err); else resolve(data);
+    }
+    window[callback]=(data)=>cleanup(null,data);
+    script.onerror=()=>cleanup(new Error('Team standings connection failed'));
+    const sep=url.includes('?')?'&':'?';
+    script.src=url+sep+'callback='+encodeURIComponent(callback)+'&_='+Date.now();
+    document.head.appendChild(script);
+  });
+}
+
+function normalizeTeamRows(payload){
+  const source=Array.isArray(payload)?payload:
+    Array.isArray(payload?.teams)?payload.teams:
+    Array.isArray(payload?.data)?payload.data:[];
+  return source.map((t,i)=>{
+    if(Array.isArray(t)){
+      return {name:String(t[0]||`Team ${i+1}`),points:Number(t[1]||0),wins:Number(t[2]||0),top5:Number(t[3]||0),drivers:String(t[4]||'')};
+    }
+    return {
+      name:String(t.team||t.Team||t.name||t.Name||`Team ${i+1}`),
+      points:Number(t.points||t.Points||t.pts||0),
+      wins:Number(t.wins||t.Wins||0),
+      top5:Number(t.top5||t['Top 5']||t.top_5||0),
+      drivers:String(t.drivers||t.Drivers||t.roster||'')
+    };
+  }).filter(t=>t.name && t.name!=='undefined').sort((a,b)=>b.points-a.points);
+}
+
+async function refreshTeamStandings(){
+  const base=HLRN_ENDPOINTS.leagueApi;
+  const [su,mo]=await Promise.allSettled([
+    loadEndpointJsonp(base+'?action=teams&league=sunday'),
+    loadEndpointJsonp(base+'?action=teams&league=monday')
+  ]);
+  if(su.status==='fulfilled') state.teamStandings.Sunday=normalizeTeamRows(su.value);
+  if(mo.status==='fulfilled') state.teamStandings.Monday=normalizeTeamRows(mo.value);
+}
+
+
+function plainDiscordText(v){
+  return String(v||'').replace(/\*\*/g,'').replace(/\*/g,'').replace(/\s+/g,' ').trim();
+}
+function discordAnnouncementTime(ts){
+  if(!ts) return '';
+  const d=new Date(ts);
+  if(Number.isNaN(d.getTime())) return String(ts);
+  return d.toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+}
+async function refreshDiscordAnnouncements(){
+  try{
+    const r=await fetch(HLRN_ENDPOINTS.announcements+'?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    const rows=Array.isArray(data?.announcements)?data.announcements:[];
+    if(!data?.success && !rows.length) throw new Error(data?.error||'Announcement feed unavailable');
+    state.announcements=rows.map((a,i)=>({
+      tag:i===0?'LATEST':'HLRN',
+      title:a?.author?.username?`${a.author.username} • HLRN`:'HLRN Announcement',
+      text:plainDiscordText(a.content || a?.embeds?.[0]?.description || a?.embeds?.[0]?.title || ''),
+      time:discordAnnouncementTime(a.timestamp),
+      jumpUrl:a.jump_url||'',
+      author:a?.author?.username||'HLRN',
+      avatar:a?.author?.avatar||''
+    })).filter(a=>a.text||a.title);
+    state.announcementsStatus='LIVE';
+  }catch(e){
+    state.announcementsStatus='OFFLINE';
+  }
 }
 
 async function refreshLiveData(){
