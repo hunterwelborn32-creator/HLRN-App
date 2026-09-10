@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v5-1-premium-ui';
+const CACHE = 'hlrn-v5-4-socials-fixed';
 const APP_SHELL = [
   './',
   './index.html',

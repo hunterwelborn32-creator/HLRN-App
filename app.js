@@ -69,7 +69,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '5.1'
+  appVersion: '5.2'
 };
 
 const fallback = {
@@ -102,7 +102,7 @@ function setView(view){
   if(view==='standings') renderStandings();
   if(view==='schedule') renderSchedule();
   if(view==='drivers') renderDrivers();
-  if(view==='more') renderMore();
+  if(view==='socials' || view==='more') renderSocials();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 nav.forEach(n=>n.addEventListener('click',()=>setView(n.dataset.view)));
@@ -416,17 +416,26 @@ function renderResults(){
     <section class="card archive-table">${rowsHtml||'<div class="empty">No race results loaded.</div>'}</section><button class="back-home" onclick="setView('home')">← Back Home</button>`;
 }
 
-function renderMore(){
+function renderSocials(){
   state.currentView='more';
-  const updated=state.lastUpdated?new Date(state.lastUpdated).toLocaleString():'Waiting for live connection';
-  app.innerHTML=`<div class="page-title-row premium-page-head"><div><span class="page-kicker">HLRN CONTROL CENTER</span><h2 class="page-title">More</h2><p class="page-sub">Broadcasts, links and race tools</p></div>${liveBadge()}</div><section class="more-hero"><img src="hlrn-logo-4k.png" alt="HLRN"><div><small>HIGH LINE RACING NETWORK</small><strong>Racing People Together</strong><span>Live league racing • Hosted events • Driver stats</span></div></section><div class="more-list premium-more-list">
-    <button class="more-row" onclick="openLink('HLRN Website')"><span class="more-icon">🌐</span><span class="more-copy"><strong>HLRN Website</strong><small>Official network home</small></span><span class="more-arrow">›</span></button>
-    <button class="more-row sunday-link" onclick="openBroadcast('Sunday')"><span class="more-icon">S</span><span class="more-copy"><strong>Sunday Broadcast</strong><small>Watch Sunday League coverage</small></span><span class="more-arrow">›</span></button>
-    <button class="more-row monday-link" onclick="openBroadcast('Monday')"><span class="more-icon">M</span><span class="more-copy"><strong>Monday Broadcast</strong><small>Watch Monday League coverage</small></span><span class="more-arrow">›</span></button>
-    <button class="more-row" onclick="setView('standings')"><span class="more-icon">🏆</span><span class="more-copy"><strong>Live Standings</strong><small>Follow the championship chase</small></span><span class="more-arrow">›</span></button>
-    <button class="more-row hosted-link" onclick="renderResults()"><span class="more-icon">H</span><span class="more-copy"><strong>Race Archive</strong><small>Sunday, Monday and Hosted results</small></span><span class="more-arrow">›</span></button>
-  </div><div class="data-note premium-data-note">Last data refresh: ${escapeHtml(updated)}</div><div class="app-version">HLRN App • Version ${escapeHtml(state.appVersion)}</div>`;
+  app.innerHTML=`<div class="page-title-row premium-page-head socials-head"><div><span class="page-kicker">FOLLOW HLRN</span><h2 class="page-title">Socials</h2><p class="page-sub">Watch the races, join the community and stay connected</p></div>${liveBadge()}</div>
+    <section class="socials-banner-wrap">
+      <img class="socials-banner-img" src="hlrn-socials-banner.png" alt="HLRN Socials">
+    </section>
+    <div class="section-head socials-section-head"><h3>Watch HLRN</h3><span>YOUTUBE</span></div>
+    <div class="social-grid">
+      <button class="social-card youtube-card" onclick="openSocial('https://www.youtube.com/@High_Line_Racing')"><span class="social-platform-icon">▶</span><span class="social-card-copy"><small>YOUTUBE</small><strong>High Line Racing Network</strong><em>Sunday League broadcasts & HLRN content</em></span><span class="social-go">›</span></button>
+      <button class="social-card youtube-card" onclick="openSocial('https://www.youtube.com/@rsibroadcasting')"><span class="social-platform-icon">▶</span><span class="social-card-copy"><small>YOUTUBE</small><strong>RSI Broadcasting</strong><em>Monday League broadcasts</em></span><span class="social-go">›</span></button>
+    </div>
+    <div class="section-head socials-section-head community-head"><h3>Join the Community</h3><span>CONNECT</span></div>
+    <div class="social-grid">
+      <button class="social-card facebook-card" onclick="openSocial('https://www.facebook.com/groups/hlrnzone')"><span class="social-platform-icon">f</span><span class="social-card-copy"><small>FACEBOOK</small><strong>HLRNZone</strong><em>News, conversation and league community</em></span><span class="social-go">›</span></button>
+      <button class="social-card discord-card" onclick="openSocial('https://discord.gg/3CzX6FJQ655')"><span class="social-platform-icon">◉</span><span class="social-card-copy"><small>DISCORD</small><strong>HLRN Hangout</strong><em>Join the server and race with the community</em></span><span class="social-go">›</span></button>
+      <button class="social-card website-card" onclick="openSocial(state.links['HLRN Website'] || 'https://sites.google.com/view/highlineracingnetwork/home')"><span class="social-platform-icon">H</span><span class="social-card-copy"><small>OFFICIAL WEBSITE</small><strong>High Line Racing Network</strong><em>Schedules, standings, stats and more</em></span><span class="social-go">›</span></button>
+    </div>
+    <div class="social-footer"><strong>HLRN</strong><span>RACING PEOPLE TOGETHER</span><small>App Version ${escapeHtml(state.appVersion)}</small></div>`;
 }
+function openSocial(url){ if(url) window.open(url,'_blank','noopener,noreferrer'); }
 function openLink(name){ const url=state.links[name]; if(url) window.open(url,'_blank'); }
 
 // Google Visualization JSONP loader: works without exposing any API keys.
