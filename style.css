@@ -567,3 +567,28 @@ main{padding-top:11px!important}
   .notification-races{grid-template-columns:1fr}
   .rules-command{grid-template-columns:1fr}.rules-command button{justify-self:start}
 }
+
+
+/* HLRN 8.1 PUSH NOTIFICATIONS */
+.push-control{
+  display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:12px;
+  margin-bottom:10px;padding:14px;border:1px solid rgba(255,255,255,.08);
+  border-left:4px solid #ef233c;border-radius:0 18px 18px 0;
+  background:radial-gradient(circle at 100% 0,rgba(239,35,60,.12),transparent 36%),linear-gradient(145deg,#171b22,#0b0e12);
+}
+.push-control.enabled{border-left-color:#35d07f;background:radial-gradient(circle at 100% 0,rgba(53,208,127,.10),transparent 36%),linear-gradient(145deg,#171b22,#0b0e12)}
+.push-bell{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:#222731;font-size:21px}
+.push-control small{display:block;color:#ffd400;font-size:6px;font-weight:1000;letter-spacing:.14em}
+.push-control strong{display:block;margin-top:4px;font-size:15px;font-style:italic}
+.push-control p{margin:3px 0 0;color:#777f8c;font-size:7px;line-height:1.45}
+.push-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.push-actions button{border-radius:10px;padding:9px 10px;font-size:6px;font-weight:1000;letter-spacing:.06em}
+.push-enable{border:1px solid #ef233c;background:#ef233c;color:#fff}
+.push-test{border:1px solid #35d07f;background:#102018;color:#54e597}
+.push-disable{border:1px solid #343a45;background:#13171d;color:#929aa6}
+@media(max-width:520px){
+  .push-control{grid-template-columns:42px 1fr}
+  .push-bell{width:40px;height:40px}
+  .push-actions{grid-column:1/-1;justify-content:stretch}
+  .push-actions button{flex:1}
+}

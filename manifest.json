@@ -1,11 +1,11 @@
 {
   "name": "High Line Racing Network",
   "short_name": "HLRN",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#09090b",
   "theme_color": "#0b0b0d",
-  "description": "HLRN league standings, schedule, drivers, results and more.",
+  "description": "HLRN standings, schedule, hosted stats, rules, announcements and push notifications.",
   "icons": [
     {
       "src": "icon-192.png",
@@ -20,5 +20,5 @@
       "purpose": "any maskable"
     }
   ],
-  "id": "./"
+  "id": "/HLRN-App/"
 }

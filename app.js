@@ -1,5 +1,10 @@
 const HOSTED_SHEET = '1YfY22x2dnI9T6Fi69pT3L91NAkmVQWdvL0IWbWhB-tM';
 
+const HLRN_PUSH = {
+  worker: 'https://hlrn-push.hunterwelborn32.workers.dev',
+  publicKey: 'BGqE3R4fp3FmoakzhQtYU9PzWHiM7NkGbop8CSnC7nr921m-x47JafontNA7Eg5a95ROaOhek2TvNNDtifJdwxk'
+};
+
 const HLRN_ENDPOINTS = {
   leagueApi: 'https://script.google.com/macros/s/AKfycbwo4C9RyV-H-F4ekKFcgmrYVpyOUsh9dmFf2jVhJwvieCTKpKzAR_k6lNcppBuehj58/exec',
   announcements: 'https://hlrn-discord.hunterwelborn32.workers.dev/api/announcements'
@@ -74,12 +79,13 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '8.0',
+  appVersion: '8.1',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
   teamStandings: {Sunday: [], Monday: []},
   announcementsStatus: 'Connecting…',
-  rulesQuery: ''
+  rulesQuery: '',
+  pushStatus: 'CHECKING'
 };
 
 const fallback = {
@@ -762,8 +768,117 @@ function renderShareCards(){
   featureShell('Share Cards','Screenshot-ready HLRN driver graphics.',body,'sharecards-page');
 }
 
+
+function isStandaloneApp(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
+}
+function isIOSDevice(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+function pushSupported(){
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+function urlBase64ToUint8Array(base64String){
+  const padding='='.repeat((4-base64String.length%4)%4);
+  const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(base64);
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+async function getPushSubscription(){
+  if(!pushSupported()) return null;
+  const reg=await navigator.serviceWorker.ready;
+  return reg.pushManager.getSubscription();
+}
+async function refreshPushStatus(){
+  if(!pushSupported()){ state.pushStatus='UNSUPPORTED'; return; }
+  if(isIOSDevice() && !isStandaloneApp()){ state.pushStatus='ADD_TO_HOME'; return; }
+  if(Notification.permission==='denied'){ state.pushStatus='BLOCKED'; return; }
+  const sub=await getPushSubscription().catch(()=>null);
+  state.pushStatus=sub?'ENABLED':(Notification.permission==='granted'?'READY':'OFF');
+}
+async function enablePushNotifications(){
+  if(!pushSupported()){
+    alert('Push notifications are not supported on this device/browser.');
+    return;
+  }
+  if(isIOSDevice() && !isStandaloneApp()){
+    alert('On iPhone, add HLRN to your Home Screen first, open it from the HLRN icon, then enable notifications.');
+    return;
+  }
+  try{
+    const permission=await Notification.requestPermission();
+    if(permission!=='granted'){
+      state.pushStatus=permission==='denied'?'BLOCKED':'OFF';
+      renderNotifications();
+      return;
+    }
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub){
+      sub=await reg.pushManager.subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:urlBase64ToUint8Array(HLRN_PUSH.publicKey)
+      });
+    }
+    const response=await fetch(HLRN_PUSH.worker+'/subscribe',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({subscription:sub.toJSON(),topics:['announcements','sunday','monday','hosted']})
+    });
+    if(!response.ok) throw new Error('Push server '+response.status);
+    state.pushStatus='ENABLED';
+    if('setAppBadge' in navigator) navigator.setAppBadge(0).catch(()=>{});
+    renderNotifications();
+  }catch(err){
+    console.warn('HLRN push subscribe failed:',err);
+    state.pushStatus='ERROR';
+    renderNotifications();
+  }
+}
+async function disablePushNotifications(){
+  try{
+    const sub=await getPushSubscription();
+    if(sub){
+      await fetch(HLRN_PUSH.worker+'/subscribe',{
+        method:'DELETE',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({endpoint:sub.endpoint})
+      }).catch(()=>{});
+      await sub.unsubscribe();
+    }
+    state.pushStatus='OFF';
+    renderNotifications();
+  }catch(err){
+    state.pushStatus='ERROR';
+    renderNotifications();
+  }
+}
+async function sendTestNotification(){
+  try{
+    const sub=await getPushSubscription();
+    if(!sub){ alert('Enable notifications first.'); return; }
+    const r=await fetch(HLRN_PUSH.worker+'/test',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({endpoint:sub.endpoint})
+    });
+    if(!r.ok) throw new Error('Test failed');
+  }catch(err){
+    alert('Test notification could not be sent yet. Make sure the HLRN Push Worker is deployed.');
+  }
+}
+function pushStatusCopy(){
+  if(state.pushStatus==='ENABLED') return ['ON','Phone alerts are enabled for HLRN announcements.'];
+  if(state.pushStatus==='ADD_TO_HOME') return ['IPHONE SETUP','Add HLRN to your Home Screen, then open the app and enable notifications.'];
+  if(state.pushStatus==='BLOCKED') return ['BLOCKED','Notifications are blocked in your device settings.'];
+  if(state.pushStatus==='UNSUPPORTED') return ['NOT SUPPORTED','This browser does not support Web Push.'];
+  if(state.pushStatus==='ERROR') return ['CONNECTION ISSUE','The push server is not connected yet.'];
+  return ['OFF','Turn on phone alerts for new official HLRN announcements.'];
+}
+
 function renderNotifications(){
   const nextSun=state.nextRaces.Sunday,nextMon=state.nextRaces.Monday;
+  const push=pushStatusCopy();
   const raceItems=[
     {icon:'S',type:'NEXT SUNDAY',title:nextSun.track,text:`${nextSun.date} • ${nextSun.time}`,cls:'sun'},
     {icon:'M',type:'NEXT MONDAY',title:nextMon.track,text:`${nextMon.date} • ${nextMon.time}`,cls:'mon'}
@@ -773,11 +888,24 @@ function renderNotifications(){
     <div><small>${i===0?'LATEST OFFICIAL BULLETIN':escapeHtml(a.author||'HLRN')}</small><strong>${escapeHtml(a.title)}</strong><p>${escapeHtml(a.text)}</p><em>${escapeHtml(a.time)}</em></div>
     ${a.jumpUrl?'<b>›</b>':''}
   </article>`).join('');
-  const body=`<section class="notification-status"><span class="${state.announcementsStatus==='LIVE'?'live':''}"></span><div><small>DISCORD ANNOUNCEMENT BRIDGE</small><strong>${escapeHtml(state.announcementsStatus)}</strong></div><button onclick="refreshDiscordAnnouncements().then(()=>renderNotifications())">↻ REFRESH</button></section>
+  const pushActions=state.pushStatus==='ENABLED'
+    ? `<button class="push-test" onclick="sendTestNotification()">TEST ALERT</button><button class="push-disable" onclick="disablePushNotifications()">TURN OFF</button>`
+    : `<button class="push-enable" onclick="enablePushNotifications()">ENABLE PHONE ALERTS</button>`;
+  const body=`<section class="push-control ${state.pushStatus==='ENABLED'?'enabled':''}">
+    <div class="push-bell">🔔</div><div><small>HLRN PUSH NOTIFICATIONS</small><strong>${push[0]}</strong><p>${push[1]}</p></div><div class="push-actions">${pushActions}</div>
+  </section>
+  <section class="notification-status"><span class="${state.announcementsStatus==='LIVE'?'live':''}"></span><div><small>DISCORD ANNOUNCEMENT BRIDGE</small><strong>${escapeHtml(state.announcementsStatus)}</strong></div><button onclick="refreshDiscordAnnouncements().then(()=>renderNotifications())">↻ REFRESH</button></section>
   <div class="notification-races">${raceItems.map(x=>`<article class="${x.cls}"><b>${x.icon}</b><div><small>${x.type}</small><strong>${escapeHtml(x.title)}</strong><span>${escapeHtml(x.text)}</span></div></article>`).join('')}</div>
   <div class="section-head"><h3>Official Bulletins</h3><span>${state.announcements.length} loaded</span></div>
   <div class="notification-list">${bulletinHtml||'<div class="empty">Connecting to HLRN announcements…</div>'}</div>`;
-  featureShell('Notifications','Live race dates and official Discord-connected HLRN announcements.',body,'notifications-page');
+  featureShell('Notifications','Live race dates, official HLRN bulletins and phone push alerts.',body,'notifications-page');
+  refreshPushStatus().then(()=>{
+    const current=document.querySelector('.push-control');
+    if(current && state.currentView==='feature' && state.featureView==='notifications'){
+      const status=current.querySelector('strong');
+      if(status) status.textContent=pushStatusCopy()[0];
+    }
+  }).catch(()=>{});
 }
 function ruleMatches(section,query){
   if(!query) return true;
@@ -1031,6 +1159,7 @@ async function refreshLiveData(){
       buildDrivers();
     }
   }
+  await Promise.allSettled([refreshDiscordAnnouncements(),refreshTeamStandings()]);
   rerenderCurrent();
 }
 
@@ -1050,7 +1179,10 @@ if('serviceWorker' in navigator){
   });
 }
 
-renderHome();
+const startParams=new URLSearchParams(location.search);
+if(startParams.get('view')==='notifications') openFeature('notifications');
+else renderHome();
+refreshPushStatus().catch(()=>{});
 refreshLiveData();
 refreshHostedData();
 

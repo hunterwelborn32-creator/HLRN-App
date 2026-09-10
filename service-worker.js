@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v8-0-full-network';
+const CACHE = 'hlrn-v8-1-push';
 const APP_SHELL = [
   './',
   './index.html',
@@ -49,4 +49,44 @@ self.addEventListener('fetch', event => {
         return Response.error();
       })
   );
+});
+
+
+/* HLRN Web Push */
+self.addEventListener('push', event => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; }
+  catch(e) { data = { body: event.data ? event.data.text() : 'New HLRN announcement' }; }
+
+  const title = data.title || 'HLRN — New Announcement';
+  const options = {
+    body: data.body || 'A new official HLRN bulletin has been posted.',
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    tag: data.tag || 'hlrn-announcement',
+    renotify: true,
+    data: { url: data.url || './?view=notifications' }
+  };
+
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(title, options),
+      self.registration.setAppBadge ? self.registration.setAppBadge(1).catch(()=>{}) : Promise.resolve()
+    ])
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url || './?view=notifications', self.location.origin).href;
+  event.waitUntil((async()=>{
+    const windows = await clients.matchAll({ type:'window', includeUncontrolled:true });
+    for (const client of windows) {
+      if ('focus' in client) {
+        await client.navigate(target).catch(()=>{});
+        return client.focus();
+      }
+    }
+    if (clients.openWindow) return clients.openWindow(target);
+  })());
 });
