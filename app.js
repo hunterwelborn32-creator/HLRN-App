@@ -8,38 +8,38 @@ const LIVE = {
 
 const FULL_SCHEDULE = {
   Sunday: [
-    {race:1,date:'2026-06-14',track:'Daytona',car:'Gen 7',laps:100,setup:'4 Set 8'},
-    {race:2,date:'2026-06-21',track:'Iowa',car:'Truck 8',laps:100,setup:'6 Set 8'},
-    {race:3,date:'2026-06-28',track:'Chicagoland',car:'ARCA',laps:175,setup:'6 Set 8'},
-    {race:4,date:'2026-07-05',track:'EchoPark',car:'Gen 8',laps:175,setup:'6 Set 8'},
-    {race:5,date:'2026-07-12',track:'Charlotte',car:'Gen 7',laps:175,setup:'6 Set 8'},
-    {race:6,date:'2026-07-19',track:'Texas',car:'Truck 8',laps:175,setup:'6 Set 8'},
-    {race:7,date:'2026-07-26',track:'Auto Club',car:'ARCA',laps:100,setup:'6 Set 8'},
-    {race:8,date:'2026-08-02',track:'Talladega',car:'Gen 8',laps:100,setup:'6 Set 8'},
-    {race:9,date:'2026-08-09',track:'Homestead-Miami',car:'Gen 7',laps:175,setup:'6 Set 8'},
-    {race:10,date:'2026-08-16',track:'Michigan',car:'Truck 8',laps:125,setup:'6 Set 8'},
-    {race:11,date:'2026-08-23',track:'Indianapolis',car:'ARCA',laps:100,setup:'6 Set 8'},
-    {race:12,date:'2026-08-30',track:'iRacing Superspeedway',car:'Gen 8',laps:100,setup:'6 Set 8'},
-    {race:13,date:'2026-09-06',track:'Kansas',car:'Gen 7',laps:175,setup:'6 Set 8'},
-    {race:14,date:'2026-09-13',track:'Las Vegas',car:'Truck 8',laps:175,setup:'6 Set 8'},
-    {race:15,date:'2026-09-20',track:'Daytona',car:'ARCA',laps:100,setup:'6 Set 8'},
-    {race:16,date:'2026-09-27',track:'Talladega',car:'Gen 8',laps:100,setup:'6 Set 8'}
+    {race:1,date:'2026-06-14',track:'Daytona',car:'Gen 7',laps:100,setup:'HLRN'},
+    {race:2,date:'2026-06-28',track:'Iowa',car:'Trucks',laps:200,setup:'HLRN'},
+    {race:3,date:'2026-07-12',track:'Chicagoland',car:'ARCA',laps:175,setup:'HLRN'},
+    {race:4,date:'2026-07-19',track:'Echo Park',car:'Gen 6',laps:175,setup:'HLRN'},
+    {race:5,date:'2026-08-09',track:'Charloette',car:'Gen 7',laps:175,setup:'HLRN'},
+    {race:6,date:'2026-08-16',track:'Texas',car:'Trucks',laps:175,setup:'HLRN'},
+    {race:7,date:'2026-08-23',track:'Auto Club',car:'ARCA',laps:125,setup:'HLRN'},
+    {race:8,date:'2026-08-30',track:'Talladega',car:'Gen 6',laps:100,setup:'HLRN'},
+    {race:9,date:'2026-09-13',track:'Homestead Miami',car:'Gen 7',laps:175,setup:'HLRN'},
+    {race:10,date:'2026-09-20',track:'Michigan',car:'Trucks',laps:125,setup:'HLRN'},
+    {race:11,date:'2026-09-27',track:'Indianapolis',car:'ARCA',laps:100,setup:'HLRN'},
+    {race:12,date:'2026-10-04',track:'IRSS',car:'Gen 6',laps:100,setup:'HLRN'},
+    {race:13,date:'2026-10-11',track:'Kansas',car:'Gen 7',laps:175,setup:'HLRN'},
+    {race:14,date:'2026-10-18',track:'Las Vegas',car:'Trucks',laps:175,setup:'HLRN'},
+    {race:15,date:'2026-10-25',track:'Daytona',car:'ARCA',laps:100,setup:'HLRN'},
+    {race:16,date:'2026-11-01',track:'Talladega',car:'Gen 6',laps:100,setup:'HLRN'}
   ],
   Monday: [
     {race:1,date:'2026-08-17',track:'Daytona',car:'Gen 7',laps:100,setup:'Fixed'},
-    {race:2,date:'2026-08-24',track:'Iowa',car:'NASCAR Truck 8',laps:150,setup:'Fixed'},
+    {race:2,date:'2026-08-24',track:'Iowa',car:'Trucks',laps:150,setup:'Fixed'},
     {race:3,date:'2026-08-31',track:'Chicagoland',car:'ARCA',laps:125,setup:'Fixed'},
-    {race:4,date:'2026-09-14',track:'EchoPark',car:'Gen 7',laps:125,setup:'Fixed'},
-    {race:5,date:'2026-09-21',track:'Charlotte',car:'Gen 7',laps:125,setup:'Fixed'},
-    {race:6,date:'2026-09-28',track:'Texas',car:'NASCAR Truck 8',laps:125,setup:'Fixed'},
+    {race:4,date:'2026-09-14',track:'Echo Park',car:'Gen 7',laps:125,setup:'Fixed'},
+    {race:5,date:'2026-09-21',track:'Charloette',car:'Gen 7',laps:125,setup:'Fixed'},
+    {race:6,date:'2026-09-28',track:'Texas',car:'Trucks',laps:125,setup:'Fixed'},
     {race:7,date:'2026-10-05',track:'Auto Club',car:'ARCA',laps:75,setup:'Fixed'},
-    {race:8,date:'2026-10-12',track:'Talladega',car:'NASCAR Truck 8',laps:75,setup:'Fixed'},
-    {race:9,date:'2026-10-19',track:'Homestead-Miami',car:'Gen 7',laps:125,setup:'Fixed'},
-    {race:10,date:'2026-10-26',track:'Michigan',car:'NASCAR Truck 8',laps:125,setup:'Fixed'},
+    {race:8,date:'2026-10-12',track:'Talladega',car:'Trucks',laps:75,setup:'Fixed'},
+    {race:9,date:'2026-10-19',track:'Homestead Miami',car:'Gen 7',laps:125,setup:'Fixed'},
+    {race:10,date:'2026-10-26',track:'Michigan',car:'Trucks',laps:125,setup:'Fixed'},
     {race:11,date:'2026-11-02',track:'Indianapolis',car:'ARCA',laps:80,setup:'Fixed'},
-    {race:12,date:'2026-11-09',track:'iRacing Superspeedway',car:'NASCAR Truck 8',laps:75,setup:'Fixed'},
+    {race:12,date:'2026-11-09',track:'IRSS',car:'Trucks',laps:75,setup:'Fixed'},
     {race:13,date:'2026-11-16',track:'Kansas',car:'Gen 7',laps:125,setup:'Fixed'},
-    {race:14,date:'2026-11-23',track:'Las Vegas',car:'NASCAR Truck 8',laps:125,setup:'Fixed'},
+    {race:14,date:'2026-11-23',track:'Las Vegas',car:'Trucks',laps:125,setup:'Fixed'},
     {race:15,date:'2026-11-30',track:'Daytona',car:'ARCA',laps:100,setup:'Fixed'},
     {race:16,date:'2026-12-07',track:'Talladega',car:'Gen 7',laps:100,setup:'Fixed'}
   ]
@@ -55,8 +55,8 @@ const state = {
   liveStatus: 'Connecting…',
   lastUpdated: null,
   nextRaces: {
-    Sunday: {date:'SEP 13', iso:'2026-09-13T20:30:00-04:00', track:'Kansas Speedway', series:'Sunday League', time:'8:30 PM EST', broadcast:''},
-    Monday: {date:'SEP 14', iso:'2026-09-14T20:30:00-04:00', track:'Bristol Motor Speedway', series:'Monday League', time:'8:30 PM EST', broadcast:''}
+    Sunday: {date:'SEP 13', iso:'2026-09-13T20:30:00-04:00', track:'Homestead Miami', series:'Sunday League', time:'8:30 PM EST', broadcast:''},
+    Monday: {date:'SEP 14', iso:'2026-09-14T20:30:00-04:00', track:'Echo Park', series:'Monday League', time:'8:30 PM EST', broadcast:''}
   },
   standings: { Sunday: [], Monday: [] },
   schedule: [],
@@ -69,7 +69,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '5.2'
+  appVersion: '5.7'
 };
 
 const fallback = {
@@ -558,42 +558,4 @@ if('serviceWorker' in navigator){
 renderHome();
 refreshLiveData();
 refreshHostedData();
-
-const SUNDAY_SCHEDULE = [
-  {week:1, date:'2026-06-14', displayDate:'JUNE 14', track:'DAYTONA', car:'GEN 7', laps:'100 LAPS'},
-  {week:2, date:'2026-06-28', displayDate:'JUNE 28', track:'IOWA', car:'TRUCKS', laps:'200 LAPS'},
-  {week:3, date:'2026-07-12', displayDate:'JULY 12', track:'CHICAGOLAND', car:'ARCA', laps:'175 LAPS'},
-  {week:4, date:'2026-07-19', displayDate:'JULY 19', track:'ECHO PARK', car:'GEN 6', laps:'175 LAPS'},
-  {week:5, date:'2026-08-09', displayDate:'AUGUST 9', track:'CHARLOETTE', car:'GEN 7', laps:'175 LAPS'},
-  {week:6, date:'2026-08-16', displayDate:'AUGUST 16', track:'TEXAS', car:'TRUCKS', laps:'175 LAPS'},
-  {week:7, date:'2026-08-23', displayDate:'AUGUST 23', track:'AUTO CLUB', car:'ARCA', laps:'125 LAPS'},
-  {week:8, date:'2026-08-30', displayDate:'AUGUST 30', track:'TALLADEGA', car:'GEN 6', laps:'100 LAPS'},
-  {week:9, date:'2026-09-13', displayDate:'SEPTEMBER 13', track:'HOMESTEAD MIAMI', car:'GEN 7', laps:'175 LAPS'},
-  {week:10, date:'2026-09-20', displayDate:'SEPTEMBER 20', track:'MICHIGAN', car:'TRUCKS', laps:'125 LAPS'},
-  {week:11, date:'2026-09-27', displayDate:'SEPTEMBER 27', track:'INDIANAPOLIS', car:'ARCA', laps:'100 LAPS'},
-  {week:12, date:'2026-10-04', displayDate:'OCTOBER 4', track:'IRSS', car:'GEN 6', laps:'100 LAPS'},
-  {week:13, date:'2026-10-11', displayDate:'OCTOBER 11', track:'KANSAS', car:'GEN 7', laps:'175 LAPS'},
-  {week:14, date:'2026-10-18', displayDate:'OCTOBER 18', track:'LAS VEGAS', car:'TRUCKS', laps:'175 LAPS'},
-  {week:15, date:'2026-10-25', displayDate:'OCTOBER 25', track:'DAYTONA', car:'ARCA', laps:'100 LAPS'},
-  {week:16, date:'2026-11-01', displayDate:'NOVEMBER 1', track:'TALLADEGA', car:'GEN 6', laps:'100 LAPS'}
-];
-
-const MONDAY_SCHEDULE = [
-  {week:1, date:'2026-08-17', displayDate:'AUGUST 17', track:'DAYTONA', car:'GEN 7', laps:'100 LAPS'},
-  {week:2, date:'2026-08-24', displayDate:'AUGUST 24', track:'IOWA', car:'TRUCKS', laps:'150 LAPS'},
-  {week:3, date:'2026-08-31', displayDate:'AUGUST 31', track:'CHICAGOLAND', car:'ARCA', laps:'125 LAPS'},
-  {week:4, date:'2026-09-14', displayDate:'SEPTEMBER 14', track:'ECHO PARK', car:'GEN 7', laps:'125 LAPS'},
-  {week:5, date:'2026-09-21', displayDate:'SEPTEMBER 21', track:'CHARLOETTE', car:'GEN 7', laps:'125 LAPS'},
-  {week:6, date:'2026-09-28', displayDate:'SEPTEMBER 28', track:'TEXAS', car:'TRUCKS', laps:'125 LAPS'},
-  {week:7, date:'2026-10-05', displayDate:'OCTOBER 5', track:'AUTO CLUB', car:'ARCA', laps:'75 LAPS'},
-  {week:8, date:'2026-10-12', displayDate:'OCTOBER 12', track:'TALLADEGA', car:'TRUCKS', laps:'75 LAPS'},
-  {week:9, date:'2026-10-19', displayDate:'OCTOBER 19', track:'HOMESTEAD MIAMI', car:'GEN 7', laps:'125 LAPS'},
-  {week:10, date:'2026-10-26', displayDate:'OCTOBER 26', track:'MICHIGAN', car:'TRUCKS', laps:'125 LAPS'},
-  {week:11, date:'2026-11-02', displayDate:'NOVEMBER 2', track:'INDIANAPOLIS', car:'ARCA', laps:'80 LAPS'},
-  {week:12, date:'2026-11-09', displayDate:'NOVEMBER 9', track:'IRSS', car:'TRUCKS', laps:'75 LAPS'},
-  {week:13, date:'2026-11-16', displayDate:'NOVEMBER 16', track:'KANSAS', car:'GEN 7', laps:'125 LAPS'},
-  {week:14, date:'2026-11-23', displayDate:'NOVEMBER 23', track:'LAS VEGAS', car:'TRUCKS', laps:'125 LAPS'},
-  {week:15, date:'2026-11-30', displayDate:'NOVEMBER 30', track:'DAYTONA', car:'ARCA', laps:'100 LAPS'},
-  {week:16, date:'2026-12-07', displayDate:'DECEMBER 7', track:'TALLADEGA', car:'GEN 7', laps:'100 LAPS'}
-];
 

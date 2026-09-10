@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v5-6-schedule-fix';
+const CACHE = 'hlrn-v5-7-week-fix';
 const APP_SHELL = [
   './',
   './index.html',
