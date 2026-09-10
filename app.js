@@ -69,7 +69,10 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '6.0'
+  appVersion: '7.0',
+  featureView: 'records',
+  favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
+  teamStandings: []
 };
 
 const fallback = {
@@ -149,6 +152,7 @@ function networkBar(){
 
 function rerenderCurrent(){
   if(state.currentView==='results') renderResults();
+  else if(state.currentView==='feature') renderFeature(state.featureView);
   else setView(state.currentView);
 }
 
@@ -234,6 +238,26 @@ function renderHome(){
     </section>
     <div class="section-head"><h3>Race Central</h3><span>Quick Access</span></div>
     <section class="grid"><button class="quick-card" onclick="setView('standings')"><span class="ico">🏆</span><strong>Standings</strong><small>Live Sunday + Monday</small></button><button class="quick-card" onclick="setView('schedule')"><span class="ico">🗓️</span><strong>Schedule</strong><small>Upcoming races</small></button><button class="quick-card" onclick="setView('drivers')"><span class="ico">🏎️</span><strong>Drivers</strong><small>Live roster + stats</small></button><button class="quick-card" onclick="renderResults()"><span class="ico">📊</span><strong>Results</strong><small>Latest finishes</small></button></section>
+
+    <div class="section-head"><h3>HLRN Performance Center</h3><span>Explore the network</span></div>
+    <section class="feature-launchpad">
+      <button onclick="openFeature('records')"><span>🏆</span><strong>Records</strong><small>Wins • starts • laps led</small></button>
+      <button onclick="openFeature('headtohead')"><span>⚔️</span><strong>Head-to-Head</strong><small>Compare any two drivers</small></button>
+      <button onclick="openFeature('racestats')"><span>📈</span><strong>Race Stats</strong><small>Movers • leaders • clean race</small></button>
+      <button onclick="openFeature('power')"><span>⚡</span><strong>Power Rankings</strong><small>Recent hosted performance</small></button>
+      <button onclick="openFeature('tracks')"><span>🛣️</span><strong>Track Hub</strong><small>History by track</small></button>
+      <button onclick="openFeature('teams')"><span>👥</span><strong>Teams</strong><small>Team championship center</small></button>
+      <button onclick="openFeature('spotlight')"><span>🔦</span><strong>Driver Spotlight</strong><small>Featured HLRN driver</small></button>
+      <button onclick="openFeature('recap')"><span>📰</span><strong>Race Recap</strong><small>Latest hosted breakdown</small></button>
+      <button onclick="openFeature('incidents')"><span>🚨</span><strong>Incident Watch</strong><small>Hosted incident leaderboard</small></button>
+      <button onclick="openFeature('achievements')"><span>🎖️</span><strong>Achievements</strong><small>Career milestone board</small></button>
+      <button onclick="openFeature('favorites')"><span>★</span><strong>Favorites</strong><small>Your saved drivers</small></button>
+      <button onclick="openFeature('sharecards')"><span>📣</span><strong>Share Cards</strong><small>Screenshot-ready stats</small></button>
+      <button onclick="openFeature('notifications')"><span>🔔</span><strong>Notifications</strong><small>HLRN news & race updates</small></button>
+      <button onclick="openFeature('admin')"><span>🎛️</span><strong>Race Control</strong><small>Admin & league resources</small></button>
+      <button onclick="openFeature('halloffame')"><span>🏛️</span><strong>Hall of Fame</strong><small>HLRN legends & records</small></button>
+    </section>
+
     <div class="section-head"><h3>Season Snapshot</h3><span>Live HLRN numbers</span></div>
     <section class="season-snapshot">
       <article class="snapshot-card sunday-snap"><small>SUNDAY</small><strong>${sundayDone}<em>/16</em></strong><span>races complete</span><i style="--p:${(sundayDone/16)*100}%"></i></article>
@@ -494,6 +518,275 @@ function renderResults(){
     ${winnerSpotlight}
     <div class="section-head"><h3>${selected?escapeHtml(selected.track):'Race Results'}</h3><span>${escapeHtml(summary)}</span></div>
     <section class="card archive-table">${rowsHtml||'<div class="empty">No race results loaded.</div>'}</section><button class="back-home" onclick="setView('home')">← Back Home</button>`;
+}
+
+
+/* =========================================================
+   HLRN 7.0 PERFORMANCE CENTER
+   ========================================================= */
+
+function isFavorite(name){ return state.favorites.includes(name); }
+function toggleFavorite(name){
+  if(isFavorite(name)) state.favorites=state.favorites.filter(x=>x!==name);
+  else state.favorites=[...state.favorites,name];
+  localStorage.setItem('hlrn-favorites',JSON.stringify(state.favorites));
+}
+
+function openFeature(name){
+  clearInterval(countdownTimer);
+  state.featureView=name;
+  state.currentView='feature';
+  nav.forEach(n=>n.classList.remove('active'));
+  renderFeature(name);
+  addPageMotion();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function featureBack(){ setView('home'); }
+
+function featureShell(title,subtitle,body,cls=''){
+  app.innerHTML=`${networkBar()}
+  <button class="profile-back feature-back" onclick="featureBack()">← Home</button>
+  <div class="page-title-row premium-page-head feature-title-head"><div><span class="page-kicker">HLRN PERFORMANCE CENTER</span><h2 class="page-title">${title}</h2><p class="page-sub">${subtitle}</p></div>${liveBadge()}</div>
+  <section class="feature-page ${cls}">${body}</section>`;
+}
+
+function hostedDriverStats(){
+  const map=new Map();
+  state.hostedRaceRows.forEach(r=>{
+    const name=prettyName(String(r.Driver||'').trim()); if(!name) return;
+    if(!map.has(name)) map.set(name,{name,races:0,wins:0,top5:0,top10:0,lapsLed:0,incidents:0,starts:[],finishes:[],pointsGain:0,tracks:new Set(),clean:0});
+    const d=map.get(name), finish=num(r['Finish Position']), start=num(r['Start Position']);
+    d.races++; if(finish===1)d.wins++; if(finish>0&&finish<=5)d.top5++; if(finish>0&&finish<=10)d.top10++;
+    d.lapsLed+=num(r['Laps Led']); d.incidents+=num(r.Incidents); if(num(r.Incidents)===0)d.clean++;
+    if(start>0)d.starts.push(start); if(finish>0)d.finishes.push(finish); if(start>0&&finish>0)d.pointsGain+=start-finish;
+    if(r.Track)d.tracks.add(String(r.Track));
+  });
+  return [...map.values()].map(d=>({...d,avgFinish:d.finishes.length?d.finishes.reduce((a,b)=>a+b,0)/d.finishes.length:0,avgStart:d.starts.length?d.starts.reduce((a,b)=>a+b,0)/d.starts.length:0,avgInc:d.races?d.incidents/d.races:0,cleanRate:d.races?d.clean/d.races*100:0}));
+}
+function recordCard(icon,label,d,value,sub=''){
+  return `<article class="record-card"><span>${icon}</span><small>${label}</small><strong>${escapeHtml(d?.name||'--')}</strong><b>${escapeHtml(value??'--')}</b><em>${escapeHtml(sub)}</em></article>`;
+}
+function renderRecords(){
+  const ds=hostedDriverStats();
+  const top=(key,low=false)=>[...ds].sort((a,b)=>low?(a[key]||999)-(b[key]||999):(b[key]||0)-(a[key]||0))[0];
+  const minAvg=[...ds].filter(d=>d.races>=3&&d.avgFinish>0).sort((a,b)=>a.avgFinish-b.avgFinish)[0];
+  const body=`<div class="feature-summary"><strong>${ds.length}</strong><span>HOSTED DRIVERS IN RECORD BOOK</span></div>
+  <div class="record-grid">
+    ${recordCard('🏆','MOST WINS',top('wins'),top('wins')?.wins,'career hosted wins')}
+    ${recordCard('🏁','MOST STARTS',top('races'),top('races')?.races,'career starts')}
+    ${recordCard('🔥','MOST LAPS LED',top('lapsLed'),top('lapsLed')?.lapsLed,'laps led')}
+    ${recordCard('🎯','BEST AVG FINISH',minAvg,minAvg?.avgFinish?.toFixed(1),'minimum 3 starts')}
+    ${recordCard('🥇','MOST TOP 5s',top('top5'),top('top5')?.top5,'Top-5 finishes')}
+    ${recordCard('💪','MOST TOP 10s',top('top10'),top('top10')?.top10,'Top-10 finishes')}
+    ${recordCard('✨','CLEANEST RATE',[...ds].filter(d=>d.races>=3).sort((a,b)=>b.cleanRate-a.cleanRate)[0],[...ds].filter(d=>d.races>=3).sort((a,b)=>b.cleanRate-a.cleanRate)[0]?.cleanRate?.toFixed(1)+'%','zero-incident race rate')}
+    ${recordCard('🚀','BIGGEST NET MOVER',top('pointsGain'),top('pointsGain')?.pointsGain,'career positions gained')}
+  </div>`;
+  featureShell('Records & Milestones','All-time hosted career leaders from every imported race.',body,'records-page');
+}
+
+function compareDriver(name){
+  return hostedDriverStats().find(d=>d.name===name)||null;
+}
+function h2hSelect(id,drivers,selected){
+  return `<select id="${id}" onchange="renderHeadToHead()">${drivers.map(d=>`<option ${d.name===selected?'selected':''}>${escapeHtml(d.name)}</option>`).join('')}</select>`;
+}
+function renderHeadToHead(){
+  const ds=hostedDriverStats().sort((a,b)=>a.name.localeCompare(b.name));
+  if(ds.length<2){ featureShell('Head-to-Head','Compare two hosted drivers.','<div class="empty">Need at least two hosted drivers.</div>'); return; }
+  const aName=document.querySelector('#h2hA')?.value||ds[0].name, bName=document.querySelector('#h2hB')?.value||ds[1].name;
+  const a=compareDriver(aName), b=compareDriver(bName);
+  const metric=(label,key,fmt=v=>v)=>`<div class="h2h-metric"><span>${label}</span><strong class="${(a?.[key]||0)>(b?.[key]||0)?'lead':''}">${fmt(a?.[key]||0)}</strong><b>${fmt(b?.[key]||0)}</b></div>`;
+  const body=`<div class="h2h-pickers">${h2hSelect('h2hA',ds,aName)}<span>VS</span>${h2hSelect('h2hB',ds,bName)}</div>
+  <div class="h2h-names"><strong>${escapeHtml(aName)}</strong><strong>${escapeHtml(bName)}</strong></div>
+  <div class="h2h-board">
+    ${metric('STARTS','races')}${metric('WINS','wins')}${metric('TOP 5','top5')}${metric('TOP 10','top10')}
+    ${metric('LAPS LED','lapsLed')}${metric('AVG FINISH','avgFinish',v=>Number(v).toFixed(1))}
+    ${metric('AVG INCIDENTS','avgInc',v=>Number(v).toFixed(1))}${metric('CLEAN RATE','cleanRate',v=>Number(v).toFixed(1)+'%')}
+  </div>`;
+  featureShell('Head-to-Head','Pick any two hosted drivers and compare their careers.',body,'headtohead-page');
+}
+
+function latestHostedRows(){
+  const groups=hostedRaceGroups();
+  return groups.length?groups[0].rows:[];
+}
+function renderRaceStats(){
+  const rows=latestHostedRows();
+  if(!rows.length){featureShell('Race Stats','Latest hosted race intelligence.','<div class="empty">No hosted race data loaded.</div>');return;}
+  const ordered=[...rows].sort((a,b)=>num(a['Finish Position'])-num(b['Finish Position']));
+  const valid=ordered.filter(r=>num(r['Finish Position'])>0);
+  const winner=valid[0], mover=[...valid].sort((a,b)=>(num(b['Start Position'])-num(b['Finish Position']))-(num(a['Start Position'])-num(a['Finish Position'])))[0];
+  const led=[...valid].sort((a,b)=>num(b['Laps Led'])-num(a['Laps Led']))[0];
+  const clean=valid.filter(r=>num(r.Incidents)===0).sort((a,b)=>num(a['Finish Position'])-num(b['Finish Position']))[0];
+  const pole=[...valid].sort((a,b)=>num(a['Start Position'])-num(b['Start Position']))[0];
+  const race=hostedRaceGroups()[0];
+  const cards=[
+    ['🏆','WINNER',winner?.Driver,`P${winner?.['Finish Position']||'--'}`],
+    ['🚀','BIGGEST MOVER',mover?.Driver,`+${Math.max(0,num(mover?.['Start Position'])-num(mover?.['Finish Position']))} spots`],
+    ['🔥','MOST LAPS LED',led?.Driver,`${num(led?.['Laps Led'])} laps`],
+    ['✨','CLEANEST TOP FINISHER',clean?.Driver,clean?`P${clean['Finish Position']} • 0 INC`:'--'],
+    ['⚡','POLE / BEST START',pole?.Driver,pole?`Start ${pole['Start Position']}`:'--'],
+    ['👥','FIELD SIZE',{name:`${valid.length} DRIVERS`},`${race?.track||''}`]
+  ];
+  featureShell('Race Stats',`${race?.track||'Latest hosted race'} • ${race?.date||''}`,`<div class="race-stat-grid">${cards.map(c=>recordCard(c[0],c[1],typeof c[2]==='object'?c[2]:{name:prettyName(String(c[2]||'--'))},c[3])).join('')}</div>`,'race-stats-page');
+}
+
+function recentRowsFor(name,n=5){
+  return state.hostedRaceRows.filter(r=>prettyName(String(r.Driver||''))===name).sort((a,b)=>String(b['Race Date']||'').localeCompare(String(a['Race Date']||''))).slice(0,n);
+}
+function powerScore(d){
+  const rr=recentRowsFor(d.name,5), finishes=rr.map(r=>num(r['Finish Position'])).filter(Boolean);
+  if(!rr.length)return 0;
+  const avg=finishes.length?finishes.reduce((a,b)=>a+b,0)/finishes.length:40;
+  const wins=rr.filter(r=>num(r['Finish Position'])===1).length, top5=rr.filter(r=>{const f=num(r['Finish Position']);return f>0&&f<=5}).length;
+  const inc=rr.reduce((a,r)=>a+num(r.Incidents),0)/rr.length;
+  return Math.max(0,Math.round(100 - avg*1.4 + wins*14 + top5*4 - inc*1.2));
+}
+function renderPowerRankings(){
+  const ranked=hostedDriverStats().map(d=>({...d,power:powerScore(d)})).filter(d=>recentRowsFor(d.name,5).length).sort((a,b)=>b.power-a.power).slice(0,20);
+  const body=`<p class="feature-note">HLRN Power Score uses each driver's latest five hosted races: finishes, wins, Top 5s and incidents.</p>
+  <div class="power-list">${ranked.map((d,i)=>`<button onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')" class="power-row"><b>${i+1}</b><div><strong>${escapeHtml(d.name)}</strong><span>${d.wins} career wins • Avg ${d.avgFinish.toFixed(1)}</span></div><em>${d.power}</em></button>`).join('')}</div>`;
+  featureShell('Driver Power Rankings','Who is hottest right now in HLRN Hosted Racing?',body,'power-page');
+}
+
+function trackStats(){
+  const map=new Map();
+  state.hostedRaceRows.forEach(r=>{
+    const track=String(r.Track||'').trim(); if(!track)return;
+    if(!map.has(track))map.set(track,{track,rows:[],wins:new Map(),starts:0,incidents:0});
+    const t=map.get(track); t.rows.push(r); t.starts++; t.incidents+=num(r.Incidents);
+    if(num(r['Finish Position'])===1){const n=prettyName(String(r.Driver||''));t.wins.set(n,(t.wins.get(n)||0)+1);}
+  });
+  return [...map.values()].map(t=>{
+    const topWinner=[...t.wins.entries()].sort((a,b)=>b[1]-a[1])[0];
+    const unique=new Set(t.rows.map(r=>String(r['Race ID']||r['Race Date']||''))).size;
+    return {...t,races:unique,topWinner:topWinner?.[0]||'--',topWins:topWinner?.[1]||0,avgInc:t.starts?t.incidents/t.starts:0};
+  }).sort((a,b)=>b.races-a.races||a.track.localeCompare(b.track));
+}
+function renderTrackHub(){
+  const ts=trackStats();
+  const body=`<div class="track-grid">${ts.map(t=>`<article class="track-card"><div class="track-road">〰</div><small>HLRN TRACK HISTORY</small><strong>${escapeHtml(t.track)}</strong><span>${t.races} races • ${t.starts} driver starts</span><div><b>${escapeHtml(t.topWinner)}</b><em>${t.topWins} wins</em></div><footer>${t.avgInc.toFixed(1)} avg incidents / driver start</footer></article>`).join('')}</div>`;
+  featureShell('Track Hub','Every hosted track, its race history and winningest driver.',body,'tracks-page');
+}
+
+function renderTeams(){
+  const body=state.teamStandings.length
+    ? `<div class="team-list">${state.teamStandings.map((t,i)=>`<article><b>${i+1}</b><strong>${escapeHtml(t.name)}</strong><span>${t.points} pts</span></article>`).join('')}</div>`
+    : `<section class="coming-live"><span>👥</span><h3>Team Championship Center is ready</h3><p>The current app feeds do not include driver-to-team assignments, so I did not invent team standings. Once a Team Standings sheet/feed is connected, this page is already reserved for live team points, wins, Top 5s and comparisons.</p><button class="btn primary" onclick="setView('standings')">VIEW DRIVER STANDINGS</button></section>`;
+  featureShell('Team Standings','Sunday + Monday team championship center.',body,'teams-page');
+}
+
+function spotlightDriver(){
+  const ds=hostedDriverStats(); if(!ds.length)return null;
+  return [...ds].sort((a,b)=>(b.wins*20+b.top5*5+b.top10*2+b.lapsLed*.1)-(a.wins*20+a.top5*5+a.top10*2+a.lapsLed*.1))[0];
+}
+function renderSpotlight(){
+  const d=spotlightDriver();
+  if(!d){featureShell('Driver Spotlight','Featured HLRN racer.','<div class="empty">No driver data loaded.</div>');return;}
+  const body=`<article class="spotlight-hero"><div class="spotlight-number">${initials(d.name)}</div><small>FEATURED HLRN DRIVER</small><h3>${escapeHtml(d.name)}</h3><p>${d.races} hosted starts • ${d.wins} wins • ${d.top5} Top 5s • ${d.lapsLed} laps led</p><div class="spotlight-stats"><b>${d.avgFinish.toFixed(1)}<span>AVG FIN</span></b><b>${d.cleanRate.toFixed(1)}%<span>CLEAN</span></b><b>${d.top10}<span>TOP 10</span></b></div><button class="btn primary" onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')">FULL DRIVER PROFILE</button></article>`;
+  featureShell('Driver Spotlight','A featured racer selected from current hosted career performance.',body,'spotlight-page');
+}
+
+function renderRecap(){
+  const groups=hostedRaceGroups(), race=groups[0], rows=latestHostedRows();
+  if(!race||!rows.length){featureShell('Race Recap','Latest HLRN hosted race.','<div class="empty">No hosted results loaded.</div>');return;}
+  const valid=[...rows].filter(r=>num(r['Finish Position'])>0).sort((a,b)=>num(a['Finish Position'])-num(b['Finish Position']));
+  const podium=valid.slice(0,3), led=[...valid].sort((a,b)=>num(b['Laps Led'])-num(a['Laps Led']))[0], mover=[...valid].sort((a,b)=>(num(b['Start Position'])-num(b['Finish Position']))-(num(a['Start Position'])-num(a['Finish Position'])))[0];
+  const body=`<article class="recap-hero"><small>RACE COMPLETE</small><h3>${escapeHtml(race.track)}</h3><span>${escapeHtml(race.date)} • ${valid.length} drivers</span></article>
+  <div class="recap-podium">${podium.map((r,i)=>`<div class="p${i+1}"><b>P${i+1}</b><strong>${escapeHtml(prettyName(String(r.Driver)))}</strong><span>#${escapeHtml(r['Car #']||'--')}</span></div>`).join('')}</div>
+  <article class="recap-story"><h3>Race Story</h3><p><strong>${escapeHtml(prettyName(String(podium[0]?.Driver||'The winner')))}</strong> took the victory at ${escapeHtml(race.track)}. ${escapeHtml(prettyName(String(led?.Driver||'')))} led the most laps with ${num(led?.['Laps Led'])}, while ${escapeHtml(prettyName(String(mover?.Driver||'')))} was the biggest mover, gaining ${Math.max(0,num(mover?.['Start Position'])-num(mover?.['Finish Position']))} positions from start to finish.</p></article>`;
+  featureShell('Race Recap','Automatic recap generated from the latest imported hosted race.',body,'recap-page');
+}
+
+function renderIncidentWatch(){
+  const ds=hostedDriverStats().filter(d=>d.races>=2).sort((a,b)=>b.avgInc-a.avgInc);
+  const clean=[...ds].sort((a,b)=>a.avgInc-b.avgInc).slice(0,5);
+  const body=`<div class="incident-callout"><span>🚨</span><div><small>HIGHER NUMBER = MORE INCIDENTS</small><strong>Hosted Incident Watch</strong></div></div>
+  <div class="incident-list">${ds.slice(0,25).map((d,i)=>`<article><b>${i+1}</b><div><strong>${escapeHtml(d.name)}</strong><span>${d.races} races • ${d.incidents} total</span></div><em>${d.avgInc.toFixed(1)}<small>AVG</small></em></article>`).join('')}</div>
+  <div class="section-head"><h3>Cleanest Regulars</h3><span>Minimum 2 races</span></div>
+  <div class="clean-grid">${clean.map(d=>`<button onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')"><strong>${escapeHtml(d.name)}</strong><span>${d.avgInc.toFixed(1)} avg inc</span></button>`).join('')}</div>`;
+  featureShell('Incident Watch','Career hosted incident averages and clean-racing leaders.',body,'incidents-page');
+}
+
+function achievementLevel(d){
+  const awards=[];
+  if(d.races>=1)awards.push(['🏁','First Start']);
+  if(d.wins>=1)awards.push(['🏆','Race Winner']);
+  if(d.wins>=5)awards.push(['🔥','5 Wins']);
+  if(d.wins>=10)awards.push(['👑','10 Wins']);
+  if(d.races>=25)awards.push(['25','25 Starts']);
+  if(d.races>=50)awards.push(['50','50 Starts']);
+  if(d.races>=100)awards.push(['100','100 Starts']);
+  if(d.lapsLed>=100)awards.push(['💨','100 Laps Led']);
+  if(d.top10>=25)awards.push(['🎯','25 Top 10s']);
+  if(d.cleanRate>=50&&d.races>=5)awards.push(['✨','Clean Racer']);
+  return awards;
+}
+function renderAchievements(){
+  const ds=hostedDriverStats().map(d=>({...d,awards:achievementLevel(d)})).sort((a,b)=>b.awards.length-a.awards.length||b.wins-a.wins);
+  const body=`<div class="achievement-board">${ds.slice(0,30).map((d,i)=>`<article><header><b>${i+1}</b><div><strong>${escapeHtml(d.name)}</strong><span>${d.awards.length} achievements</span></div></header><div class="achievement-icons">${d.awards.length?d.awards.map(a=>`<span title="${escapeHtml(a[1])}">${a[0]}<small>${escapeHtml(a[1])}</small></span>`).join(''):'<em>Keep racing to unlock milestones</em>'}</div></article>`).join('')}</div>`;
+  featureShell('Achievements','Career badges and milestones earned in Hosted Racing.',body,'achievements-page');
+}
+
+function renderFavorites(){
+  const ds=hostedDriverStats().filter(d=>isFavorite(d.name));
+  const body=ds.length?`<div class="favorite-list">${ds.map(d=>`<article><button class="favorite-star saved" onclick="toggleFavorite('${encodeURIComponent(d.name)}');renderFavorites()">★</button><div><strong>${escapeHtml(d.name)}</strong><span>${d.races} races • ${d.wins} wins • ${d.top10} Top 10s</span></div><button onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')">PROFILE ›</button></article>`).join('')}</div>`:`<section class="coming-live"><span>★</span><h3>No favorite drivers yet</h3><p>Go to Drivers and tap the star beside any Hosted driver. They will show up here on this device.</p><button class="btn primary" onclick="setView('drivers')">CHOOSE FAVORITES</button></section>`;
+  featureShell('Favorite Drivers','Your personal HLRN watch list, saved on this device.',body,'favorites-page');
+}
+
+function shareDriverCardName(){
+  return hostedDriverStats().sort((a,b)=>b.wins-a.wins)[0]?.name||'';
+}
+function renderShareCards(){
+  const d=compareDriver(document.querySelector('#shareDriver')?.value||shareDriverCardName())||hostedDriverStats()[0];
+  const ds=hostedDriverStats().sort((a,b)=>a.name.localeCompare(b.name));
+  const select=`<select id="shareDriver" onchange="renderShareCards()">${ds.map(x=>`<option ${d&&x.name===d.name?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select>`;
+  const body=d?`${select}<article class="share-stat-card" id="shareStatCard"><div class="share-brand">HLRN <span>DRIVER CARD</span></div><div class="share-driver-mark">${initials(d.name)}</div><small>HIGH LINE RACING NETWORK</small><h3>${escapeHtml(d.name)}</h3><div class="share-card-stats"><b>${d.races}<span>STARTS</span></b><b>${d.wins}<span>WINS</span></b><b>${d.top5}<span>TOP 5</span></b><b>${d.avgFinish.toFixed(1)}<span>AVG FIN</span></b></div><footer>RACING PEOPLE TOGETHER</footer></article><p class="feature-note">This card is designed to be screenshot-ready for Facebook, Discord or race announcements.</p>`:'<div class="empty">No driver data.</div>';
+  featureShell('Share Cards','Screenshot-ready HLRN driver graphics.',body,'sharecards-page');
+}
+
+function renderNotifications(){
+  const nextSun=state.nextRaces.Sunday,nextMon=state.nextRaces.Monday;
+  const items=[
+    {icon:'🏁',type:'NEXT SUNDAY',title:nextSun.track,text:`${nextSun.date} • ${nextSun.time}`},
+    {icon:'🏁',type:'NEXT MONDAY',title:nextMon.track,text:`${nextMon.date} • ${nextMon.time}`},
+    ...state.announcements.slice(0,12).map(a=>({icon:'🔔',type:a.tag||'NEWS',title:a.title,text:`${a.time||''} ${a.text||''}`.trim()}))
+  ];
+  featureShell('Notifications','Race dates, HLRN announcements and important updates.',`<div class="notification-list">${items.map(x=>`<article><span>${x.icon}</span><div><small>${escapeHtml(x.type)}</small><strong>${escapeHtml(x.title)}</strong><p>${escapeHtml(x.text)}</p></div></article>`).join('')}</div>`,'notifications-page');
+}
+
+function renderAdmin(){
+  const body=`<section class="admin-command"><div class="admin-status"><span></span><div><small>HLRN RACE CONTROL</small><strong>Operations Center</strong></div></div>
+  <div class="admin-tools">
+    <button onclick="setView('schedule')"><span>🗓️</span><strong>Schedule Control</strong><small>Verify Sunday & Monday race weeks</small></button>
+    <button onclick="openFeature('incidents')"><span>🚨</span><strong>Incident Watch</strong><small>Hosted incident review</small></button>
+    <button onclick="openFeature('racestats')"><span>📊</span><strong>Race Intelligence</strong><small>Latest hosted race breakdown</small></button>
+    <button onclick="openSocial(state.links['HLRN Website']||'https://sites.google.com/view/highlineracingnetwork/home')"><span>🌐</span><strong>HLRN Website</strong><small>Open official network site</small></button>
+  </div><div class="admin-note"><strong>Private admin data is not exposed in this public app.</strong><p>This page provides race-control shortcuts without publishing penalties, private notes or other restricted information.</p></div></section>`;
+  featureShell('Race Control','Admin and league-management shortcuts.',body,'admin-page');
+}
+
+function renderHallOfFame(){
+  const ds=hostedDriverStats();
+  const mostWins=[...ds].sort((a,b)=>b.wins-a.wins)[0], starts=[...ds].sort((a,b)=>b.races-a.races)[0], led=[...ds].sort((a,b)=>b.lapsLed-a.lapsLed)[0];
+  const body=`<section class="hof-hero"><span>🏛️</span><small>HIGH LINE RACING NETWORK</small><h3>Hall of Fame</h3><p>Celebrating the drivers who have left the biggest mark on HLRN Hosted Racing.</p></section>
+  <div class="hof-pillars">
+    ${recordCard('👑','WIN KING',mostWins,mostWins?.wins,'career hosted victories')}
+    ${recordCard('🏁','IRON DRIVER',starts,starts?.races,'career hosted starts')}
+    ${recordCard('🔥','LAPS LED KING',led,led?.lapsLed,'career laps led')}
+  </div>
+  <section class="coming-live small-coming"><h3>Champions Wing</h3><p>The current live feeds do not identify historical Sunday/Monday season champions. The Hall of Fame is ready for them once a champions source is connected, while the Hosted record book above is live now.</p></section>`;
+  featureShell('Hall of Fame','HLRN legends, career record holders and future champions wing.',body,'hall-page');
+}
+
+function renderFeature(name){
+  const map={
+    records:renderRecords,headtohead:renderHeadToHead,racestats:renderRaceStats,power:renderPowerRankings,
+    tracks:renderTrackHub,teams:renderTeams,spotlight:renderSpotlight,recap:renderRecap,incidents:renderIncidentWatch,
+    achievements:renderAchievements,favorites:renderFavorites,sharecards:renderShareCards,notifications:renderNotifications,
+    admin:renderAdmin,halloffame:renderHallOfFame
+  };
+  (map[name]||renderRecords)();
 }
 
 function renderSocials(){
