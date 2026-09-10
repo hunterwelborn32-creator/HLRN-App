@@ -79,7 +79,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '8.6',
+  appVersion: '9.0',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
   teamStandings: {Sunday: [], Monday: []},
@@ -112,6 +112,7 @@ let countdownTimer;
 
 function setView(view){
   clearInterval(countdownTimer);
+  document.body.dataset.view=view;
   state.currentView = view;
   nav.forEach(n=>n.classList.toggle('active',n.dataset.view===view));
   if(view==='home') renderHome();
@@ -159,6 +160,7 @@ function networkBar(){
     <div><small>MONDAY</small><strong>W${seasonWeek('Monday')}</strong></div>
     <div><small>HOSTED</small><strong>${state.hostedDrivers.length||'--'} DRV</strong></div>
     <button id="refreshDataBtn" class="network-refresh" onclick="refreshNow()" aria-label="Refresh HLRN data">↻</button>
+    <div class="network-trackline" aria-hidden="true"><span></span></div>
   </section>`;
 }
 
@@ -241,6 +243,11 @@ function renderHome(){
 
   app.innerHTML = `
     ${networkBar()}
+    <section class="home-masthead">
+      <div class="home-mast-copy"><span>HIGH LINE RACING NETWORK</span><strong>RACE DAY.<br>EVERY DAY.</strong><small>Live standings • Hosted stats • Schedules • Race intelligence</small></div>
+      <div class="home-mast-mark">HLRN</div>
+      <div class="home-mast-stripes" aria-hidden="true"><i></i><i></i><i></i></div>
+    </section>
     <section class="brand-strip"><img class="home-logo" src="hlrn-logo-4k.png" alt="HLRN"><div>${liveBadge()}</div></section>
     <div class="home-league-switch" role="tablist"><button class="${state.homeLeague==='Sunday'?'active':''}" onclick="switchHomeLeague('Sunday')">SUNDAY</button><button class="${state.homeLeague==='Monday'?'active':''}" onclick="switchHomeLeague('Monday')">MONDAY</button></div>
     <section class="race-hero"><div class="race-hero-top"><div><span class="overline">NEXT HLRN EVENT • WEEK ${scheduleRace.race||"--"}</span><h2>${escapeHtml(race.track)}</h2></div><div class="track-badge">🏁</div></div>
@@ -559,6 +566,8 @@ function toggleFavorite(name){
 
 function openFeature(name){
   clearInterval(countdownTimer);
+  document.body.dataset.view='feature';
+  document.body.dataset.feature=name;
   state.featureView=name;
   state.currentView='feature';
   nav.forEach(n=>n.classList.remove('active'));
@@ -571,12 +580,16 @@ function openFeature(name){
   addPageMotion();
   window.scrollTo({top:0,behavior:'smooth'});
 }
-function featureBack(){ setView('home'); }
+function featureBack(){ document.body.removeAttribute('data-feature'); setView('home'); }
 
 function featureShell(title,subtitle,body,cls=''){
   app.innerHTML=`${networkBar()}
-  <button class="profile-back feature-back" onclick="featureBack()">← Home</button>
-  <div class="page-title-row premium-page-head feature-title-head"><div><span class="page-kicker">HLRN PERFORMANCE CENTER</span><h2 class="page-title">${title}</h2><p class="page-sub">${subtitle}</p></div>${liveBadge()}</div>
+  <section class="feature-hero-shell">
+    <button class="profile-back feature-back" onclick="featureBack()">← HOME</button>
+    <div class="feature-hero-copy"><span class="page-kicker">HLRN PERFORMANCE CENTER</span><h2 class="page-title">${title}</h2><p class="page-sub">${subtitle}</p></div>
+    <div class="feature-hero-live">${liveBadge()}</div>
+    <div class="feature-speed-lines" aria-hidden="true"><i></i><i></i><i></i></div>
+  </section>
   <section class="feature-page ${cls}">${body}</section>`;
 }
 

@@ -667,3 +667,313 @@ main{padding-top:11px!important}
 .h2h-metric>strong{color:#ef233c}.h2h-metric>b{color:#35d07f}
 .h2h-metric>span{text-align:center!important;padding:0!important}
 .h2h-metric .lead{color:#ffd400!important}
+
+
+/* =========================================================
+   HLRN 9.0 — CINEMATIC NETWORK REDESIGN
+   Visual-only layer. Existing data/functions stay intact.
+   ========================================================= */
+:root{
+  --hlrn-red:#ef233c;
+  --hlrn-red2:#9f0b1f;
+  --hlrn-green:#35d07f;
+  --hlrn-yellow:#ffd400;
+  --hlrn-blue:#5c8dff;
+  --hlrn-ink:#050609;
+  --hlrn-panel:#0d1117;
+  --hlrn-panel2:#151a22;
+  --hlrn-line:rgba(255,255,255,.085);
+  --hlrn-muted:#7f8896;
+  --hlrn-shadow:0 18px 50px rgba(0,0,0,.38);
+}
+html,body{background:#050609!important}
+body{
+  min-height:100vh;
+  background:
+    radial-gradient(circle at 50% -15%,rgba(255,255,255,.07),transparent 26%),
+    radial-gradient(circle at 106% 15%,rgba(239,35,60,.13),transparent 24%),
+    radial-gradient(circle at -10% 70%,rgba(92,141,255,.07),transparent 28%),
+    linear-gradient(180deg,#0a0d12 0%,#050609 45%,#030406 100%)!important;
+  letter-spacing:.01em;
+}
+body:after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:-2;opacity:.18;
+  background-image:
+    linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);
+  background-size:34px 34px;
+  mask-image:linear-gradient(to bottom,#000,transparent 72%);
+}
+.ambient-checkers{opacity:.025!important;filter:contrast(1.1)}
+.app-shell{max-width:760px!important;margin:0 auto;min-height:100vh}
+main{padding:12px 14px 116px!important}
+
+/* Top bar */
+.topbar{
+  position:sticky!important;top:0;z-index:50;overflow:hidden;
+  min-height:76px;padding:11px 14px!important;
+  border-bottom:1px solid rgba(255,255,255,.075)!important;
+  background:rgba(5,7,10,.82)!important;
+  backdrop-filter:blur(28px) saturate(1.25)!important;
+  -webkit-backdrop-filter:blur(28px) saturate(1.25)!important;
+  box-shadow:0 12px 35px rgba(0,0,0,.28)!important;
+}
+.topbar-glow{
+  position:absolute;inset:0;pointer-events:none;
+  background:
+    linear-gradient(90deg,rgba(239,35,60,.16),transparent 22%,transparent 78%,rgba(255,212,0,.08)),
+    radial-gradient(circle at 18% 100%,rgba(239,35,60,.12),transparent 28%);
+}
+.topbar:after{
+  height:2px!important;bottom:0!important;
+  background:linear-gradient(90deg,#ef233c 0 19%,#ffd400 19% 27%,transparent 27% 100%)!important;
+  opacity:1!important;
+}
+.top-brand{position:relative;z-index:1;gap:11px!important}
+.top-brand img{
+  width:58px!important;height:58px!important;filter:drop-shadow(0 8px 15px rgba(0,0,0,.4));
+}
+.top-brand .eyebrow{font-size:5.5px!important;letter-spacing:.22em!important;color:#848d99!important;font-weight:1000!important}
+.top-brand h1{margin-top:2px!important;font-size:27px!important;letter-spacing:-.05em!important;font-style:italic}
+.top-actions{position:relative;z-index:1}
+.top-network-pill{
+  display:flex;align-items:center;gap:7px;padding:7px 9px;border:1px solid rgba(53,208,127,.18);
+  border-radius:999px;background:rgba(16,31,23,.68);box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)
+}
+.top-network-pill b{font-size:5.5px;letter-spacing:.12em;color:#74e6a7}
+.top-live-dot{width:7px!important;height:7px!important}
+
+/* Shared system bar */
+.network-bar{
+  position:relative;overflow:hidden;
+  grid-template-columns:repeat(4,1fr) 40px!important;
+  margin:0 0 12px!important;
+  border:1px solid rgba(255,255,255,.075)!important;border-radius:18px!important;
+  background:
+    linear-gradient(180deg,rgba(25,30,38,.94),rgba(10,13,18,.94))!important;
+  box-shadow:0 12px 32px rgba(0,0,0,.22)!important;
+}
+.network-bar>div{padding:10px 9px 12px!important}
+.network-bar small{font-size:5px!important;letter-spacing:.15em!important}
+.network-bar strong{font-size:9px!important;letter-spacing:.02em}
+.network-refresh{font-size:19px!important;border-left:1px solid rgba(255,255,255,.055)!important}
+.network-trackline{position:absolute!important;left:0;right:0;bottom:0!important;height:3px!important;padding:0!important;border:0!important;background:#171b22}
+.network-trackline span{display:block;width:38%;height:100%;background:linear-gradient(90deg,#ef233c,#ffd400);box-shadow:0 0 14px rgba(239,35,60,.4);animation:hlrnTrack 3.7s ease-in-out infinite alternate}
+@keyframes hlrnTrack{from{transform:translateX(-12%)}to{transform:translateX(184%)}}
+
+/* Home cinematic masthead */
+.home-masthead{
+  position:relative;overflow:hidden;min-height:156px;margin:0 0 12px;padding:21px 20px;
+  border:1px solid rgba(255,255,255,.08);border-radius:26px;
+  background:
+    radial-gradient(circle at 93% 12%,rgba(255,212,0,.18),transparent 23%),
+    radial-gradient(circle at 78% 95%,rgba(239,35,60,.23),transparent 32%),
+    linear-gradient(135deg,#181d25 0%,#0c1016 48%,#07090d 100%);
+  box-shadow:var(--hlrn-shadow);
+}
+.home-masthead:before{
+  content:"";position:absolute;inset:0;opacity:.07;
+  background:repeating-linear-gradient(116deg,transparent 0 39px,#fff 40px 41px);
+}
+.home-mast-copy{position:relative;z-index:2;max-width:72%}
+.home-mast-copy>span{display:block;color:#ffd400;font-size:5.5px;font-weight:1000;letter-spacing:.18em}
+.home-mast-copy>strong{display:block;margin-top:8px;font-size:28px;line-height:.88;letter-spacing:-.06em;font-style:italic;text-transform:uppercase}
+.home-mast-copy>small{display:block;margin-top:10px;color:#8c95a2;font-size:7px;line-height:1.45}
+.home-mast-mark{
+  position:absolute;right:-8px;bottom:-17px;z-index:1;
+  font-size:72px;line-height:1;font-weight:1000;font-style:italic;letter-spacing:-.08em;
+  color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.08);transform:skewX(-8deg)
+}
+.home-mast-stripes{position:absolute;right:18px;top:16px;display:flex;gap:4px;transform:skewX(-18deg)}
+.home-mast-stripes i{display:block;width:5px;height:37px;background:#ef233c}
+.home-mast-stripes i:nth-child(2){height:26px;background:#ffd400}
+.home-mast-stripes i:nth-child(3){height:16px;background:#fff;opacity:.35}
+
+/* General card design */
+.section-head{margin-top:22px!important;margin-bottom:9px!important}
+.section-head h3,.page-title{letter-spacing:-.035em!important;font-style:italic!important;text-transform:uppercase}
+.section-head h3{font-size:15px!important}
+.section-head span{font-size:6px!important;letter-spacing:.08em!important}
+.brand-strip,.driver-database-banner,.socials-intro-card,.broadcast-banner,.announcement-card,
+.pulse-card,.podium-card,.standings-card,.schedule-card,.driver-list-card,.track-card,.record-card,
+.career-stat,.archive-race-chip,.archive-result-row,.admin-status,.admin-tools button,.notification-list article{
+  border-color:rgba(255,255,255,.075)!important;
+}
+.quick-card,.pulse-card,.result-card,.snapshot-card,.record-card,.track-card,.career-stat,.schedule-card,
+.driver-list-card,.social-card,.archive-race-chip,.winner-spotlight,.admin-tools button,.notification-list article{
+  box-shadow:0 12px 30px rgba(0,0,0,.19)!important;
+}
+.quick-card:hover,.social-card:hover,.result-card:hover,.archive-race-chip:hover{transform:translateY(-1px)}
+.quick-card,.social-card,.result-card,.archive-race-chip{transition:transform .17s ease,border-color .17s ease,box-shadow .17s ease!important}
+
+/* Next-race hero */
+.race-hero{
+  min-height:250px!important;padding:24px!important;border-radius:28px!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  box-shadow:0 28px 65px rgba(151,8,27,.30),inset 0 1px 0 rgba(255,255,255,.08)!important;
+}
+.race-hero .overline{font-size:6px!important;letter-spacing:.15em!important}
+.race-hero h2{font-size:36px!important;line-height:.91!important;letter-spacing:-.055em!important}
+.hero-race-meta{gap:6px!important}
+.hero-race-meta span{padding:7px 9px!important;font-size:6px!important;border:1px solid rgba(255,255,255,.08)}
+.countdown{gap:6px!important}
+.countdown>div{min-width:52px!important;border-radius:14px!important;background:rgba(4,5,7,.22)!important;backdrop-filter:blur(8px)}
+.countdown strong{font-size:29px!important}
+.countdown small{font-size:5px!important;letter-spacing:.12em!important}
+
+/* Feature launchpad becomes a proper performance center */
+.feature-launchpad{grid-template-columns:repeat(2,1fr)!important;gap:9px!important}
+.feature-launchpad button{
+  min-height:118px!important;padding:14px!important;border-radius:20px!important;position:relative;overflow:hidden;
+  background:
+    radial-gradient(circle at 100% 0,rgba(255,212,0,.07),transparent 32%),
+    linear-gradient(145deg,#171c24,#0b0e13)!important
+}
+.feature-launchpad button:after{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(#ef233c,#ffd400);opacity:.7
+}
+.feature-launchpad button>span{width:40px!important;height:40px!important;border-radius:13px!important;font-size:18px!important}
+.feature-launchpad strong{font-size:11px!important;letter-spacing:-.01em}
+.feature-launchpad small{font-size:6.5px!important;line-height:1.35!important}
+
+/* Feature page hero */
+.feature-hero-shell{
+  position:relative;overflow:hidden;margin:0 0 13px;padding:17px 16px 18px;
+  border:1px solid rgba(255,255,255,.08);border-radius:24px;
+  background:
+    radial-gradient(circle at 96% 0,rgba(255,212,0,.13),transparent 26%),
+    radial-gradient(circle at 0 100%,rgba(239,35,60,.16),transparent 30%),
+    linear-gradient(145deg,#171c24,#0b0e13);
+  box-shadow:0 18px 42px rgba(0,0,0,.25)
+}
+.feature-back{
+  position:relative;z-index:2;margin:0 0 13px!important;padding:7px 10px!important;
+  border:1px solid rgba(255,255,255,.08)!important;border-radius:999px!important;background:#121720!important;
+  font-size:6px!important;font-weight:1000!important;letter-spacing:.1em!important
+}
+.feature-hero-copy{position:relative;z-index:2;max-width:82%}
+.feature-hero-copy .page-kicker{font-size:5.5px!important;color:#ffd400!important;letter-spacing:.16em!important}
+.feature-hero-copy .page-title{margin:4px 0 3px!important;font-size:27px!important;line-height:.96!important}
+.feature-hero-copy .page-sub{margin:0!important;color:#7e8794!important;font-size:7.5px!important;line-height:1.45!important}
+.feature-hero-live{position:absolute;right:14px;top:14px;z-index:2}
+.feature-speed-lines{position:absolute;right:-8px;bottom:2px;display:flex;gap:4px;transform:skewX(-24deg);opacity:.22}
+.feature-speed-lines i{width:7px;height:56px;background:#ef233c}
+.feature-speed-lines i:nth-child(2){height:39px;background:#ffd400}
+.feature-speed-lines i:nth-child(3){height:24px;background:#fff}
+
+/* Standings */
+.podium{gap:8px!important}
+.podium-card{padding:13px 10px!important;background:linear-gradient(155deg,#171c23,#0b0e13)!important}
+.podium-card:first-child{box-shadow:0 0 0 1px rgba(255,212,0,.17),0 15px 34px rgba(0,0,0,.22)!important}
+.podium-avatar{border:2px solid rgba(255,255,255,.12)!important}
+.standing-row td{padding-top:12px!important;padding-bottom:12px!important}
+.championship-meter{border-radius:22px!important;padding:18px!important}
+
+/* Schedule */
+.schedule-dashboard{border-radius:22px!important;padding:17px!important}
+.schedule-card{padding:15px!important}
+.schedule-card.next{border-color:rgba(255,212,0,.25)!important}
+.schedule-card.next:before{box-shadow:0 0 18px rgba(255,212,0,.35)}
+
+/* Drivers */
+.driver-database-banner{padding:17px!important;border-radius:22px!important}
+.search{border:1px solid rgba(255,255,255,.09)!important;box-shadow:0 11px 30px rgba(0,0,0,.25)!important}
+.driver-list-card{border-radius:18px!important}
+.driver-click{min-height:71px!important}
+.avatar{width:42px!important;height:42px!important;border:1px solid rgba(255,255,255,.09)!important}
+.favorite-star{box-shadow:0 6px 14px rgba(0,0,0,.25)}
+
+/* Hosted profile */
+.driver-profile-hero{
+  min-height:175px!important;padding:22px!important;border-radius:27px!important;
+  border:1px solid rgba(255,212,0,.12)!important;box-shadow:var(--hlrn-shadow)!important
+}
+.career-stats-grid{gap:8px!important}
+.career-stat{min-height:90px!important;padding:13px!important}
+.career-stat strong{font-size:22px!important}
+
+/* H2H */
+.h2h-driver-section{border-radius:22px!important;padding:14px!important}
+.h2h-full-list{border-radius:14px!important;box-shadow:inset 0 8px 18px rgba(0,0,0,.18)}
+.h2h-list-name{min-height:53px!important}
+.h2h-big-vs{width:46px!important;height:46px!important;font-size:11px!important}
+
+/* Results / recap / stats */
+.winner-spotlight{border-radius:22px!important;padding:16px!important}
+.recap-hero{border-radius:24px!important;padding:22px!important}
+.recap-story{border-radius:20px!important;padding:18px!important}
+.race-stat-grid{gap:9px!important}
+
+/* Rules */
+.rules-command{border-radius:0 20px 20px 0!important;padding:17px!important}
+.rule-search{top:87px!important;border-radius:15px!important}
+.rulebook-section{border-radius:18px!important}
+.rulebook-section-head{padding:14px!important}
+.rulebook-rule{padding:17px!important}
+
+/* Socials */
+.social-card{min-height:91px!important;padding:14px!important}
+.social-platform-icon{width:48px!important;height:48px!important}
+
+/* Bottom nav as a floating racing dock */
+.bottom-nav{
+  position:fixed!important;left:50%!important;right:auto!important;transform:translateX(-50%);
+  width:min(calc(100% - 18px),724px)!important;bottom:9px!important;z-index:60;
+  overflow:hidden;padding:7px 8px calc(7px + env(safe-area-inset-bottom))!important;
+  border:1px solid rgba(255,255,255,.11)!important;border-radius:24px!important;
+  background:rgba(9,12,16,.91)!important;
+  backdrop-filter:blur(30px) saturate(1.3)!important;-webkit-backdrop-filter:blur(30px) saturate(1.3)!important;
+  box-shadow:0 22px 55px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.04)!important
+}
+.nav-glow{
+  position:absolute;left:8%;right:8%;top:-18px;height:25px;pointer-events:none;
+  background:radial-gradient(ellipse at center,rgba(239,35,60,.20),transparent 68%);
+}
+.nav-item{z-index:1;min-height:52px!important;border-radius:16px!important}
+.nav-item.active{
+  background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.035))!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)
+}
+.nav-item.active:before{width:22px!important;height:3px!important;top:2px!important}
+.nav-item small{font-size:7px!important;font-weight:900!important;color:#747d8a!important}
+.nav-item.active small{color:#fff!important}
+.nav-icon{font-size:18px!important}
+
+/* Page-specific accent glow */
+body[data-view="standings"] .topbar:after{background:linear-gradient(90deg,#ffd400 0 27%,transparent 27%)!important}
+body[data-view="schedule"] .topbar:after{background:linear-gradient(90deg,#5c8dff 0 27%,transparent 27%)!important}
+body[data-view="drivers"] .topbar:after{background:linear-gradient(90deg,#35d07f 0 27%,transparent 27%)!important}
+body[data-view="socials"] .topbar:after{background:linear-gradient(90deg,#8b5cf6 0 27%,transparent 27%)!important}
+body[data-view="feature"] .topbar:after{background:linear-gradient(90deg,#ef233c 0 16%,#ffd400 16% 28%,transparent 28%)!important}
+
+/* Motion */
+@media(prefers-reduced-motion:no-preference){
+  .home-masthead,.race-hero,.feature-hero-shell{animation:cardRise .36s cubic-bezier(.2,.7,.2,1) both}
+  @keyframes cardRise{from{opacity:.55;transform:translateY(8px) scale(.995)}to{opacity:1;transform:none}}
+  .feature-launchpad button:nth-child(2n){animation-delay:.02s}
+}
+@media(min-width:700px){
+  main{padding-left:18px!important;padding-right:18px!important}
+  .feature-launchpad{grid-template-columns:repeat(3,1fr)!important}
+  .home-masthead{min-height:178px}
+  .home-mast-copy>strong{font-size:34px}
+}
+@media(max-width:430px){
+  main{padding-left:10px!important;padding-right:10px!important}
+  .topbar{min-height:70px;padding:9px 10px!important}
+  .top-brand img{width:51px!important;height:51px!important}
+  .top-brand h1{font-size:24px!important}
+  .top-network-pill{padding:6px 8px}.top-network-pill b{display:none}
+  .network-bar{grid-template-columns:repeat(4,1fr) 34px!important}
+  .network-bar>div{padding:9px 5px 11px!important}
+  .home-masthead{min-height:146px;padding:18px 16px}
+  .home-mast-copy{max-width:78%}
+  .home-mast-copy>strong{font-size:25px}
+  .home-mast-mark{font-size:62px}
+  .race-hero{min-height:238px!important;padding:20px!important}
+  .race-hero h2{font-size:31px!important}
+  .feature-launchpad{grid-template-columns:1fr 1fr!important}
+  .feature-launchpad button{min-height:110px!important}
+  .feature-hero-copy .page-title{font-size:24px!important}
+  .feature-hero-live{right:11px;top:11px}
+}
