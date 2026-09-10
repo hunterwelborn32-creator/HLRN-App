@@ -64,9 +64,10 @@ const state = {
   drivers: [],
   hostedDrivers: [],
   hostedRaceRows: [],
+  hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '4.2'
+  appVersion: '4.3'
 };
 
 const fallback = {
@@ -158,8 +159,11 @@ function renderHome(){
   const announcementHtml = state.announcements.slice(0,4).map(a=>`
     <article class="announcement-card"><div class="announcement-top"><span class="mini-tag">${escapeHtml(a.tag||'NEWS')}</span><time>${escapeHtml(a.time||'')}</time></div>
     <h4>${escapeHtml(a.title)}</h4><p>${escapeHtml(a.text)}</p></article>`).join('');
-  const resultsHtml = state.latestResults.length ? state.latestResults.map((r,i)=>`
-    <button class="result-card" onclick="renderResults()"><div class="result-position">${i+1}</div><div><small>${escapeHtml(r.league.toUpperCase())} LEAGUE</small><strong>${escapeHtml(r.track)}</strong><span>Winner: ${escapeHtml(r.winner)}</span></div><b>›</b></button>`).join('') :
+  const leagueResultsHtml = state.latestResults.map((r,i)=>`
+    <button class="result-card" onclick="renderResults()"><div class="result-position">${i+1}</div><div><small>${escapeHtml(r.league.toUpperCase())} LEAGUE</small><strong>${escapeHtml(r.track)}</strong><span>Winner: ${escapeHtml(r.winner)}</span></div><b>›</b></button>`).join('');
+  const hostedResultsHtml = state.hostedLatest ? `
+    <button class="result-card hosted-home-result" onclick="openHostedDriverProfile(decodeURIComponent('${encodeURIComponent(String(state.hostedLatest.winner||'')).replace(/'/g,'%27')}'))"><div class="result-position hosted-result-badge">H</div><div><small>HOSTED • LAST RACE</small><strong>${escapeHtml(state.hostedLatest.track||'HLRN Hosted Race')}</strong><span>Winner: ${escapeHtml(state.hostedLatest.winner||'')}</span>${state.hostedLatest.date?`<em>${escapeHtml(state.hostedLatest.date)}</em>`:''}</div><b>›</b></button>` : '';
+  const resultsHtml = (leagueResultsHtml || hostedResultsHtml) ? leagueResultsHtml + hostedResultsHtml :
     `<div class="empty">Race results will appear here when live data finishes loading.</div>`;
 
   app.innerHTML = `
@@ -289,11 +293,27 @@ function renderHostedDriverProfileFromRows(driver,rows){
 async function refreshHostedData(rerender=true){
   state.hostedDataStatus='Connecting…';
   try{
-    const [rankT,dataT]=await Promise.all([
+    const [rankT,dataT,latestMetaT,latestResultsT]=await Promise.all([
       loadGviz(HOSTED_SHEET,'DRIVER RANKINGS','A1:G1000'),
-      loadGviz(HOSTED_SHEET,'DRIVER DATA','A1:M20000')
+      loadGviz(HOSTED_SHEET,'DRIVER DATA','A1:M20000'),
+      loadGviz(HOSTED_SHEET,'LATEST SESSION','A3:B5'),
+      loadGviz(HOSTED_SHEET,'LATEST SESSION','A7:K50')
     ]);
     const rankings=tableRows(rankT); // kept available for compatibility, but NOT used to limit the driver directory
+    const latestMetaRows=tableRows(latestMetaT);
+    const latestRaceRows=tableRows(latestResultsT);
+    const metaKey=(latestMetaT.cols?.[0]?.label || latestMetaT.cols?.[0]?.id || '').trim();
+    const metaValueKey=(latestMetaT.cols?.[1]?.label || latestMetaT.cols?.[1]?.id || '').trim();
+    const trackRow=latestMetaRows.find(r=>String(r[metaKey]||'').trim().toLowerCase()==='track');
+    const dateRow=latestMetaRows.find(r=>String(r[metaKey]||'').trim().toLowerCase()==='date');
+    const winnerRow=latestRaceRows.find(r=>Number(r.Pos)===1) || latestRaceRows[0];
+    state.hostedLatest = winnerRow && winnerRow.Driver ? {
+      winner: prettyName(String(winnerRow.Driver)),
+      track: String(trackRow?.[metaValueKey]||'HLRN Hosted Race'),
+      date: String(dateRow?.[metaValueKey]||''),
+      car: String(winnerRow.Car||''),
+      carNumber: String(winnerRow['Car #']||'')
+    } : null;
     state.hostedRaceRows=tableRows(dataT).filter(r=>String(r.Driver||'').trim());
     const m=new Map();
     state.hostedRaceRows.forEach(r=>{
@@ -309,6 +329,7 @@ async function refreshHostedData(rerender=true){
     state.hostedDataStatus='HOSTED DATA OFFLINE';
   }
   if(rerender && state.currentView==='drivers') renderDrivers(document.querySelector('#driverSearch')?.value||'');
+  else if(rerender && state.currentView==='home') renderHome();
 }
 
 function renderResults(){

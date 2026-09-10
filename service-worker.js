@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v4-2-schedule-all-drivers';
+const CACHE = 'hlrn-v4-3-hosted-latest-winner';
 const APP_SHELL = [
   './',
   './index.html',
