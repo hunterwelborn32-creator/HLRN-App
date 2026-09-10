@@ -79,7 +79,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '8.4',
+  appVersion: '8.5',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
   teamStandings: {Sunday: [], Monday: []},
@@ -550,7 +550,12 @@ function openFeature(name){
   state.featureView=name;
   state.currentView='feature';
   nav.forEach(n=>n.classList.remove('active'));
-  renderFeature(name);
+  try{
+    renderFeature(name);
+  }catch(err){
+    console.error('Feature open failed:',name,err);
+    featureShell('HLRN Feature','The feature hit a loading error.',`<section class="coming-live"><span>⚠️</span><h3>Could not open this feature</h3><p>Tap Home and try again after the live data finishes loading.</p><button class="btn primary" onclick="setView('home')">BACK HOME</button></section>`,'feature-error-page');
+  }
   addPageMotion();
   window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -600,123 +605,145 @@ function renderRecords(){
 function compareDriver(name){
   return hostedDriverStats().find(d=>d.name===name)||null;
 }
-function h2hDriverPool(){
-  const stats=hostedDriverStats();
-  if(stats.length) return stats.sort((a,b)=>a.name.localeCompare(b.name));
-  return (state.hostedDrivers||[]).map(d=>({
-    name:d.name,
-    races:d.races||0,
-    wins:d.wins||0,
-    top5:d.top5||0,
-    top10:d.top10||0,
-    lapsLed:0,
-    avgFinish:d.averageFinish||0,
-    avgInc:0,
-    cleanRate:0
-  })).sort((a,b)=>a.name.localeCompare(b.name));
-}
-
-function h2hFilteredDrivers(id,drivers){
-  const q=String(state[id+'Query']||'').trim().toLowerCase();
-  return q ? drivers.filter(d=>d.name.toLowerCase().includes(q)) : drivers;
-}
-
-function h2hPicker(id,drivers,selected,label){
-  const filtered=h2hFilteredDrivers(id,drivers);
-  const q=state[id+'Query']||'';
-  return `<section class="h2h-picker-card">
-    <div class="h2h-picker-label"><small>${label}</small><strong>${escapeHtml(selected||'Choose a driver')}</strong></div>
-    <div class="h2h-searchbar">
-      <span>⌕</span>
-      <input id="${id}Search" value="${escapeHtml(q)}" placeholder="Search drivers..." autocomplete="off"
-        oninput="h2hSetQuery('${id}',this.value)">
-      ${q?`<button onclick="h2hSetQuery('${id}','')" aria-label="Clear">×</button>`:''}
-    </div>
-    <div class="h2h-driver-list">
-      ${filtered.length ? filtered.map(d=>`<button class="h2h-driver-option ${d.name===selected?'selected':''}"
-        onclick="h2hSelect('${id}','${encodeURIComponent(d.name)}')">
-          <span class="h2h-avatar">${escapeHtml(initials(d.name))}</span>
-          <span class="h2h-driver-copy"><strong>${escapeHtml(d.name)}</strong><small>${d.races||0} starts • ${d.wins||0} wins</small></span>
-          <b>${d.name===selected?'✓':'›'}</b>
-        </button>`).join('') : `<div class="h2h-empty">No drivers match “${escapeHtml(q)}”</div>`}
-    </div>
-    <div class="h2h-filter-count">${filtered.length} of ${drivers.length} drivers</div>
-  </section>`;
-}
-
-function h2hSetQuery(id,value){
-  state[id+'Query']=value;
-  renderHeadToHead();
-  requestAnimationFrame(()=>{
-    const input=document.getElementById(id+'Search');
-    if(input){
-      input.focus();
-      try{input.setSelectionRange(input.value.length,input.value.length)}catch(e){}
+function h2hSafeDrivers(){
+  try{
+    const career=hostedDriverStats();
+    if(Array.isArray(career) && career.length){
+      return career.filter(d=>d && d.name).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
     }
-  });
+  }catch(e){ console.warn('H2H career stats fallback',e); }
+
+  return (state.hostedDrivers||[])
+    .filter(d=>d && d.name)
+    .map(d=>({
+      name:String(d.name),
+      races:Number(d.races||0),
+      wins:Number(d.wins||0),
+      top5:Number(d.top5||0),
+      top10:Number(d.top10||0),
+      lapsLed:Number(d.lapsLed||0),
+      avgFinish:Number(d.averageFinish||0),
+      avgInc:Number(d.avgInc||0),
+      cleanRate:Number(d.cleanRate||0)
+    }))
+    .sort((a,b)=>a.name.localeCompare(b.name));
 }
 
-function h2hSelect(id,encodedName){
+function h2hOptionList(side,query=''){
+  const drivers=h2hSafeDrivers();
+  const selected=side==='A'?state.h2hA:state.h2hB;
+  const q=String(query||'').trim().toLowerCase();
+  const filtered=drivers.filter(d=>!q || d.name.toLowerCase().includes(q));
+  return filtered.map(d=>`<button class="h2h-list-name ${d.name===selected?'selected':''}"
+      onclick="h2hPick('${side}','${encodeURIComponent(d.name)}')">
+      <span class="h2h-list-avatar">${escapeHtml(initials(d.name))}</span>
+      <span class="h2h-list-copy"><strong>${escapeHtml(d.name)}</strong><small>${d.races||0} starts • ${d.wins||0} wins</small></span>
+      <b>${d.name===selected?'✓':'›'}</b>
+    </button>`).join('') || `<div class="h2h-no-results">No drivers found</div>`;
+}
+
+function h2hFilter(side,value){
+  const box=document.getElementById(`h2hList${side}`);
+  const count=document.getElementById(`h2hCount${side}`);
+  if(!box) return;
+  box.innerHTML=h2hOptionList(side,value);
+  if(count){
+    const total=h2hSafeDrivers().filter(d=>!value || d.name.toLowerCase().includes(String(value).toLowerCase())).length;
+    count.textContent=`${total} driver${total===1?'':'s'}`;
+  }
+}
+
+function h2hPick(side,encodedName){
   const name=decodeURIComponent(encodedName);
-  if(id==='h2hA') state.h2hA=name;
-  else state.h2hB=name;
-  state[id+'Query']='';
+  if(side==='A') state.h2hA=name; else state.h2hB=name;
   renderHeadToHead();
+}
+
+function h2hMetricsHtml(a,b){
+  const metric=(label,av,bv,fmt=v=>v,lower=false)=>{
+    const aa=Number(av||0), bb=Number(bv||0);
+    const aLead=lower ? (aa<bb) : (aa>bb);
+    const bLead=lower ? (bb<aa) : (bb>aa);
+    return `<div class="h2h-metric">
+      <strong class="${aLead?'lead':''}">${fmt(aa)}</strong>
+      <span>${label}</span>
+      <b class="${bLead?'lead':''}">${fmt(bb)}</b>
+    </div>`;
+  };
+  return [
+    metric('STARTS',a.races,b.races),
+    metric('WINS',a.wins,b.wins),
+    metric('TOP 5',a.top5,b.top5),
+    metric('TOP 10',a.top10,b.top10),
+    metric('LAPS LED',a.lapsLed,b.lapsLed),
+    metric('AVG FINISH',a.avgFinish,b.avgFinish,v=>v.toFixed(1),true),
+    metric('AVG INCIDENTS',a.avgInc,b.avgInc,v=>v.toFixed(1),true),
+    metric('CLEAN RATE',a.cleanRate,b.cleanRate,v=>v.toFixed(1)+'%')
+  ].join('');
 }
 
 function renderHeadToHead(){
-  const ds=h2hDriverPool();
-  if(ds.length<2){
+  // Render a visible page immediately so this feature can never fail silently.
+  featureShell(
+    'Head-to-Head',
+    'Search a driver or scroll the complete Hosted driver list.',
+    `<section class="h2h-loading-shell"><span>⚔️</span><strong>Loading Head-to-Head…</strong></section>`,
+    'headtohead-page'
+  );
+
+  try{
+    const drivers=h2hSafeDrivers();
+
+    if(drivers.length<2){
+      const body=`<section class="coming-live"><span>⚔️</span><h3>Hosted driver database is loading</h3><p>Head-to-Head needs at least two Hosted drivers. Tap refresh and the lists will populate as soon as the Hosted data finishes loading.</p><button class="btn primary" onclick="refreshHostedData().then(()=>renderHeadToHead())">REFRESH HOSTED DATA</button></section>`;
+      featureShell('Head-to-Head','Search a driver or scroll the complete Hosted driver list.',body,'headtohead-page');
+      return;
+    }
+
+    if(!state.h2hA || !drivers.some(d=>d.name===state.h2hA)) state.h2hA=drivers[0].name;
+    if(!state.h2hB || !drivers.some(d=>d.name===state.h2hB) || state.h2hB===state.h2hA){
+      state.h2hB=(drivers.find(d=>d.name!==state.h2hA)||drivers[1]).name;
+    }
+
+    const a=drivers.find(d=>d.name===state.h2hA) || drivers[0];
+    const b=drivers.find(d=>d.name===state.h2hB) || drivers[1];
+
+    const body=`
+      <p class="feature-note">You can type a name to filter the list, or just scroll through every Hosted driver and tap one.</p>
+
+      <section class="h2h-driver-section driver-a">
+        <div class="h2h-side-title"><div><small>DRIVER 1</small><strong>${escapeHtml(a.name)}</strong></div><span>A</span></div>
+        <div class="h2h-search-row"><span>⌕</span><input placeholder="Search Driver 1…" autocomplete="off" oninput="h2hFilter('A',this.value)"></div>
+        <div class="h2h-full-list" id="h2hListA">${h2hOptionList('A')}</div>
+        <div class="h2h-list-total" id="h2hCountA">${drivers.length} drivers</div>
+      </section>
+
+      <div class="h2h-big-vs">VS</div>
+
+      <section class="h2h-driver-section driver-b">
+        <div class="h2h-side-title"><div><small>DRIVER 2</small><strong>${escapeHtml(b.name)}</strong></div><span>B</span></div>
+        <div class="h2h-search-row"><span>⌕</span><input placeholder="Search Driver 2…" autocomplete="off" oninput="h2hFilter('B',this.value)"></div>
+        <div class="h2h-full-list" id="h2hListB">${h2hOptionList('B')}</div>
+        <div class="h2h-list-total" id="h2hCountB">${drivers.length} drivers</div>
+      </section>
+
+      <section class="h2h-comparison-head">
+        <div><small>DRIVER 1</small><strong>${escapeHtml(a.name)}</strong></div>
+        <span>CAREER COMPARISON</span>
+        <div><small>DRIVER 2</small><strong>${escapeHtml(b.name)}</strong></div>
+      </section>
+      <div class="h2h-board">${h2hMetricsHtml(a,b)}</div>`;
+
+    featureShell('Head-to-Head','Search a driver or scroll the complete Hosted driver list.',body,'headtohead-page');
+  }catch(err){
+    console.error('Head-to-Head render error',err);
     featureShell(
       'Head-to-Head',
-      'Compare two Hosted drivers.',
-      `<section class="coming-live"><span>⚔️</span><h3>Hosted driver data is still loading</h3><p>Head-to-Head will populate automatically when the Hosted database finishes loading.</p><button class="btn primary" onclick="refreshHostedData().then(()=>renderHeadToHead())">REFRESH HOSTED DATA</button></section>`,
+      'Search a driver or scroll the complete Hosted driver list.',
+      `<section class="coming-live"><span>⚠️</span><h3>Head-to-Head could not load</h3><p>The rest of the app is still available. Tap below to reload Hosted data and try again.</p><button class="btn primary" onclick="refreshHostedData().then(()=>renderHeadToHead())">RELOAD DRIVER DATA</button></section>`,
       'headtohead-page'
     );
-    return;
   }
-
-  if(!state.h2hA || !ds.some(d=>d.name===state.h2hA)) state.h2hA=ds[0].name;
-  if(!state.h2hB || !ds.some(d=>d.name===state.h2hB) || state.h2hB===state.h2hA)
-    state.h2hB=ds.find(d=>d.name!==state.h2hA)?.name||ds[1].name;
-
-  const a=ds.find(d=>d.name===state.h2hA);
-  const b=ds.find(d=>d.name===state.h2hB);
-
-  const metric=(label,av,bv,fmt=v=>v,lower=false)=>{
-    const aLead=lower ? (av<bv) : (av>bv);
-    const bLead=lower ? (bv<av) : (bv>av);
-    return `<div class="h2h-metric">
-      <strong class="${aLead?'lead':''}">${fmt(av)}</strong>
-      <span>${label}</span>
-      <b class="${bLead?'lead':''}">${fmt(bv)}</b>
-    </div>`;
-  };
-
-  const body=`
-    <p class="feature-note">Use the search box or scroll the full driver list on either side. Tap a name to select that driver.</p>
-    <div class="h2h-pickers">
-      ${h2hPicker('h2hA',ds,state.h2hA,'DRIVER 1')}
-      <div class="h2h-vs">VS</div>
-      ${h2hPicker('h2hB',ds,state.h2hB,'DRIVER 2')}
-    </div>
-    <section class="h2h-matchup">
-      <div><small>DRIVER 1</small><strong>${escapeHtml(a.name)}</strong></div>
-      <span>HEAD TO HEAD</span>
-      <div><small>DRIVER 2</small><strong>${escapeHtml(b.name)}</strong></div>
-    </section>
-    <div class="h2h-board">
-      ${metric('STARTS',a.races||0,b.races||0)}
-      ${metric('WINS',a.wins||0,b.wins||0)}
-      ${metric('TOP 5',a.top5||0,b.top5||0)}
-      ${metric('TOP 10',a.top10||0,b.top10||0)}
-      ${metric('LAPS LED',a.lapsLed||0,b.lapsLed||0)}
-      ${metric('AVG FINISH',a.avgFinish||0,b.avgFinish||0,v=>Number(v).toFixed(1),true)}
-      ${metric('AVG INCIDENTS',a.avgInc||0,b.avgInc||0,v=>Number(v).toFixed(1),true)}
-      ${metric('CLEAN RATE',a.cleanRate||0,b.cleanRate||0,v=>Number(v).toFixed(1)+'%')}
-    </div>`;
-
-  featureShell('Head-to-Head','Search, filter and compare any two Hosted drivers.',body,'headtohead-page');
 }
 function renderRaceStats(){
   const body=`<div class="intelligence-launch"><div><small>HLRN ANALYTICS ENGINE</small><strong>Sunday + Monday Race Intelligence</strong><p>Full live intelligence dashboard with league switching, command-center metrics, stories and deeper race analysis.</p></div><button onclick="document.getElementById('raceIntelFrame')?.contentWindow?.location.reload()">↻ REFRESH</button></div><iframe id="raceIntelFrame" class="race-intelligence-frame" src="race-intelligence.html" title="HLRN Race Intelligence"></iframe>`;
