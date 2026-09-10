@@ -159,8 +159,8 @@ function renderHome(){
   state.currentView='home';
   const race = state.nextRaces[state.homeLeague];
   const scheduleRace = FULL_SCHEDULE[state.homeLeague].find(r=>r.date===race.iso?.slice(0,10)) || FULL_SCHEDULE[state.homeLeague].find(r=>r.track===race.track) || {};
-  const leader = state.standings[state.homeLeague]?.[0];
-  const hostedLeader = [...state.hostedDrivers].sort((a,b)=>b.wins-a.wins || b.top5-a.top5 || a.averageFinish-b.averageFinish)[0];
+  const sundayLeader = state.standings.Sunday?.[0];
+  const mondayLeader = state.standings.Monday?.[0];
   const announcementHtml = state.announcements.slice(0,4).map(a=>`
     <article class="announcement-card"><div class="announcement-top"><span class="mini-tag">${escapeHtml(a.tag||'NEWS')}</span><time>${escapeHtml(a.time||'')}</time></div>
     <h4>${escapeHtml(a.title)}</h4><p>${escapeHtml(a.text)}</p></article>`).join('');
@@ -189,10 +189,10 @@ function renderHome(){
     </section>
     <div class="section-head"><h3>Race Central</h3><span>Quick Access</span></div>
     <section class="grid"><button class="quick-card" onclick="setView('standings')"><span class="ico">🏆</span><strong>Standings</strong><small>Live Sunday + Monday</small></button><button class="quick-card" onclick="setView('schedule')"><span class="ico">🗓️</span><strong>Schedule</strong><small>Upcoming races</small></button><button class="quick-card" onclick="setView('drivers')"><span class="ico">🏎️</span><strong>Drivers</strong><small>Live roster + stats</small></button><button class="quick-card" onclick="renderResults()"><span class="ico">📊</span><strong>Results</strong><small>Latest finishes</small></button></section>
-    <div class="section-head"><h3>Championship Pulse</h3><span>Live leaders</span></div>
+    <div class="section-head"><h3>Chase for a Championship</h3><span>Sunday + Monday leaders</span></div>
     <section class="pulse-grid">
-      <button class="pulse-card league-pulse ${state.homeLeague.toLowerCase()}" onclick="setView('standings')"><small>${state.homeLeague.toUpperCase()} POINTS LEADER</small><strong>${escapeHtml(leader?.name||'Loading…')}</strong><span>${leader?`${leader.points} PTS • ${leader.wins} WINS`:'Live standings'}</span></button>
-      <button class="pulse-card hosted-pulse" onclick="setView('drivers')"><small>HOSTED WIN LEADER</small><strong>${escapeHtml(hostedLeader?.name||'Loading…')}</strong><span>${hostedLeader?`${hostedLeader.wins} WINS • ${hostedLeader.races} STARTS`:'Career database'}</span></button>
+      <button class="pulse-card league-pulse sunday" onclick="state.league='Sunday'; setView('standings')"><small>SUNDAY POINTS LEADER</small><strong>${escapeHtml(sundayLeader?.name||'Loading…')}</strong><span>${sundayLeader?`${sundayLeader.points} PTS • ${sundayLeader.wins} WINS`:'Live standings'}</span></button>
+      <button class="pulse-card league-pulse monday" onclick="state.league='Monday'; setView('standings')"><small>MONDAY POINTS LEADER</small><strong>${escapeHtml(mondayLeader?.name||'Loading…')}</strong><span>${mondayLeader?`${mondayLeader.points} PTS • ${mondayLeader.wins} WINS`:'Live standings'}</span></button>
     </section>
     <div class="section-head"><h3>Latest Results</h3><button class="text-link" onclick="renderResults()">Open Archive</button></div><section class="results-stack">${resultsHtml}</section>
     <div class="section-head"><h3>HLRN Updates</h3><span>Newsroom</span></div><section class="announcement-grid">${announcementHtml}</section>
