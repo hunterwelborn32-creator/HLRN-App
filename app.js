@@ -79,7 +79,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '8.5',
+  appVersion: '8.6',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
   teamStandings: {Sunday: [], Monday: []},
@@ -386,6 +386,18 @@ async function openHostedDriverProfile(driver){
 
 function fmt1(v){ const n=Number(v); return Number.isFinite(n)?n.toFixed(1):'--'; }
 function ordinal(n){ n=Number(n); if(!Number.isFinite(n)||n<=0)return '--'; const s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+
+function initials(name){
+  return String(name||'')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(part=>part[0]||'')
+    .slice(0,2)
+    .join('')
+    .toUpperCase() || 'HL';
+}
+
 function num(v){ const n=Number(v); return Number.isFinite(n)?n:0; }
 
 function careerBadges(races,wins,top5,top10,lapsLed){
