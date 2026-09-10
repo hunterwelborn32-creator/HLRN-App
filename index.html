@@ -10,27 +10,27 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="HLRN" />
-  <link rel="stylesheet" href="style.css?v=5.8" />
+  <link rel="stylesheet" href="style.css?v=6.0" />
   <title>HLRN</title>
 </head>
-<body>
+<body><div class="ambient-checkers" aria-hidden="true"></div>
   <div class="app-shell">
     <header class="topbar">
       <div class="top-brand"><img src="hlrn-logo-4k.png" alt="HLRN"><div><div class="eyebrow">HIGH LINE RACING NETWORK</div><h1>HLRN</h1></div></div>
-      <button class="icon-btn" id="installBtn" hidden aria-label="Install app">＋</button>
+      <div class="top-actions"><span class="top-live-dot" aria-hidden="true"></span><button class="icon-btn" id="installBtn" hidden aria-label="Install app">＋</button></div>
     </header>
 
     <main id="app"></main>
 
     <nav class="bottom-nav" aria-label="Primary">
-      <button class="nav-item active" data-view="home"><span>⌂</span><small>Home</small></button>
-      <button class="nav-item" data-view="standings"><span>🏆</span><small>Standings</small></button>
-      <button class="nav-item" data-view="schedule"><span>🏁</span><small>Schedule</small></button>
-      <button class="nav-item" data-view="drivers"><span>👤</span><small>Drivers</small></button>
-      <button class="nav-item" data-view="socials"><span>🔗</span><small>Socials</small></button>
+      <button class="nav-item active" data-view="home"><span class="nav-icon">⌂</span><small>Home</small></button>
+      <button class="nav-item" data-view="standings"><span class="nav-icon">🏆</span><small>Standings</small></button>
+      <button class="nav-item" data-view="schedule"><span class="nav-icon">🏁</span><small>Schedule</small></button>
+      <button class="nav-item" data-view="drivers"><span class="nav-icon">👤</span><small>Drivers</small></button>
+      <button class="nav-item" data-view="socials"><span class="nav-icon">🔗</span><small>Socials</small></button>
     </nav>
   </div>
 
-  <script src="app.js?v=5.8"></script>
+  <script src="app.js?v=6.0"></script>
 </body>
 </html>
