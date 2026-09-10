@@ -79,7 +79,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '9.5',
+  appVersion: '9.6',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
   teamStandings: {Sunday: [], Monday: []},
@@ -1261,6 +1261,53 @@ async function getPushSubscription(){
   const reg=await navigator.serviceWorker.ready;
   return reg.pushManager.getSubscription();
 }
+
+function defaultPushPrefs(){
+  return {announcements:true,sunday:true,monday:true,hosted:true};
+}
+function getPushPrefs(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('hlrnPushPrefs')||'null');
+    return {...defaultPushPrefs(),...(saved||{})};
+  }catch(e){
+    return defaultPushPrefs();
+  }
+}
+function getPushTopics(){
+  const p=getPushPrefs();
+  return Object.keys(p).filter(k=>p[k]);
+}
+async function savePushPrefs(nextPrefs){
+  localStorage.setItem('hlrnPushPrefs',JSON.stringify(nextPrefs));
+  const sub=await getPushSubscription().catch(()=>null);
+  if(sub){
+    const r=await fetch(HLRN_PUSH.worker+'/subscribe',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({subscription:sub.toJSON(),topics:getPushTopics()})
+    });
+    if(!r.ok) throw new Error('Could not update notification preferences');
+  }
+}
+async function togglePushPref(key){
+  const p=getPushPrefs();
+  p[key]=!p[key];
+  try{
+    await savePushPrefs(p);
+    renderNotifications();
+  }catch(e){
+    alert('Could not update notification preferences right now.');
+  }
+}
+function pushPrefRow(key,icon,title,desc,accent=''){
+  const p=getPushPrefs();
+  return `<button class="push-pref-row ${accent}" onclick="togglePushPref('${key}')">
+    <span class="push-pref-icon">${icon}</span>
+    <div><strong>${title}</strong><small>${desc}</small></div>
+    <span class="push-switch ${p[key]?'on':''}"><i></i></span>
+  </button>`;
+}
+
 async function refreshPushStatus(){
   if(!pushSupported()){ state.pushStatus='UNSUPPORTED'; return; }
   if(isIOSDevice() && !isStandaloneApp()){ state.pushStatus='ADD_TO_HOME'; return; }
@@ -1295,7 +1342,7 @@ async function enablePushNotifications(){
     const response=await fetch(HLRN_PUSH.worker+'/subscribe',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({subscription:sub.toJSON(),topics:['announcements','sunday','monday','hosted']})
+      body:JSON.stringify({subscription:sub.toJSON(),topics:getPushTopics()})
     });
     if(!response.ok) throw new Error('Push server '+response.status);
     state.pushStatus='ENABLED';
@@ -1340,7 +1387,7 @@ async function sendTestNotification(){
   }
 }
 function pushStatusCopy(){
-  if(state.pushStatus==='ENABLED') return ['ON','Phone alerts are enabled for HLRN announcements.'];
+  if(state.pushStatus==='ENABLED') return ['ON','Phone alerts are enabled. Choose exactly which HLRN alerts you want below.'];
   if(state.pushStatus==='ADD_TO_HOME') return ['IPHONE SETUP','Add HLRN to your Home Screen, then open the app and enable notifications.'];
   if(state.pushStatus==='BLOCKED') return ['BLOCKED','Notifications are blocked in your device settings.'];
   if(state.pushStatus==='UNSUPPORTED') return ['NOT SUPPORTED','This browser does not support Web Push.'];
@@ -1365,6 +1412,13 @@ function renderNotifications(){
     : `<button class="push-enable" onclick="enablePushNotifications()">ENABLE PHONE ALERTS</button>`;
   const body=`<section class="push-control ${state.pushStatus==='ENABLED'?'enabled':''}">
     <div class="push-bell">🔔</div><div><small>HLRN PUSH NOTIFICATIONS</small><strong>${push[0]}</strong><p>${push[1]}</p></div><div class="push-actions">${pushActions}</div>
+  </section>
+  <section class="push-preferences">
+    <div class="push-pref-head"><div><small>NOTIFICATION PREFERENCES</small><strong>Choose Your Alerts</strong></div><span>1 HR + 30 MIN RACE REMINDERS</span></div>
+    ${pushPrefRow('announcements','📣','Announcements','Official HLRN Discord announcements')}
+    ${pushPrefRow('sunday','S','Sunday League','Race reminders and future Sunday alerts','sun')}
+    ${pushPrefRow('monday','M','Monday League','Race reminders and future Monday alerts','mon')}
+    ${pushPrefRow('hosted','H','Hosted Racing','Future Hosted results and event alerts','hosted')}
   </section>
   <section class="notification-status"><span class="${state.announcementsStatus==='LIVE'?'live':''}"></span><div><small>DISCORD ANNOUNCEMENT BRIDGE</small><strong>${escapeHtml(state.announcementsStatus)}</strong></div><button onclick="refreshDiscordAnnouncements().then(()=>renderNotifications())">↻ REFRESH</button></section>
   <div class="notification-races">${raceItems.map(x=>`<article class="${x.cls}"><b>${x.icon}</b><div><small>${x.type}</small><strong>${escapeHtml(x.title)}</strong><span>${escapeHtml(x.text)}</span></div></article>`).join('')}</div>

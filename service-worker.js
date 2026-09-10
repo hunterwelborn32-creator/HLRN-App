@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v9-5-iphone-safe-area';
+const CACHE = 'hlrn-v9-6-notification-center';
 const APP_SHELL = [
   './',
   './index.html',
