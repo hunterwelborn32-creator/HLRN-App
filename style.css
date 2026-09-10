@@ -217,3 +217,37 @@ main{padding:18px 16px 34px}
 }
 .socials-banner-img{display:block;width:100%;height:auto;aspect-ratio:16/10;object-fit:cover}
 @media(max-width:430px){.socials-banner-wrap{border-radius:18px}}
+
+/* ===== HLRN 5.5 SOCIALS — PLATFORM LOGOS ===== */
+.socials-banner-wrap{display:none!important}
+.socials-intro-card{
+  display:flex;align-items:center;gap:14px;padding:18px;margin:8px 0 22px;
+  border:1px solid rgba(255,45,62,.35);border-radius:20px;
+  background:linear-gradient(135deg,rgba(255,30,48,.10),rgba(255,255,255,.025));
+  box-shadow:0 14px 34px rgba(0,0,0,.28)
+}
+.socials-intro-mark{
+  flex:0 0 auto;font-weight:1000;font-style:italic;font-size:22px;letter-spacing:-1px;
+  color:#fff;padding:10px 12px;border-left:4px solid #ff263d;
+  background:linear-gradient(135deg,#272a31,#0c0d10);border-radius:8px
+}
+.socials-intro-card small{display:block;color:#ff394e;font-size:10px;font-weight:900;letter-spacing:1.5px;margin-bottom:5px}
+.socials-intro-card strong{display:block;color:#fff;font-size:15px}
+.social-card{position:relative;overflow:hidden}
+.social-platform-icon{
+  width:58px!important;height:58px!important;min-width:58px!important;border-radius:17px!important;
+  display:grid!important;place-items:center!important;padding:13px!important;
+  font-size:0!important;line-height:1!important
+}
+.social-platform-icon svg{width:100%;height:100%;display:block}
+.youtube-card .social-platform-icon{background:#ff0033!important;color:#fff!important;box-shadow:0 0 24px rgba(255,0,51,.30)}
+.facebook-card .social-platform-icon{background:#1877f2!important;color:#fff!important;box-shadow:0 0 24px rgba(24,119,242,.28)}
+.discord-card .social-platform-icon{background:#5865f2!important;color:#fff!important;box-shadow:0 0 24px rgba(88,101,242,.28)}
+.website-card .social-platform-icon{background:#24272e!important;color:#fff!important;border:1px solid rgba(255,255,255,.22)}
+.youtube-card{border-left:3px solid #ff0033!important}
+.facebook-card{border-left:3px solid #1877f2!important}
+.discord-card{border-left:3px solid #5865f2!important}
+.website-card{border-left:3px solid #fff!important}
+.socials-footer-line{display:flex;align-items:center;gap:12px;justify-content:center;margin:26px 0 8px;color:#858a95;font-size:9px;font-weight:900;letter-spacing:1.7px}
+.socials-footer-line span{height:1px;flex:1;background:linear-gradient(90deg,transparent,#ff263d)}
+.socials-footer-line span:last-child{background:linear-gradient(90deg,#ff263d,transparent)}

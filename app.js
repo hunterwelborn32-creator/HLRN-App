@@ -417,24 +417,27 @@ function renderResults(){
 }
 
 function renderSocials(){
-  state.currentView='more';
-  app.innerHTML=`<div class="page-title-row premium-page-head socials-head"><div><span class="page-kicker">FOLLOW HLRN</span><h2 class="page-title">Socials</h2><p class="page-sub">Watch the races, join the community and stay connected</p></div>${liveBadge()}</div>
-    <section class="socials-banner-wrap">
-      <img class="socials-banner-img" src="hlrn-socials-banner.png" alt="HLRN Socials">
-    </section>
+  setTop('SOCIALS');
+  const youtubeLogo = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.6V8.4L15.8 12l-6.2 3.6Z"/></svg>`;
+  const facebookLogo = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.7 22v-9h3l.5-3.5h-3.5V7.3c0-1 .3-1.7 1.8-1.7h1.9V2.5c-.3 0-1.5-.1-2.8-.1-2.8 0-4.7 1.7-4.7 4.8v2.3H6.8V13h3.1v9h3.8Z"/></svg>`;
+  const discordLogo = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.5 5.3A17.2 17.2 0 0 0 15.3 4l-.5 1a15.6 15.6 0 0 0-5.6 0l-.5-1a17 17 0 0 0-4.2 1.3C1.8 9.3 1.1 13.2 1.5 17a17 17 0 0 0 5.2 2.6l1.3-1.8-1.9-.9.5-.4c3.6 1.7 7.5 1.7 11 0l.6.4-2 .9 1.3 1.8a17 17 0 0 0 5.1-2.6c.6-4.4-.9-8.3-3.1-11.7ZM8.3 14.7c-1.1 0-2-1-2-2.2s.9-2.2 2-2.2 2 1 2 2.2-.9 2.2-2 2.2Zm7.4 0c-1.1 0-2-1-2-2.2s.9-2.2 2-2.2 2 1 2 2.2-.9 2.2-2 2.2Z"/></svg>`;
+  const globeLogo = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0 0c2.2-2.4 3.4-5.4 3.4-9S14.2 5.4 12 3c-2.2 2.4-3.4 5.4-3.4 9s1.2 6.6 3.4 9ZM3.5 9h17M3.5 15h17"/></svg>`;
+  app.innerHTML=`<div class="page-title-row premium-page-head socials-head"><div><span class="page-kicker">HIGH LINE RACING NETWORK</span><h2 class="page-title">Socials</h2><p class="page-sub">Stay connected • Follow • Join • Be part of HLRN</p></div>${liveBadge()}</div>
+    <section class="socials-intro-card"><div class="socials-intro-mark">HLRN</div><div><small>RACING BRINGS US TOGETHER</small><strong>Connect with the HLRN community</strong></div></section>
     <div class="section-head socials-section-head"><h3>Watch HLRN</h3><span>YOUTUBE</span></div>
     <div class="social-grid">
-      <button class="social-card youtube-card" onclick="openSocial('https://www.youtube.com/@High_Line_Racing')"><span class="social-platform-icon">▶</span><span class="social-card-copy"><small>YOUTUBE</small><strong>High Line Racing Network</strong><em>Sunday League broadcasts & HLRN content</em></span><span class="social-go">›</span></button>
-      <button class="social-card youtube-card" onclick="openSocial('https://www.youtube.com/@rsibroadcasting')"><span class="social-platform-icon">▶</span><span class="social-card-copy"><small>YOUTUBE</small><strong>RSI Broadcasting</strong><em>Monday League broadcasts</em></span><span class="social-go">›</span></button>
+      <button class="social-card youtube-card" onclick="openSocial('https://www.youtube.com/@High_Line_Racing')"><span class="social-platform-icon">${youtubeLogo}</span><span class="social-card-copy"><small>YOUTUBE</small><strong>High Line Racing Network</strong><em>Races • Highlights • HLRN content</em></span><span class="social-go">›</span></button>
+      <button class="social-card youtube-card" onclick="openSocial('https://www.youtube.com/@rsibroadcasting')"><span class="social-platform-icon">${youtubeLogo}</span><span class="social-card-copy"><small>YOUTUBE</small><strong>RSI Broadcasting</strong><em>Live races • Replays • Monday League</em></span><span class="social-go">›</span></button>
     </div>
     <div class="section-head socials-section-head community-head"><h3>Join the Community</h3><span>CONNECT</span></div>
     <div class="social-grid">
-      <button class="social-card facebook-card" onclick="openSocial('https://www.facebook.com/groups/hlrnzone')"><span class="social-platform-icon">f</span><span class="social-card-copy"><small>FACEBOOK</small><strong>HLRNZone</strong><em>News, conversation and league community</em></span><span class="social-go">›</span></button>
-      <button class="social-card discord-card" onclick="openSocial('https://discord.gg/3CzX6FJQ655')"><span class="social-platform-icon">◉</span><span class="social-card-copy"><small>DISCORD</small><strong>HLRN Hangout</strong><em>Join the server and race with the community</em></span><span class="social-go">›</span></button>
-      <button class="social-card website-card" onclick="openSocial(state.links['HLRN Website'] || 'https://sites.google.com/view/highlineracingnetwork/home')"><span class="social-platform-icon">H</span><span class="social-card-copy"><small>OFFICIAL WEBSITE</small><strong>High Line Racing Network</strong><em>Schedules, standings, stats and more</em></span><span class="social-go">›</span></button>
+      <button class="social-card facebook-card" onclick="openSocial('https://www.facebook.com/groups/hlrnzone')"><span class="social-platform-icon">${facebookLogo}</span><span class="social-card-copy"><small>FACEBOOK</small><strong>HLRNZone</strong><em>News • Discussions • Community</em></span><span class="social-go">›</span></button>
+      <button class="social-card discord-card" onclick="openSocial('https://discord.gg/3CzX6FJQ655')"><span class="social-platform-icon">${discordLogo}</span><span class="social-card-copy"><small>DISCORD</small><strong>HLRN Hangout</strong><em>Chat • Race talk • HLRN community</em></span><span class="social-go">›</span></button>
+      <button class="social-card website-card" onclick="openSocial(state.links['HLRN Website'] || 'https://sites.google.com/view/highlineracingnetwork/home')"><span class="social-platform-icon">${globeLogo}</span><span class="social-card-copy"><small>OFFICIAL WEBSITE</small><strong>High Line Racing Network</strong><em>Schedules • Results • Driver profiles • More</em></span><span class="social-go">›</span></button>
     </div>
-    <div class="social-footer"><strong>HLRN</strong><span>RACING PEOPLE TOGETHER</span><small>App Version ${escapeHtml(state.appVersion)}</small></div>`;
+    <div class="socials-footer-line"><span></span>RACING BRINGS US TOGETHER<span></span></div>`;
 }
+
 function openSocial(url){ if(url) window.open(url,'_blank','noopener,noreferrer'); }
 function openLink(name){ const url=state.links[name]; if(url) window.open(url,'_blank'); }
 

@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v5-4-socials-fixed';
+const CACHE = 'hlrn-v5-5-social-icons';
 const APP_SHELL = [
   './',
   './index.html',
