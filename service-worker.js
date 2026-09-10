@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v9-2-home-bar-fix';
+const CACHE = 'hlrn-v9-4-race-experience';
 const APP_SHELL = [
   './',
   './index.html',

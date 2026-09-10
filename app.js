@@ -79,7 +79,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '9.2',
+  appVersion: '9.4',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
   teamStandings: {Sunday: [], Monday: []},
@@ -125,21 +125,94 @@ function setView(view){
 }
 nav.forEach(n=>n.addEventListener('click',()=>{
   if(navigator.vibrate) navigator.vibrate(12);
+  racePulse();
   setView(n.dataset.view);
 }));
 
 function addPageMotion(){
+  attachHLRNEasterEgg();
+  updateSoundButton();
   requestAnimationFrame(()=>{
     app.classList.remove('view-enter');
     void app.offsetWidth;
     app.classList.add('view-enter');
+
+    // Stagger high-value cards so pages feel like a broadcast package loading in.
+    const animated = app.querySelectorAll(
+      '.quick-card,.result-card,.announcement-card,.feature-launchpad button,.podium-card,.standing-row,.schedule-card,.driver-list-card,.record-card,.track-card,.career-stat,.archive-race-chip,.profile-recent-row,.profile-track-row,.social-card,.notification-bulletin,.rulebook-section'
+    );
+    animated.forEach((el,i)=>{
+      el.classList.remove('hlrn-reveal');
+      el.style.setProperty('--hlrn-delay', `${Math.min(i,18)*28}ms`);
+      requestAnimationFrame(()=>el.classList.add('hlrn-reveal'));
+    });
+
+    // Count-up animation for numeric stat tiles.
+    app.querySelectorAll('.career-stat strong,.record-card b,.snapshot-card strong,.pulse-card strong').forEach(el=>{
+      const raw=(el.textContent||'').trim();
+      if(!/^\d+(\.\d+)?%?$/.test(raw)) return;
+      const hasPct=raw.endsWith('%');
+      const target=parseFloat(raw);
+      if(!Number.isFinite(target)) return;
+      const decimals=(raw.includes('.')?raw.split('.')[1].replace('%','').length:0);
+      const duration=520;
+      const start=performance.now();
+      const tick=(now)=>{
+        const p=Math.min(1,(now-start)/duration);
+        const eased=1-Math.pow(1-p,3);
+        const val=target*eased;
+        el.textContent=(decimals?val.toFixed(decimals):Math.round(val).toString())+(hasPct?'%':'');
+        if(p<1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+
+    // Animated meters/progress bars.
+    app.querySelectorAll('.progress-fill,.bar-fill,.meter-fill,.championship-fill').forEach(el=>{
+      const width=el.style.width || getComputedStyle(el).width;
+      if(!width) return;
+      el.dataset.finalWidth=width;
+      el.style.width='0';
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{ el.style.width=el.dataset.finalWidth; }));
+    });
+
+    setupScrollReveal();
   });
 }
-function refreshNow(){
+
+let hlrnRevealObserver=null;
+function setupScrollReveal(){
+  if(!('IntersectionObserver' in window)) return;
+  if(hlrnRevealObserver) hlrnRevealObserver.disconnect();
+
+  hlrnRevealObserver=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        entry.target.classList.add('hlrn-inview');
+        hlrnRevealObserver.unobserve(entry.target);
+      }
+    });
+  },{threshold:.12,rootMargin:'0px 0px -25px 0px'});
+
+  app.querySelectorAll(
+    '.section-head,.feature-page>*,.driver-profile-hero,.race-hero,.home-masthead,.team-command-card,.rules-command,.push-control'
+  ).forEach((el,i)=>{
+    el.classList.add('hlrn-scroll-reveal');
+    el.style.setProperty('--scroll-delay',`${Math.min(i,10)*35}ms`);
+    hlrnRevealObserver.observe(el);
+  });
+}
+
+function racePulse(){
+  document.documentElement.classList.remove('hlrn-race-pulse');
+  void document.documentElement.offsetWidth;
+  document.documentElement.classList.add('hlrn-race-pulse');
+  setTimeout(()=>document.documentElement.classList.remove('hlrn-race-pulse'),900);
+}function refreshNow(){
   const btn=document.querySelector('#refreshDataBtn');
   if(btn) btn.classList.add('spinning');
   Promise.allSettled([refreshLiveData(),refreshHostedData(false),refreshTeamStandings(),refreshDiscordAnnouncements()]).finally(()=>{
-    setTimeout(()=>btn?.classList.remove('spinning'),500);
+    setTimeout(()=>{btn?.classList.remove('spinning'); playHLRNSound('refresh');},500);
   });
 }
 function seasonWeek(league){
@@ -169,6 +242,177 @@ function rerenderCurrent(){
   if(state.currentView==='results') renderResults();
   else if(state.currentView==='feature') renderFeature(state.featureView);
   else setView(state.currentView);
+}
+
+
+const HLRN_EXPERIENCE = {
+  soundOn: localStorage.getItem('hlrnSound') !== 'off',
+  audioReady: false,
+  audioCtx: null,
+  logoTapCount: 0,
+  logoTapTimer: null
+};
+
+function hlrnAudioContext(){
+  if(!HLRN_EXPERIENCE.audioCtx){
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(!Ctx) return null;
+    HLRN_EXPERIENCE.audioCtx=new Ctx();
+  }
+  return HLRN_EXPERIENCE.audioCtx;
+}
+
+async function unlockHLRNAudio(){
+  if(!HLRN_EXPERIENCE.soundOn) return;
+  const ctx=hlrnAudioContext();
+  if(!ctx) return;
+  try{
+    if(ctx.state==='suspended') await ctx.resume();
+    HLRN_EXPERIENCE.audioReady=ctx.state==='running';
+  }catch(e){}
+}
+
+function hlrnTone(freq=440,duration=.06,type='sine',volume=.035,delay=0){
+  if(!HLRN_EXPERIENCE.soundOn) return;
+  const ctx=hlrnAudioContext();
+  if(!ctx || ctx.state!=='running') return;
+  const t=ctx.currentTime+delay;
+  const osc=ctx.createOscillator();
+  const gain=ctx.createGain();
+  osc.type=type;
+  osc.frequency.setValueAtTime(freq,t);
+  gain.gain.setValueAtTime(0.0001,t);
+  gain.gain.exponentialRampToValueAtTime(Math.max(.0001,volume),t+.008);
+  gain.gain.exponentialRampToValueAtTime(.0001,t+duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t+duration+.02);
+}
+
+function playHLRNSound(kind='tap'){
+  if(!HLRN_EXPERIENCE.soundOn) return;
+  if(kind==='tap'){
+    hlrnTone(620,.045,'square',.018);
+  }else if(kind==='select'){
+    hlrnTone(520,.05,'sine',.024);
+    hlrnTone(760,.06,'sine',.018,.035);
+  }else if(kind==='refresh'){
+    hlrnTone(410,.055,'triangle',.022);
+    hlrnTone(620,.055,'triangle',.022,.055);
+    hlrnTone(850,.08,'triangle',.022,.11);
+  }else if(kind==='light'){
+    hlrnTone(260,.075,'square',.027);
+  }else if(kind==='go'){
+    hlrnTone(620,.08,'sawtooth',.026);
+    hlrnTone(930,.13,'sawtooth',.022,.045);
+  }else if(kind==='winner'){
+    hlrnTone(523,.08,'triangle',.025);
+    hlrnTone(659,.08,'triangle',.025,.08);
+    hlrnTone(784,.14,'triangle',.028,.16);
+  }else if(kind==='easter'){
+    [330,440,554,659,880].forEach((f,i)=>hlrnTone(f,.09,'square',.022,i*.065));
+  }
+}
+
+function updateSoundButton(){
+  const btn=document.getElementById('soundToggleBtn');
+  if(!btn) return;
+  btn.textContent=HLRN_EXPERIENCE.soundOn?'🔊':'🔇';
+  btn.setAttribute('aria-label',HLRN_EXPERIENCE.soundOn?'Turn sound effects off':'Turn sound effects on');
+  btn.classList.toggle('sound-off',!HLRN_EXPERIENCE.soundOn);
+}
+
+async function toggleHLRNSound(){
+  HLRN_EXPERIENCE.soundOn=!HLRN_EXPERIENCE.soundOn;
+  localStorage.setItem('hlrnSound',HLRN_EXPERIENCE.soundOn?'on':'off');
+  updateSoundButton();
+  if(HLRN_EXPERIENCE.soundOn){
+    await unlockHLRNAudio();
+    playHLRNSound('select');
+  }
+}
+
+document.addEventListener('pointerdown',()=>{
+  unlockHLRNAudio();
+},{once:true,passive:true});
+
+document.addEventListener('click',e=>{
+  if(!HLRN_EXPERIENCE.soundOn) return;
+  if(e.target.closest('#soundToggleBtn')) return;
+  const interactive=e.target.closest('button,.nav-item,.driver-click,.h2h-list-name,.social-card,.archive-race-chip');
+  if(interactive) playHLRNSound('tap');
+},true);
+
+function attachHLRNEasterEgg(){
+  const logo=document.querySelector('.top-brand img');
+  if(!logo || logo.dataset.easterReady) return;
+  logo.dataset.easterReady='1';
+  logo.style.cursor='pointer';
+  logo.addEventListener('click',()=>{
+    HLRN_EXPERIENCE.logoTapCount++;
+    clearTimeout(HLRN_EXPERIENCE.logoTapTimer);
+    HLRN_EXPERIENCE.logoTapTimer=setTimeout(()=>HLRN_EXPERIENCE.logoTapCount=0,1600);
+    if(HLRN_EXPERIENCE.logoTapCount>=5){
+      HLRN_EXPERIENCE.logoTapCount=0;
+      triggerHLRNEasterEgg();
+    }
+  });
+}
+
+function triggerHLRNEasterEgg(){
+  unlockHLRNAudio().then(()=>playHLRNSound('easter'));
+  const egg=document.createElement('div');
+  egg.className='hlrn-easter-egg';
+  egg.innerHTML=`
+    <div class="egg-checkers"></div>
+    <div class="egg-smoke"></div>
+    <div class="egg-copy"><small>SECRET MODE UNLOCKED</small><strong>FULL SEND</strong><span>HIGH LINE RACING NETWORK</span></div>
+    <div class="egg-tire">◉</div>
+  `;
+  document.body.appendChild(egg);
+  requestAnimationFrame(()=>egg.classList.add('active'));
+  if(navigator.vibrate) navigator.vibrate([45,30,45,30,90]);
+  setTimeout(()=>egg.classList.add('exit'),2200);
+  setTimeout(()=>egg.remove(),2900);
+}
+
+function showStartingLights(){
+  if(sessionStorage.getItem('hlrnLightsShown')==='1') return;
+  sessionStorage.setItem('hlrnLightsShown','1');
+
+  const overlay=document.createElement('div');
+  overlay.className='hlrn-start-overlay';
+  overlay.innerHTML=`
+    <div class="start-grid">
+      <div class="start-brand">HLRN</div>
+      <div class="start-sub">HIGH LINE RACING NETWORK</div>
+      <div class="start-lights">
+        ${[1,2,3,4,5].map(i=>`<span class="start-light" data-light="${i}"></span>`).join('')}
+      </div>
+      <div class="start-status">GET READY</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  [1,2,3,4,5].forEach((n,i)=>{
+    setTimeout(()=>{
+      overlay.querySelector(`[data-light="${n}"]`)?.classList.add('on');
+      playHLRNSound('light');
+      const status=overlay.querySelector('.start-status');
+      if(status) status.textContent=`LIGHT ${n}`;
+    },350+i*245);
+  });
+
+  setTimeout(()=>{
+    overlay.classList.add('lights-out');
+    const status=overlay.querySelector('.start-status');
+    if(status) status.textContent='LIGHTS OUT';
+    playHLRNSound('go');
+  },1750);
+
+  setTimeout(()=>overlay.classList.add('launch'),1980);
+  setTimeout(()=>overlay.remove(),2550);
 }
 
 function escapeHtml(value=''){
@@ -766,6 +1010,7 @@ function h2hFilter(side,value){
 }
 
 function h2hPick(side,encodedName){
+  playHLRNSound('select');
   const name=decodeURIComponent(encodedName);
   if(side==='A') state.h2hA=name; else state.h2hB=name;
   renderHeadToHead();
@@ -1401,7 +1646,10 @@ if('serviceWorker' in navigator){
       const registration=await navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'}); await registration.update();
       if(registration.waiting) registration.waiting.postMessage({type:'SKIP_WAITING'});
       registration.addEventListener('updatefound',()=>{const worker=registration.installing;if(!worker)return;worker.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller)worker.postMessage({type:'SKIP_WAITING'});});});
-      document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){registration.update().catch(()=>{});refreshLiveData();}});
+      document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){registration.update().catch(()=>{});refreshLiveData();
+updateSoundButton();
+attachHLRNEasterEgg();
+setTimeout(showStartingLights,120);}});
     }catch(err){console.warn('HLRN update check failed:',err);}
   });
 }
