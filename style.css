@@ -29,3 +29,13 @@ button,input{font:inherit}button{cursor:pointer}.app-shell{max-width:760px;margi
 .driver-row,.race-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid var(--line)}.driver-row:first-child,.race-row:first-child{border-top:0}.avatar{width:46px;height:46px;border-radius:15px;background:linear-gradient(145deg,#2b2f38,#17191f);display:grid;place-items:center;font-weight:900;color:#fff;border:1px solid #363b46}.driver-meta{flex:1}.driver-meta strong{display:block}.driver-meta small{color:var(--muted)}.num{font-size:20px;font-weight:900;font-style:italic;color:var(--red)}.track-tag{font-size:9px;color:var(--muted)}.race-date{width:58px}.race-date strong{display:block;font-size:18px}.race-date small{color:var(--muted);text-transform:uppercase}.status{font-size:9px;padding:6px 8px;border-radius:999px;background:rgba(53,208,127,.12);color:var(--green);font-weight:900}.search{width:100%;background:var(--panel);border:1px solid var(--line);color:#fff;border-radius:14px;padding:12px 14px;outline:none;margin-bottom:12px}.search:focus{border-color:#555c69}.more-list{display:grid;gap:10px}.more-row{display:flex;justify-content:space-between;align-items:center;padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:16px;color:#fff}.more-row span:last-child{color:var(--muted)}
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:10;display:grid;grid-template-columns:repeat(5,1fr);max-width:760px;margin:auto;padding:8px max(10px,env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom));background:rgba(10,11,14,.95);backdrop-filter:blur(18px);border-top:1px solid var(--line)}.nav-item{border:0;background:transparent;color:#727886;padding:7px 4px;display:flex;flex-direction:column;gap:2px;align-items:center}.nav-item span{font-size:18px;line-height:1}.nav-item small{font-size:9px;font-weight:900}.nav-item.active{color:#fff}.nav-item.active span{filter:drop-shadow(0 0 9px rgba(239,35,60,.55))}.page-title{font-size:27px;margin:4px 0 5px}.page-sub{color:var(--muted);margin:0 0 18px;font-size:13px}.empty{padding:30px;text-align:center;color:var(--muted)}.back-home{margin-top:14px;border:1px solid var(--line);background:var(--panel);color:white;padding:11px 14px;border-radius:13px;font-weight:800}
 @media(min-width:650px){main{padding:22px}.grid{grid-template-columns:repeat(4,1fr)}.race-hero{padding:28px}.race-hero h2{font-size:40px}.announcement-grid{grid-template-columns:1fr 1fr}}
+
+
+.app-version{
+  text-align:center;
+  margin:22px 0 8px;
+  font-size:.78rem;
+  letter-spacing:.08em;
+  color:#7e7e86;
+  text-transform:uppercase;
+}

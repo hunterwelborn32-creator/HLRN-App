@@ -213,7 +213,8 @@ function renderMore(){
     <button class="more-row"><span>⚠️ Incident Watch</span><span>›</span></button>
     <button class="more-row"><span>📈 Driver Statistics</span><span>›</span></button>
     <button class="more-row"><span>ℹ️ About HLRN</span><span>›</span></button>
-  </div>`;
+  </div>
+  <div class="app-version">HLRN App • Version 3.1</div>`;
 }
 
 let deferredPrompt;

@@ -1,12 +1,14 @@
-const CACHE = 'hlrn-v3';
+const CACHE = 'hlrn-v3-1';
 const APP_SHELL = [
   './',
   './index.html',
   './style.css',
   './app.js',
   './manifest.json',
-  './icon-192.svg',
-  './icon-512.svg'
+  './apple-touch-icon.png',
+  './icon-192.png',
+  './icon-512.png',
+  './hlrn-logo-4k.png'
 ];
 
 self.addEventListener('install', event => {
