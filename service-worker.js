@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v3-1';
+const CACHE = 'hlrn-v4-0';
 const APP_SHELL = [
   './',
   './index.html',
