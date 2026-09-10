@@ -1,4 +1,4 @@
-const HOSTED_API = 'https://script.google.com/macros/s/AKfycbzlheXb7obxCKXtQZKFRvo9FMvKU0qDiuEbnCV3KLM4GDP2-VcM10BOu_j1_dNwO1gPNw/exec';
+const HOSTED_SHEET = '1YfY22x2dnI9T6Fi69pT3L91NAkmVQWdvL0IWbWhB-tM';
 
 const LIVE = {
   standingsSheet: '1yWa2-nHM4VnUXDS8EQwB0G2k0ockpAU55Xuj9MPccJo',
@@ -23,6 +23,7 @@ const state = {
   announcements: [],
   drivers: [],
   hostedDrivers: [],
+  hostedRaceRows: [],
   hostedDataStatus: 'Connecting…',
   links: {},
   appVersion: '4.0'
@@ -176,74 +177,89 @@ async function openHostedDriverProfile(driver){
   clearInterval(countdownTimer);
   state.currentView='driverProfile';
   nav.forEach(n=>n.classList.remove('active'));
-  app.innerHTML=`<button class="profile-back" onclick="setView('drivers')">← Drivers</button><section class="driver-profile-hero"><div class="driver-profile-kicker">HLRN HOSTED CAREER</div><h2>${escapeHtml(driver)}</h2><p>Loading every hosted race for this driver…</p></section><div class="profile-loading">Loading career stats…</div>`;
+  app.innerHTML=`<button class="profile-back" onclick="setView('drivers')">← Drivers</button><section class="driver-profile-hero"><div class="driver-profile-kicker">HLRN HOSTED CAREER</div><h2>${escapeHtml(driver)}</h2><p>Building career stats from every imported hosted race…</p></section><div class="profile-loading">Loading career stats…</div>`;
   window.scrollTo({top:0,behavior:'smooth'});
   try{
-    const response=await fetch(HOSTED_API+`?action=profile&driver=${encodeURIComponent(driver)}&ts=${Date.now()}`,{cache:'no-store'});
-    if(!response.ok) throw new Error('HTTP '+response.status);
-    const profile=await response.json();
-    renderHostedDriverProfile(driver,profile);
+    if(!state.hostedRaceRows.length) await refreshHostedData(false);
+    const rows=state.hostedRaceRows.filter(r=>prettyName(String(r.Driver||'')).toLowerCase()===driver.toLowerCase());
+    if(!rows.length) throw new Error('No hosted race history found for this driver.');
+    renderHostedDriverProfileFromRows(driver,rows);
   }catch(err){
     app.innerHTML=`<button class="profile-back" onclick="setView('drivers')">← Drivers</button><section class="driver-profile-hero"><div class="driver-profile-kicker">HLRN HOSTED CAREER</div><h2>${escapeHtml(driver)}</h2><p>Unable to load the hosted-race profile.</p></section><div class="empty">${escapeHtml(err.message)}</div>`;
   }
 }
 
-function pick(obj,names,fallback='--'){
-  for(const n of names){ if(obj && obj[n]!==undefined && obj[n]!==null && obj[n]!=='') return obj[n]; }
-  return fallback;
-}
-function fmt1(v){ const n=Number(v); return Number.isFinite(n)?n.toFixed(1):escapeHtml(v); }
+function fmt1(v){ const n=Number(v); return Number.isFinite(n)?n.toFixed(1):'--'; }
 function ordinal(n){ n=Number(n); if(!Number.isFinite(n)||n<=0)return '--'; const s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+function num(v){ const n=Number(v); return Number.isFinite(n)?n:0; }
 
-function renderHostedDriverProfile(driver,profile){
-  const races=Number(pick(profile,['races','raceCount','totalRaces'],0))||0;
-  const wins=Number(pick(profile,['wins','winCount','totalWins'],0))||0;
-  const top5=Number(pick(profile,['top5','topFive'],0))||0;
-  const top10=Number(pick(profile,['top10','topTen'],0))||0;
-  const avgFinish=pick(profile,['averageFinish','avgFinish'],'--');
-  const avgStart=pick(profile,['averageStart','avgStart'],'--');
-  const lapsLed=Number(pick(profile,['lapsLed','totalLapsLed'],0))||0;
-  const incidents=Number(pick(profile,['incidents','totalIncidents'],0))||0;
-  const avgInc=pick(profile,['averageIncidents','avgIncidents','avgInc'],races?(incidents/races):0);
-  const latestIR=pick(profile,['latestIRating','latestIrating','iRating','irating'],'--');
-  const winRate=races?(wins/races*100):0, top5Rate=races?(top5/races*100):0, top10Rate=races?(top10/races*100):0;
-  const recent=profile.last5||profile.lastRaces||profile.recentRaces||profile.raceHistory||profile.racesHistory||[];
-  let tracks=profile.trackHistory||profile.tracks||profile.trackStats||profile.historyByTrack||[];
-  if(tracks && !Array.isArray(tracks) && typeof tracks==='object') tracks=Object.keys(tracks).map(k=>({track:k,...(tracks[k]||{})}));
+function renderHostedDriverProfileFromRows(driver,rows){
+  const races=rows.length;
+  const wins=rows.filter(r=>num(r['Finish Position'])===1).length;
+  const top5=rows.filter(r=>num(r['Finish Position'])>=1&&num(r['Finish Position'])<=5).length;
+  const top10=rows.filter(r=>num(r['Finish Position'])>=1&&num(r['Finish Position'])<=10).length;
+  const finishRows=rows.filter(r=>num(r['Finish Position'])>0);
+  const startRows=rows.filter(r=>num(r['Start Position'])>0);
+  const avgFinish=finishRows.length?finishRows.reduce((a,r)=>a+num(r['Finish Position']),0)/finishRows.length:0;
+  const avgStart=startRows.length?startRows.reduce((a,r)=>a+num(r['Start Position']),0)/startRows.length:0;
+  const lapsLed=rows.reduce((a,r)=>a+num(r['Laps Led']),0);
+  const incidents=rows.reduce((a,r)=>a+num(r.Incidents),0);
+  const avgInc=races?incidents/races:0;
+  const winRate=races?wins/races*100:0, top5Rate=races?top5/races*100:0, top10Rate=races?top10/races*100:0;
+  const sorted=[...rows].sort((a,b)=>{
+    const ad=Date.parse(a['Race Date']||''),bd=Date.parse(b['Race Date']||'');
+    if(Number.isFinite(ad)&&Number.isFinite(bd)) return bd-ad;
+    return 0;
+  });
+  const latestIR=sorted.find(r=>String(r.iRating||'').trim())?.iRating||'--';
   const stat=(l,v)=>`<div class="career-stat"><small>${l}</small><strong>${v}</strong></div>`;
-  const recentHtml=(Array.isArray(recent)?recent:[]).slice(0,10).map(r=>{
-    const date=pick(r,['date','raceDate'],''); const track=pick(r,['track','trackName'],'Unknown Track'); const finish=pick(r,['finish','position','finishingPosition'],'--'); const start=pick(r,['start','startPosition'],'--'); const inc=pick(r,['incidents'],0); const led=pick(r,['lapsLed'],0);
-    return `<div class="profile-race-row"><div><strong>${escapeHtml(track)}</strong><small>${escapeHtml(date)} • Start ${escapeHtml(start)} • ${escapeHtml(led)} led</small></div><div class="profile-finish">${escapeHtml(ordinal(finish))}<small>${escapeHtml(inc)} INC</small></div></div>`;
-  }).join('')||'<div class="empty">No recent race history found.</div>';
-  const trackHtml=(Array.isArray(tracks)?tracks:[]).slice(0,30).map(t=>{
-    const name=pick(t,['track','trackName','name'],'Unknown Track'); const tr=pick(t,['races','starts','raceCount'],'--'); const tw=pick(t,['wins','winCount'],0); const tf=pick(t,['averageFinish','avgFinish'],'--'); const t5v=pick(t,['top5','topFive'],0);
-    return `<div class="track-history-row"><div><strong>${escapeHtml(name)}</strong><small>${escapeHtml(tr)} races • ${escapeHtml(tw)} wins • ${escapeHtml(t5v)} Top 5s</small></div><b>Avg ${fmt1(tf)}</b></div>`;
-  }).join('')||'<div class="empty">Track breakdown is not available from the hosted database yet.</div>';
+  const recentHtml=sorted.slice(0,10).map(r=>`<div class="profile-race-row"><div><strong>${escapeHtml(r.Track||'Unknown Track')}</strong><small>${escapeHtml(r['Race Date']||'')} • Start ${escapeHtml(r['Start Position']||'--')} • ${escapeHtml(r['Laps Led']||0)} led</small></div><div class="profile-finish">${escapeHtml(ordinal(r['Finish Position']))}<small>${escapeHtml(r.Incidents||0)} INC</small></div></div>`).join('');
+
+  const tm=new Map();
+  rows.forEach(r=>{
+    const name=String(r.Track||'Unknown Track').trim()||'Unknown Track';
+    const key=name.toLowerCase();
+    const t=tm.get(key)||{name,races:0,wins:0,top5:0,top10:0,finish:0,finishCount:0,inc:0,led:0};
+    const f=num(r['Finish Position']); t.races++; if(f===1)t.wins++; if(f>=1&&f<=5)t.top5++; if(f>=1&&f<=10)t.top10++; if(f>0){t.finish+=f;t.finishCount++;} t.inc+=num(r.Incidents); t.led+=num(r['Laps Led']); tm.set(key,t);
+  });
+  const tracks=[...tm.values()].sort((a,b)=>b.races-a.races);
+  const trackHtml=tracks.map(t=>`<div class="track-history-row"><div><strong>${escapeHtml(t.name)}</strong><small>${t.races} races • ${t.wins} wins • ${t.top5} Top 5s • ${t.top10} Top 10s • ${t.led} laps led</small></div><b>Avg ${t.finishCount?(t.finish/t.finishCount).toFixed(1):'--'}</b></div>`).join('');
   app.innerHTML=`<button class="profile-back" onclick="setView('drivers')">← Drivers</button><section class="driver-profile-hero"><div class="driver-profile-kicker">HLRN HOSTED CAREER • ALL IMPORTED RACES</div><h2>${escapeHtml(driver)}</h2><p>${races} races • ${wins} wins • ${top10Rate.toFixed(1)}% Top-10 rate${latestIR!=='--'?` • Latest iRating ${escapeHtml(latestIR)}`:''}</p></section><section class="career-stats-grid">${stat('RACES',races)}${stat('WINS',wins)}${stat('TOP 5',top5)}${stat('TOP 10',top10)}${stat('AVG START',fmt1(avgStart))}${stat('AVG FINISH',fmt1(avgFinish))}${stat('WIN RATE',winRate.toFixed(1)+'%')}${stat('TOP-5 RATE',top5Rate.toFixed(1)+'%')}${stat('LAPS LED',lapsLed)}${stat('INCIDENTS',incidents)}${stat('INC / RACE',fmt1(avgInc))}${stat('TOP-10 RATE',top10Rate.toFixed(1)+'%')}</section><div class="profile-section-title"><h3>Recent Hosted Races</h3><span>Latest 10</span></div><section class="card profile-races">${recentHtml}</section><div class="profile-section-title"><h3>Track History</h3><span>Career breakdown</span></div><section class="card">${trackHtml}</section>`;
 }
 
-async function refreshHostedData(){
+async function refreshHostedData(rerender=true){
   state.hostedDataStatus='Connecting…';
   try{
-    const response=await fetch(HOSTED_API+`?action=data&ts=${Date.now()}`,{cache:'no-store'});
-    if(!response.ok) throw new Error('HTTP '+response.status);
-    const data=await response.json();
-    const rankings=Array.isArray(data.rankings)?data.rankings:[];
+    const [rankT,dataT]=await Promise.all([
+      loadGviz(HOSTED_SHEET,'DRIVER RANKINGS','A1:G1000'),
+      loadGviz(HOSTED_SHEET,'DRIVER DATA','A1:M20000')
+    ]);
+    const rankings=tableRows(rankT);
+    state.hostedRaceRows=tableRows(dataT).filter(r=>String(r.Driver||'').trim());
     state.hostedDrivers=rankings.map((r,i)=>({
-      name:prettyName(String(r.driver||r.name||r.Driver||'')),
-      rank:Number(r.rank??r.Rank??(i+1))||i+1,
-      races:Number(r.races??r.Races??0)||0,
-      wins:Number(r.wins??r.Wins??0)||0,
-      top5:Number(r.top5??r.topFive??r['Top 5']??0)||0,
-      top10:Number(r.top10??r.topTen??r['Top 10']??0)||0,
-      averageFinish:Number(r.averageFinish??r.avgFinish??r['Average Finish']??0)||0
+      name:prettyName(String(r.Driver||'')),
+      rank:Number(r.Rank)||i+1,
+      races:Number(r.Races)||0,
+      wins:Number(r.Wins)||0,
+      top5:Number(r['Top 5'])||0,
+      top10:Number(r['Top 10'])||0,
+      averageFinish:Number(r['Average Finish'])||0
     })).filter(d=>d.name).sort((a,b)=>a.name.localeCompare(b.name));
+    if(!state.hostedDrivers.length && state.hostedRaceRows.length){
+      const m=new Map();
+      state.hostedRaceRows.forEach(r=>{
+        const name=prettyName(String(r.Driver||'')); if(!name)return;
+        const d=m.get(name)||{name,races:0,wins:0,top5:0,top10:0,finish:0,finishCount:0};
+        const f=num(r['Finish Position']); d.races++; if(f===1)d.wins++; if(f>=1&&f<=5)d.top5++; if(f>=1&&f<=10)d.top10++; if(f>0){d.finish+=f;d.finishCount++;} m.set(name,d);
+      });
+      state.hostedDrivers=[...m.values()].map(d=>({...d,averageFinish:d.finishCount?d.finish/d.finishCount:0})).sort((a,b)=>a.name.localeCompare(b.name));
+    }
     state.hostedDataStatus='LIVE';
   }catch(err){
     console.warn('HLRN hosted database connection failed:',err);
     state.hostedDataStatus='HOSTED DATA OFFLINE';
   }
-  if(state.currentView==='drivers') renderDrivers(document.querySelector('#driverSearch')?.value||'');
+  if(rerender && state.currentView==='drivers') renderDrivers(document.querySelector('#driverSearch')?.value||'');
 }
 
 function renderResults(){
