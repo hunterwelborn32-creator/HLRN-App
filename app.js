@@ -50,6 +50,8 @@ const state = {
   homeLeague: 'Sunday',
   currentView: 'home',
   scheduleLeague: 'Sunday',
+  resultsLeague: 'Sunday',
+  selectedRaceKey: '',
   liveStatus: 'Connecting…',
   lastUpdated: null,
   nextRaces: {
@@ -67,7 +69,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '4.3'
+  appVersion: '5.0'
 };
 
 const fallback = {
@@ -156,6 +158,9 @@ function startCountdown(iso){
 function renderHome(){
   state.currentView='home';
   const race = state.nextRaces[state.homeLeague];
+  const scheduleRace = FULL_SCHEDULE[state.homeLeague].find(r=>r.date===race.iso?.slice(0,10)) || FULL_SCHEDULE[state.homeLeague].find(r=>r.track===race.track) || {};
+  const leader = state.standings[state.homeLeague]?.[0];
+  const hostedLeader = [...state.hostedDrivers].sort((a,b)=>b.wins-a.wins || b.top5-a.top5 || a.averageFinish-b.averageFinish)[0];
   const announcementHtml = state.announcements.slice(0,4).map(a=>`
     <article class="announcement-card"><div class="announcement-top"><span class="mini-tag">${escapeHtml(a.tag||'NEWS')}</span><time>${escapeHtml(a.time||'')}</time></div>
     <h4>${escapeHtml(a.title)}</h4><p>${escapeHtml(a.text)}</p></article>`).join('');
@@ -177,12 +182,19 @@ function renderHome(){
     <section class="brand-strip"><img class="home-logo" src="hlrn-logo-4k.png" alt="HLRN"><div>${liveBadge()}</div></section>
     <div class="home-league-switch" role="tablist"><button class="${state.homeLeague==='Sunday'?'active':''}" onclick="switchHomeLeague('Sunday')">SUNDAY</button><button class="${state.homeLeague==='Monday'?'active':''}" onclick="switchHomeLeague('Monday')">MONDAY</button></div>
     <section class="race-hero"><div class="race-hero-top"><div><span class="overline">NEXT HLRN EVENT</span><h2>${escapeHtml(race.track)}</h2></div><div class="track-badge">🏁</div></div>
-      <p>${escapeHtml(race.series)} <span>•</span> ${escapeHtml(race.date)} <span>•</span> ${escapeHtml(race.time)}</p><div class="countdown-label">GREEN FLAG COUNTDOWN</div>${countdownMarkup()}
+      <p>${escapeHtml(race.series)} <span>•</span> ${escapeHtml(race.date)} <span>•</span> ${escapeHtml(race.time)}</p>
+      <div class="hero-race-meta"><span>${escapeHtml(scheduleRace.car||'Race Car')}</span><span>${scheduleRace.laps?`${scheduleRace.laps} LAPS`:'LIVE EVENT'}</span><span>${escapeHtml(scheduleRace.setup||'HLRN')}</span></div>
+      <div class="countdown-label">GREEN FLAG COUNTDOWN</div>${countdownMarkup()}
       <div class="hero-actions"><button class="btn btn-light" onclick="setView('schedule')">Full Schedule</button><button class="btn btn-glass" onclick="openBroadcast('${state.homeLeague}')">📺 Watch Broadcast</button></div>
     </section>
     <div class="section-head"><h3>Race Central</h3><span>Quick Access</span></div>
     <section class="grid"><button class="quick-card" onclick="setView('standings')"><span class="ico">🏆</span><strong>Standings</strong><small>Live Sunday + Monday</small></button><button class="quick-card" onclick="setView('schedule')"><span class="ico">🗓️</span><strong>Schedule</strong><small>Upcoming races</small></button><button class="quick-card" onclick="setView('drivers')"><span class="ico">🏎️</span><strong>Drivers</strong><small>Live roster + stats</small></button><button class="quick-card" onclick="renderResults()"><span class="ico">📊</span><strong>Results</strong><small>Latest finishes</small></button></section>
-    <div class="section-head"><h3>Latest Results</h3><button class="text-link" onclick="renderResults()">View all</button></div><section class="results-stack">${resultsHtml}</section>
+    <div class="section-head"><h3>Championship Pulse</h3><span>Live leaders</span></div>
+    <section class="pulse-grid">
+      <button class="pulse-card league-pulse ${state.homeLeague.toLowerCase()}" onclick="setView('standings')"><small>${state.homeLeague.toUpperCase()} POINTS LEADER</small><strong>${escapeHtml(leader?.name||'Loading…')}</strong><span>${leader?`${leader.points} PTS • ${leader.wins} WINS`:'Live standings'}</span></button>
+      <button class="pulse-card hosted-pulse" onclick="setView('drivers')"><small>HOSTED WIN LEADER</small><strong>${escapeHtml(hostedLeader?.name||'Loading…')}</strong><span>${hostedLeader?`${hostedLeader.wins} WINS • ${hostedLeader.races} STARTS`:'Career database'}</span></button>
+    </section>
+    <div class="section-head"><h3>Latest Results</h3><button class="text-link" onclick="renderResults()">Open Archive</button></div><section class="results-stack">${resultsHtml}</section>
     <div class="section-head"><h3>HLRN Updates</h3><span>Newsroom</span></div><section class="announcement-grid">${announcementHtml}</section>
     <section class="broadcast-banner"><div><span class="overline">LIVE COVERAGE</span><h3>HLRN Broadcast Center</h3><p>Sunday and Monday race broadcasts in one spot.</p></div><button onclick="openBroadcast('${state.homeLeague}')">Open →</button></section>`;
   startCountdown(race.iso);
@@ -263,6 +275,19 @@ function fmt1(v){ const n=Number(v); return Number.isFinite(n)?n.toFixed(1):'--'
 function ordinal(n){ n=Number(n); if(!Number.isFinite(n)||n<=0)return '--'; const s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 function num(v){ const n=Number(v); return Number.isFinite(n)?n:0; }
 
+function careerBadges(races,wins,top5,top10,lapsLed){
+  return [
+    {icon:'🏁',label:'Race Winner',earned:wins>=1,need:'Win a race'},
+    {icon:'🔥',label:'5 Wins',earned:wins>=5,need:`${Math.max(0,5-wins)} to go`},
+    {icon:'🏆',label:'10 Wins',earned:wins>=10,need:`${Math.max(0,10-wins)} to go`},
+    {icon:'⭐',label:'25 Starts',earned:races>=25,need:`${Math.max(0,25-races)} to go`},
+    {icon:'💯',label:'50 Starts',earned:races>=50,need:`${Math.max(0,50-races)} to go`},
+    {icon:'👑',label:'100 Starts',earned:races>=100,need:`${Math.max(0,100-races)} to go`},
+    {icon:'⚡',label:'100 Laps Led',earned:lapsLed>=100,need:`${Math.max(0,100-lapsLed)} to go`},
+    {icon:'🎯',label:'25 Top 10s',earned:top10>=25,need:`${Math.max(0,25-top10)} to go`}
+  ];
+}
+
 function renderHostedDriverProfileFromRows(driver,rows){
   const races=rows.length;
   const wins=rows.filter(r=>num(r['Finish Position'])===1).length;
@@ -294,7 +319,7 @@ function renderHostedDriverProfileFromRows(driver,rows){
   });
   const tracks=[...tm.values()].sort((a,b)=>b.races-a.races);
   const trackHtml=tracks.map(t=>`<div class="track-history-row"><div><strong>${escapeHtml(t.name)}</strong><small>${t.races} races • ${t.wins} wins • ${t.top5} Top 5s • ${t.top10} Top 10s • ${t.led} laps led</small></div><b>Avg ${t.finishCount?(t.finish/t.finishCount).toFixed(1):'--'}</b></div>`).join('');
-  app.innerHTML=`<button class="profile-back" onclick="setView('drivers')">← Drivers</button><section class="driver-profile-hero"><div class="driver-profile-kicker">HLRN HOSTED CAREER • ALL IMPORTED RACES</div><h2>${escapeHtml(driver)}</h2><p>${races} races • ${wins} wins • ${top10Rate.toFixed(1)}% Top-10 rate${latestIR!=='--'?` • Latest iRating ${escapeHtml(latestIR)}`:''}</p></section><section class="career-stats-grid">${stat('RACES',races)}${stat('WINS',wins)}${stat('TOP 5',top5)}${stat('TOP 10',top10)}${stat('AVG START',fmt1(avgStart))}${stat('AVG FINISH',fmt1(avgFinish))}${stat('WIN RATE',winRate.toFixed(1)+'%')}${stat('TOP-5 RATE',top5Rate.toFixed(1)+'%')}${stat('LAPS LED',lapsLed)}${stat('INCIDENTS',incidents)}${stat('INC / RACE',fmt1(avgInc))}${stat('TOP-10 RATE',top10Rate.toFixed(1)+'%')}</section><div class="profile-section-title"><h3>Recent Hosted Races</h3><span>Latest 10</span></div><section class="card profile-races">${recentHtml}</section><div class="profile-section-title"><h3>Track History</h3><span>Career breakdown</span></div><section class="card">${trackHtml}</section>`;
+  app.innerHTML=`<button class="profile-back" onclick="setView('drivers')">← Drivers</button><section class="driver-profile-hero"><div class="driver-profile-kicker">HLRN HOSTED CAREER • ALL IMPORTED RACES</div><h2>${escapeHtml(driver)}</h2><p>${races} races • ${wins} wins • ${top10Rate.toFixed(1)}% Top-10 rate${latestIR!=='--'?` • Latest iRating ${escapeHtml(latestIR)}`:''}</p></section><section class="career-stats-grid">${stat('RACES',races)}${stat('WINS',wins)}${stat('TOP 5',top5)}${stat('TOP 10',top10)}${stat('AVG START',fmt1(avgStart))}${stat('AVG FINISH',fmt1(avgFinish))}${stat('WIN RATE',winRate.toFixed(1)+'%')}${stat('TOP-5 RATE',top5Rate.toFixed(1)+'%')}${stat('LAPS LED',lapsLed)}${stat('INCIDENTS',incidents)}${stat('INC / RACE',fmt1(avgInc))}${stat('TOP-10 RATE',top10Rate.toFixed(1)+'%')}</section><div class="profile-section-title"><h3>Career Badges</h3><span>Milestones</span></div><section class="badge-grid">${careerBadges(races,wins,top5,top10,lapsLed).map(b=>`<div class="career-badge ${b.earned?'earned':''}"><span>${b.icon}</span><strong>${b.label}</strong><small>${b.earned?'EARNED':b.need}</small></div>`).join('')}</section><div class="profile-section-title"><h3>Recent Hosted Races</h3><span>Latest 10</span></div><section class="card profile-races">${recentHtml}</section><div class="profile-section-title"><h3>Track History</h3><span>Career breakdown</span></div><section class="card">${trackHtml}</section>`;
 }
 
 async function refreshHostedData(rerender=true){
@@ -339,13 +364,51 @@ async function refreshHostedData(rerender=true){
   else if(rerender && state.currentView==='home') renderHome();
 }
 
+function raceGroupsForLeague(league){
+  const rows=state.results[league]||[];
+  const groups=new Map();
+  rows.forEach(r=>{
+    const key=String(r.raceNo||`${r.date}|${r.track}`);
+    if(!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push(r);
+  });
+  return [...groups.entries()].map(([key,rows])=>({key,rows:rows.sort((a,b)=>a.finish-b.finish),raceNo:rows[0]?.raceNo||0,track:rows[0]?.track||'',date:rows[0]?.date||''})).sort((a,b)=>b.raceNo-a.raceNo);
+}
+function hostedRaceGroups(){
+  const groups=new Map();
+  state.hostedRaceRows.forEach(r=>{
+    const key=String(r['Race ID']||`${r['Race Date']}|${r.Track}`);
+    if(!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push(r);
+  });
+  return [...groups.entries()].map(([key,rows])=>({key,rows,track:String(rows[0]?.Track||''),date:String(rows[0]?.['Race Date']||'')})).sort((a,b)=>Date.parse(b.date||0)-Date.parse(a.date||0));
+}
+function switchResultsLeague(league){ state.resultsLeague=league; state.selectedRaceKey=''; renderResults(); }
+function selectRace(key){ state.selectedRaceKey=decodeURIComponent(key); renderResults(); }
 function renderResults(){
   clearInterval(countdownTimer); state.currentView='results'; nav.forEach(n=>n.classList.remove('active'));
-  const leagueBlock = league => {
-    const rows=state.results[league].slice(0,20).map(r=>`<div class="race-row"><div class="result-position">${r.finish}</div><div class="driver-meta"><strong>${escapeHtml(r.driver)}</strong><small>${escapeHtml(r.track)} • ${escapeHtml(r.date)} • ${r.points} pts</small></div><span class="track-tag">${r.incidents} INC</span></div>`).join('');
-    return `<div class="section-head"><h3>${league} – Latest Race</h3><span>${state.results[league][0]?escapeHtml(state.results[league][0].track):''}</span></div><section class="card">${rows||'<div class="empty">No live results loaded.</div>'}</section>`;
-  };
-  app.innerHTML=`<div class="page-title-row"><div><h2 class="page-title">Race Results</h2><p class="page-sub">Latest official HLRN finishes</p></div>${liveBadge()}</div>${leagueBlock('Sunday')}${leagueBlock('Monday')}<button class="back-home" onclick="setView('home')">← Back Home</button>`;
+  const league=state.resultsLeague||'Sunday';
+  const groups=league==='Hosted'?hostedRaceGroups():raceGroupsForLeague(league);
+  const selected=groups.find(g=>g.key===state.selectedRaceKey)||groups[0];
+  if(selected && !state.selectedRaceKey) state.selectedRaceKey=selected.key;
+  const selector=groups.map((g,i)=>`<button class="archive-race-chip ${selected?.key===g.key?'active':''}" onclick="selectRace('${encodeURIComponent(g.key)}')"><small>${league==='Hosted'?'HOSTED':`RACE ${g.raceNo}`}</small><strong>${escapeHtml(g.track||'Race')}</strong><span>${escapeHtml(g.date||'')}</span></button>`).join('');
+  let rowsHtml='';
+  let summary='No race selected';
+  if(selected){
+    if(league==='Hosted'){
+      const ordered=[...selected.rows].sort((a,b)=>num(a['Finish Position'])-num(b['Finish Position']));
+      const winner=ordered[0]; summary=`${selected.track} • ${selected.date} • ${ordered.length} drivers`;
+      rowsHtml=ordered.map(r=>{const name=prettyName(String(r.Driver||'')); const gain=num(r['Start Position'])-num(r['Finish Position']); return `<button class="archive-result-row" onclick="openHostedDriverProfile(decodeURIComponent('${encodeURIComponent(name).replace(/'/g,'%27')}'))"><div class="archive-pos">${escapeHtml(r['Finish Position']||'--')}</div><div class="archive-driver"><strong>${escapeHtml(name)}</strong><small>Start ${escapeHtml(r['Start Position']||'--')} • ${escapeHtml(r['Laps Led']||0)} led • ${escapeHtml(r.Incidents||0)} inc</small></div><div class="archive-gain ${gain>0?'up':gain<0?'down':''}">${gain>0?'+':''}${gain}</div></button>`}).join('');
+    }else{
+      const ordered=selected.rows; summary=`Race ${selected.raceNo} • ${selected.track} • ${selected.date} • ${ordered.length} drivers`;
+      rowsHtml=ordered.map(r=>{const gain=r.start-r.finish; return `<div class="archive-result-row"><div class="archive-pos">${r.finish}</div><div class="archive-driver"><strong>${escapeHtml(r.driver)}</strong><small>Start ${r.start} • ${r.lapsLed} led • ${r.points} pts • ${r.incidents} inc</small></div><div class="archive-gain ${gain>0?'up':gain<0?'down':''}">${gain>0?'+':''}${gain}</div></div>`}).join('');
+    }
+  }
+  app.innerHTML=`<div class="page-title-row"><div><h2 class="page-title">Race Archive</h2><p class="page-sub">Every loaded HLRN race, one place</p></div>${liveBadge()}</div>
+    <div class="tabs results-tabs"><button class="tab ${league==='Sunday'?'active sunday-result-tab':''}" onclick="switchResultsLeague('Sunday')">Sunday</button><button class="tab ${league==='Monday'?'active monday-result-tab':''}" onclick="switchResultsLeague('Monday')">Monday</button><button class="tab ${league==='Hosted'?'active hosted-result-tab':''}" onclick="switchResultsLeague('Hosted')">Hosted</button></div>
+    <div class="archive-scroller">${selector||'<div class="empty">No races loaded yet.</div>'}</div>
+    <div class="section-head"><h3>${selected?escapeHtml(selected.track):'Race Results'}</h3><span>${escapeHtml(summary)}</span></div>
+    <section class="card archive-table">${rowsHtml||'<div class="empty">No race results loaded.</div>'}</section><button class="back-home" onclick="setView('home')">← Back Home</button>`;
 }
 
 function renderMore(){
@@ -387,13 +450,20 @@ function normalizeStandings(rows){
   })).sort((a,b)=>a.rank-b.rank);
 }
 function normalizeResults(rows, driverMap){
-  if(!rows.length) return [];
-  const maxRace=Math.max(...rows.map(r=>Number(r['Race #'])||0));
-  return rows.filter(r=>Number(r['Race #'])===maxRace).map(r=>({
-    driver:driverMap[String(r['Driver ID'])]||`Driver ${r['Driver ID']}`,
+  return rows.filter(r=>Number(r['Race #'])>0).map(r=>({
+    raceNo:Number(r['Race #'])||0,
+    driverId:String(r['Driver ID']||''),
+    driver:driverMap[String(r['Driver ID'])]||prettyName(String(r.Driver||''))||`Driver ${r['Driver ID']}`,
     finish:Number(r.Finish)||0, start:Number(r.Start)||0, points:Number(r.Points)||0,
     track:String(r.Track||''), date:String(r.Date||''), incidents:Number(r.Incidents)||0, lapsLed:Number(r['Laps Led'])||0
-  })).sort((a,b)=>a.finish-b.finish);
+  })).sort((a,b)=>b.raceNo-a.raceNo || a.finish-b.finish);
+}
+
+function latestLeagueRace(league){
+  const rows=state.results[league]||[];
+  if(!rows.length) return [];
+  const maxRace=Math.max(...rows.map(r=>r.raceNo||0));
+  return rows.filter(r=>r.raceNo===maxRace).sort((a,b)=>a.finish-b.finish);
 }
 function buildDrivers(){
   const map=new Map();
@@ -431,7 +501,7 @@ async function refreshLiveData(){
     state.standings.Monday=normalizeStandings(tableRows(monT));
     const idMap={}; [...state.standings.Sunday,...state.standings.Monday].forEach(d=>{if(d.driverId) idMap[d.driverId]=d.name;});
     state.results.Sunday=normalizeResults(tableRows(sunRT),idMap); state.results.Monday=normalizeResults(tableRows(monRT),idMap);
-    state.latestResults=['Sunday','Monday'].map(league=>{const r=state.results[league][0]; return r?{league,track:r.track,winner:r.driver,date:r.date}:null;}).filter(Boolean);
+    state.latestResults=['Sunday','Monday'].map(league=>{const latest=latestLeagueRace(league); const r=latest[0]; return r?{league,track:r.track,winner:r.driver,date:r.date,raceNo:r.raceNo}:null;}).filter(Boolean);
     const newsRows=tableRows(newsT);
     state.announcements=newsRows.filter(r=>String(r.Publish).toUpperCase()==='TRUE').map(r=>({tag:r.Category||'NEWS',title:r.Title||'HLRN Update',text:r.Summary||'',time:r.Date||''})).reverse();
     if(!state.announcements.length) state.announcements=JSON.parse(JSON.stringify(fallback.announcements));
