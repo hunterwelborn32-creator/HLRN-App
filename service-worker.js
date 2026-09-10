@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v5-7-week-fix';
+const CACHE = 'hlrn-v5-8-socials-click-fix';
 const APP_SHELL = [
   './',
   './index.html',
