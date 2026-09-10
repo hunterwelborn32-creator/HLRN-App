@@ -69,7 +69,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '5.0'
+  appVersion: '5.1'
 };
 
 const fallback = {
@@ -209,10 +209,15 @@ function openBroadcast(league){
 
 function renderStandings(){
   state.currentView='standings';
-  const rows = state.standings[state.league].map((x)=>`<tr><td class="rank">${x.rank}</td><td><strong>${escapeHtml(x.name)}</strong><small class="table-sub">${x.wins} W • ${x.top5} T5 • ${x.top10} T10</small></td><td><strong>${x.points}</strong></td></tr>`).join('');
-  app.innerHTML=`<div class="page-title-row"><div><h2 class="page-title">Standings</h2><p class="page-sub">Current championship points</p></div>${liveBadge()}</div>
-    <div class="tabs"><button class="tab ${state.league==='Sunday'?'active':''}" onclick="switchLeague('Sunday')">Sunday</button><button class="tab ${state.league==='Monday'?'active':''}" onclick="switchLeague('Monday')">Monday</button></div>
-    <section class="card"><table class="table"><thead><tr><th>#</th><th>Driver</th><th>Pts</th></tr></thead><tbody>${rows||'<tr><td colspan="3">Loading standings…</td></tr>'}</tbody></table></section>`;
+  const data=state.standings[state.league]||[];
+  const rows = data.map((x)=>`<tr class="standing-row rank-${x.rank}"><td class="rank"><span>${x.rank}</span></td><td><strong>${escapeHtml(x.name)}</strong><small class="table-sub">${x.wins} W • ${x.top5} T5 • ${x.top10} T10</small></td><td><strong class="points-value">${x.points}</strong></td></tr>`).join('');
+  const top=data.slice(0,3);
+  const podium=top.length?`<section class="podium-grid ${state.league.toLowerCase()}">${top.map((x,i)=>`<article class="podium-card place-${i+1}"><div class="podium-place">${i===0?'1ST':i===1?'2ND':'3RD'}</div><div class="podium-avatar">${escapeHtml(x.name.split(' ').filter(Boolean).map(n=>n[0]).slice(0,2).join('').toUpperCase())}</div><strong>${escapeHtml(x.name)}</strong><span>${x.points} PTS</span><small>${x.wins} wins • ${x.top5} top 5s</small></article>`).join('')}</section>`:'';
+  app.innerHTML=`<div class="page-title-row premium-page-head"><div><span class="page-kicker">CHAMPIONSHIP CENTER</span><h2 class="page-title">Standings</h2><p class="page-sub">The chase for the HLRN title</p></div>${liveBadge()}</div>
+    <div class="tabs premium-tabs"><button class="tab ${state.league==='Sunday'?'active league-sunday':''}" onclick="switchLeague('Sunday')">Sunday</button><button class="tab ${state.league==='Monday'?'active league-monday':''}" onclick="switchLeague('Monday')">Monday</button></div>
+    ${podium}
+    <div class="section-head compact-head"><h3>Full Standings</h3><span>${data.length} drivers</span></div>
+    <section class="card standings-card"><table class="table"><thead><tr><th>#</th><th>Driver</th><th>Pts</th></tr></thead><tbody>${rows||'<tr><td colspan="3">Loading standings…</td></tr>'}</tbody></table></section>`;
 }
 function switchLeague(name){state.league=name;renderStandings();}
 
@@ -237,7 +242,7 @@ function renderSchedule(){
     const rows=FULL_SCHEDULE[tab];
     content=`<section class="schedule-list ${tab.toLowerCase()}">${rows.map(r=>{const st=scheduleStatus(r.date,tab);return `<article class="schedule-card ${st.toLowerCase()}"><div class="schedule-race-no"><small>RACE</small><strong>${r.race}</strong>${st==='NEXT'?'<em>NEXT</em>':''}</div><div class="schedule-main"><div class="schedule-date">${scheduleDateLabel(r.date)}</div><h3>${escapeHtml(r.track)}</h3><div class="schedule-meta"><span>${escapeHtml(r.car)}</span><span>${r.laps} LAPS</span><span>${escapeHtml(r.setup)}</span></div></div><div class="schedule-state">${st}</div></article>`}).join('')}</section>`;
   }
-  app.innerHTML=`<div class="page-title-row"><div><h2 class="page-title">Schedule</h2><p class="page-sub">Full HLRN racing schedule</p></div>${liveBadge()}</div><div class="tabs schedule-tabs"><button class="tab ${tab==='Sunday'?'active sunday-tab':''}" onclick="switchScheduleLeague('Sunday')">Sunday</button><button class="tab ${tab==='Monday'?'active monday-tab':''}" onclick="switchScheduleLeague('Monday')">Monday</button><button class="tab ${tab==='Hosted'?'active hosted-tab':''}" onclick="switchScheduleLeague('Hosted')">Hosted</button></div>${content}`;
+  app.innerHTML=`<div class="page-title-row premium-page-head"><div><span class="page-kicker">RACE CALENDAR</span><h2 class="page-title">Schedule</h2><p class="page-sub">Every HLRN event in one place</p></div>${liveBadge()}</div><div class="tabs schedule-tabs premium-tabs"><button class="tab ${tab==='Sunday'?'active sunday-tab':''}" onclick="switchScheduleLeague('Sunday')">Sunday</button><button class="tab ${tab==='Monday'?'active monday-tab':''}" onclick="switchScheduleLeague('Monday')">Monday</button><button class="tab ${tab==='Hosted'?'active hosted-tab':''}" onclick="switchScheduleLeague('Hosted')">Hosted</button></div>${content}`;
 }
 function switchScheduleLeague(name){state.scheduleLeague=name;renderSchedule();}
 
@@ -250,7 +255,7 @@ function renderDrivers(filter=''){
     return `<button class="driver-row driver-click" onclick="openHostedDriverProfile(decodeURIComponent('${encodeURIComponent(String(d.name||'')).replace(/'/g,'%27')}'))"><div class="avatar">${escapeHtml(initials)}</div><div class="driver-meta"><strong>${escapeHtml(d.name)}</strong><small>HLRN HOSTED • ${d.races} races • ${d.wins} wins • ${d.top5} T5 • ${d.top10} T10</small></div><div class="driver-chevron">›</div></button>`;
   }).join('');
   const status=state.hostedDataStatus==='LIVE'?'ALL HOSTED RACES':escapeHtml(state.hostedDataStatus);
-  app.innerHTML=`<div class="page-title-row"><div><h2 class="page-title">Drivers</h2><p class="page-sub">Career stats from every HLRN hosted race</p></div><div class="sync-badge ${state.hostedDataStatus==='LIVE'?'live':''}"><i></i>${status}</div></div><input class="search" id="driverSearch" placeholder="Search every hosted driver..." value="${escapeHtml(filter)}" /><section class="card driver-list-card">${rows||`<div class="empty">${state.hostedDataStatus==='Connecting…'?'Loading hosted driver database…':'No drivers found'}</div>`}</section>`;
+  app.innerHTML=`<div class="page-title-row premium-page-head"><div><span class="page-kicker hosted-kicker">HOSTED DRIVER DATABASE</span><h2 class="page-title">Drivers</h2><p class="page-sub">Career stats from every HLRN hosted race</p></div><div class="sync-badge ${state.hostedDataStatus==='LIVE'?'live':''}"><i></i>${status}</div></div><section class="driver-database-banner"><div><small>DRIVER DATABASE</small><strong>${source.length}</strong><span>career profiles</span></div><div><small>RACE RECORDS</small><strong>${state.hostedRaceRows.length}</strong><span>imported starts</span></div></section><div class="search-wrap"><span>⌕</span><input class="search" id="driverSearch" placeholder="Search every hosted driver..." value="${escapeHtml(filter)}" /></div><section class="card driver-list-card">${rows||`<div class="empty">${state.hostedDataStatus==='Connecting…'?'Loading hosted driver database…':'No drivers found'}</div>`}</section>`;
   const input=document.querySelector('#driverSearch'); input.addEventListener('input',e=>renderDrivers(e.target.value));
   if(filter){ input.focus(); input.setSelectionRange(filter.length,filter.length); }
 }
@@ -404,7 +409,7 @@ function renderResults(){
       rowsHtml=ordered.map(r=>{const gain=r.start-r.finish; return `<div class="archive-result-row"><div class="archive-pos">${r.finish}</div><div class="archive-driver"><strong>${escapeHtml(r.driver)}</strong><small>Start ${r.start} • ${r.lapsLed} led • ${r.points} pts • ${r.incidents} inc</small></div><div class="archive-gain ${gain>0?'up':gain<0?'down':''}">${gain>0?'+':''}${gain}</div></div>`}).join('');
     }
   }
-  app.innerHTML=`<div class="page-title-row"><div><h2 class="page-title">Race Archive</h2><p class="page-sub">Every loaded HLRN race, one place</p></div>${liveBadge()}</div>
+  app.innerHTML=`<div class="page-title-row premium-page-head"><div><span class="page-kicker">OFFICIAL RESULTS</span><h2 class="page-title">Race Archive</h2><p class="page-sub">Every loaded HLRN race, one place</p></div>${liveBadge()}</div>
     <div class="tabs results-tabs"><button class="tab ${league==='Sunday'?'active sunday-result-tab':''}" onclick="switchResultsLeague('Sunday')">Sunday</button><button class="tab ${league==='Monday'?'active monday-result-tab':''}" onclick="switchResultsLeague('Monday')">Monday</button><button class="tab ${league==='Hosted'?'active hosted-result-tab':''}" onclick="switchResultsLeague('Hosted')">Hosted</button></div>
     <div class="archive-scroller">${selector||'<div class="empty">No races loaded yet.</div>'}</div>
     <div class="section-head"><h3>${selected?escapeHtml(selected.track):'Race Results'}</h3><span>${escapeHtml(summary)}</span></div>
@@ -414,13 +419,13 @@ function renderResults(){
 function renderMore(){
   state.currentView='more';
   const updated=state.lastUpdated?new Date(state.lastUpdated).toLocaleString():'Waiting for live connection';
-  app.innerHTML=`<div class="page-title-row"><div><h2 class="page-title">More</h2><p class="page-sub">League information and links</p></div>${liveBadge()}</div><div class="more-list">
-    <button class="more-row" onclick="openLink('HLRN Website')"><span>🌐 HLRN Website</span><span>›</span></button>
-    <button class="more-row" onclick="openBroadcast('Sunday')"><span>📺 Sunday Broadcast</span><span>›</span></button>
-    <button class="more-row" onclick="openBroadcast('Monday')"><span>📺 Monday Broadcast</span><span>›</span></button>
-    <button class="more-row" onclick="setView('standings')"><span>🏆 Live Standings</span><span>›</span></button>
-    <button class="more-row" onclick="renderResults()"><span>📈 Live Race Results</span><span>›</span></button>
-  </div><div class="data-note">Last data refresh: ${escapeHtml(updated)}</div><div class="app-version">HLRN App • Version ${escapeHtml(state.appVersion)}</div>`;
+  app.innerHTML=`<div class="page-title-row premium-page-head"><div><span class="page-kicker">HLRN CONTROL CENTER</span><h2 class="page-title">More</h2><p class="page-sub">Broadcasts, links and race tools</p></div>${liveBadge()}</div><section class="more-hero"><img src="hlrn-logo-4k.png" alt="HLRN"><div><small>HIGH LINE RACING NETWORK</small><strong>Racing People Together</strong><span>Live league racing • Hosted events • Driver stats</span></div></section><div class="more-list premium-more-list">
+    <button class="more-row" onclick="openLink('HLRN Website')"><span class="more-icon">🌐</span><span class="more-copy"><strong>HLRN Website</strong><small>Official network home</small></span><span class="more-arrow">›</span></button>
+    <button class="more-row sunday-link" onclick="openBroadcast('Sunday')"><span class="more-icon">S</span><span class="more-copy"><strong>Sunday Broadcast</strong><small>Watch Sunday League coverage</small></span><span class="more-arrow">›</span></button>
+    <button class="more-row monday-link" onclick="openBroadcast('Monday')"><span class="more-icon">M</span><span class="more-copy"><strong>Monday Broadcast</strong><small>Watch Monday League coverage</small></span><span class="more-arrow">›</span></button>
+    <button class="more-row" onclick="setView('standings')"><span class="more-icon">🏆</span><span class="more-copy"><strong>Live Standings</strong><small>Follow the championship chase</small></span><span class="more-arrow">›</span></button>
+    <button class="more-row hosted-link" onclick="renderResults()"><span class="more-icon">H</span><span class="more-copy"><strong>Race Archive</strong><small>Sunday, Monday and Hosted results</small></span><span class="more-arrow">›</span></button>
+  </div><div class="data-note premium-data-note">Last data refresh: ${escapeHtml(updated)}</div><div class="app-version">HLRN App • Version ${escapeHtml(state.appVersion)}</div>`;
 }
 function openLink(name){ const url=state.links[name]; if(url) window.open(url,'_blank'); }
 

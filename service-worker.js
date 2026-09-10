@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v5-0-championship-chase';
+const CACHE = 'hlrn-v5-1-premium-ui';
 const APP_SHELL = [
   './',
   './index.html',
