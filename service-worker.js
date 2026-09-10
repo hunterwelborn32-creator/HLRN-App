@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v4-3-hosted-latest-winner';
+const CACHE = 'hlrn-v4-4-result-badges';
 const APP_SHELL = [
   './',
   './index.html',

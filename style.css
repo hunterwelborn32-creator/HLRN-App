@@ -54,3 +54,12 @@ button,input{font:inherit}button{cursor:pointer}.app-shell{max-width:760px;margi
 
 /* Hosted latest-result card */
 .hosted-home-result{border-left:3px solid #ffd400!important}.hosted-result-badge{font-size:13px!important;color:#ffd400!important}.hosted-home-result small{color:#ffd400!important}.hosted-home-result em{display:block;margin-top:3px;font-size:10px;font-style:normal;color:var(--muted)}
+
+/* Latest Results league identity colors */
+.sunday-home-result{border-left:3px solid var(--red)!important}
+.sunday-result-badge{font-size:13px!important;color:var(--red)!important;border-color:rgba(239,35,60,.5)!important;background:rgba(239,35,60,.12)!important}
+.sunday-home-result small{color:var(--red)!important}
+.monday-home-result{border-left:3px solid var(--green)!important}
+.monday-result-badge{font-size:13px!important;color:var(--green)!important;border-color:rgba(53,208,127,.5)!important;background:rgba(53,208,127,.12)!important}
+.monday-home-result small{color:var(--green)!important}
+.hosted-result-badge{border-color:rgba(255,212,0,.5)!important;background:rgba(255,212,0,.1)!important}

@@ -159,8 +159,15 @@ function renderHome(){
   const announcementHtml = state.announcements.slice(0,4).map(a=>`
     <article class="announcement-card"><div class="announcement-top"><span class="mini-tag">${escapeHtml(a.tag||'NEWS')}</span><time>${escapeHtml(a.time||'')}</time></div>
     <h4>${escapeHtml(a.title)}</h4><p>${escapeHtml(a.text)}</p></article>`).join('');
-  const leagueResultsHtml = state.latestResults.map((r,i)=>`
-    <button class="result-card" onclick="renderResults()"><div class="result-position">${i+1}</div><div><small>${escapeHtml(r.league.toUpperCase())} LEAGUE</small><strong>${escapeHtml(r.track)}</strong><span>Winner: ${escapeHtml(r.winner)}</span></div><b>›</b></button>`).join('');
+  const leagueResultsHtml = state.latestResults.map((r)=>{
+    const league = String(r.league||'').toLowerCase();
+    const isSunday = league === 'sunday';
+    const badge = isSunday ? 'S' : 'M';
+    const cardClass = isSunday ? 'sunday-home-result' : 'monday-home-result';
+    const badgeClass = isSunday ? 'sunday-result-badge' : 'monday-result-badge';
+    return `
+    <button class="result-card ${cardClass}" onclick="renderResults()"><div class="result-position ${badgeClass}">${badge}</div><div><small>${escapeHtml(r.league.toUpperCase())} LEAGUE</small><strong>${escapeHtml(r.track)}</strong><span>Winner: ${escapeHtml(r.winner)}</span></div><b>›</b></button>`;
+  }).join('');
   const hostedResultsHtml = state.hostedLatest ? `
     <button class="result-card hosted-home-result" onclick="openHostedDriverProfile(decodeURIComponent('${encodeURIComponent(String(state.hostedLatest.winner||'')).replace(/'/g,'%27')}'))"><div class="result-position hosted-result-badge">H</div><div><small>HOSTED • LAST RACE</small><strong>${escapeHtml(state.hostedLatest.track||'HLRN Hosted Race')}</strong><span>Winner: ${escapeHtml(state.hostedLatest.winner||'')}</span>${state.hostedLatest.date?`<em>${escapeHtml(state.hostedLatest.date)}</em>`:''}</div><b>›</b></button>` : '';
   const resultsHtml = (leagueResultsHtml || hostedResultsHtml) ? leagueResultsHtml + hostedResultsHtml :
