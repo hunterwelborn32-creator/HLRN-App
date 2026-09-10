@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v9-1-profile-fix';
+const CACHE = 'hlrn-v9-2-home-bar-fix';
 const APP_SHELL = [
   './',
   './index.html',

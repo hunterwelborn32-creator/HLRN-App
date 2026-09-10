@@ -79,7 +79,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '9.1',
+  appVersion: '9.2',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
   teamStandings: {Sunday: [], Monday: []},
@@ -243,12 +243,6 @@ function renderHome(){
 
   app.innerHTML = `
     ${networkBar()}
-    <section class="home-masthead">
-      <div class="home-mast-copy"><span>HIGH LINE RACING NETWORK</span><strong>RACE DAY.<br>EVERY DAY.</strong><small>Live standings • Hosted stats • Schedules • Race intelligence</small></div>
-      <div class="home-mast-mark">HLRN</div>
-      <div class="home-mast-stripes" aria-hidden="true"><i></i><i></i><i></i></div>
-    </section>
-    <section class="brand-strip"><img class="home-logo" src="hlrn-logo-4k.png" alt="HLRN"><div>${liveBadge()}</div></section>
     <div class="home-league-switch" role="tablist"><button class="${state.homeLeague==='Sunday'?'active':''}" onclick="switchHomeLeague('Sunday')">SUNDAY</button><button class="${state.homeLeague==='Monday'?'active':''}" onclick="switchHomeLeague('Monday')">MONDAY</button></div>
     <section class="race-hero"><div class="race-hero-top"><div><span class="overline">NEXT HLRN EVENT • WEEK ${scheduleRace.race||"--"}</span><h2>${escapeHtml(race.track)}</h2></div><div class="track-badge">🏁</div></div>
       <p>${escapeHtml(race.series)} <span>•</span> ${escapeHtml(race.date)} <span>•</span> ${escapeHtml(race.time)}</p>
