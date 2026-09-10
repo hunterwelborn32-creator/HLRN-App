@@ -79,7 +79,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '8.1',
+  appVersion: '8.2',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
   teamStandings: {Sunday: [], Monday: []},
@@ -256,7 +256,7 @@ function renderHome(){
     <section class="feature-launchpad">
       <button onclick="openFeature('records')"><span>🏆</span><strong>Records</strong><small>Wins • starts • laps led</small></button>
       <button onclick="openFeature('headtohead')"><span>⚔️</span><strong>Head-to-Head</strong><small>Compare any two drivers</small></button>
-      <button onclick="openFeature('racestats')"><span>📈</span><strong>Race Stats</strong><small>Movers • leaders • clean race</small></button>
+      <button onclick="openFeature('racestats')"><span>🧠</span><strong>Race Intelligence</strong><small>Full Sunday + Monday analytics</small></button>
       <button onclick="openFeature('power')"><span>⚡</span><strong>Power Rankings</strong><small>Recent hosted performance</small></button>
       <button onclick="openFeature('tracks')"><span>🛣️</span><strong>Track Hub</strong><small>History by track</small></button>
       <button onclick="openFeature('teams')"><span>👥</span><strong>Teams</strong><small>Team championship center</small></button>
@@ -600,50 +600,36 @@ function renderRecords(){
 function compareDriver(name){
   return hostedDriverStats().find(d=>d.name===name)||null;
 }
-function h2hSelect(id,drivers,selected){
-  return `<select id="${id}" onchange="renderHeadToHead()">${drivers.map(d=>`<option ${d.name===selected?'selected':''}>${escapeHtml(d.name)}</option>`).join('')}</select>`;
+function h2hSearchBox(id,drivers,selected){
+  return `<div class="h2h-search"><input id="${id}" list="${id}List" value="${escapeHtml(selected)}" placeholder="Search driver…" oninput="h2hMaybeRender(this)"><datalist id="${id}List">${drivers.map(d=>`<option value="${escapeHtml(d.name)}"></option>`).join('')}</datalist></div>`;
 }
-function renderHeadToHead(){
+function h2hMaybeRender(el){
+  const names=new Set(hostedDriverStats().map(d=>d.name));
+  if(names.has(el.value)) renderHeadToHead(el.id,el.value);
+}
+function renderHeadToHead(changedId='',changedValue=''){
   const ds=hostedDriverStats().sort((a,b)=>a.name.localeCompare(b.name));
   if(ds.length<2){ featureShell('Head-to-Head','Compare two hosted drivers.','<div class="empty">Need at least two hosted drivers.</div>'); return; }
-  const aName=document.querySelector('#h2hA')?.value||ds[0].name, bName=document.querySelector('#h2hB')?.value||ds[1].name;
+  let aName=changedId==='h2hA'?changedValue:(document.querySelector('#h2hA')?.value||state.h2hA||ds[0].name);
+  let bName=changedId==='h2hB'?changedValue:(document.querySelector('#h2hB')?.value||state.h2hB||ds[1].name);
+  if(!ds.some(d=>d.name===aName))aName=ds[0].name;
+  if(!ds.some(d=>d.name===bName))bName=ds.find(d=>d.name!==aName)?.name||ds[1].name;
+  state.h2hA=aName; state.h2hB=bName;
   const a=compareDriver(aName), b=compareDriver(bName);
-  const metric=(label,key,fmt=v=>v)=>`<div class="h2h-metric"><span>${label}</span><strong class="${(a?.[key]||0)>(b?.[key]||0)?'lead':''}">${fmt(a?.[key]||0)}</strong><b>${fmt(b?.[key]||0)}</b></div>`;
-  const body=`<div class="h2h-pickers">${h2hSelect('h2hA',ds,aName)}<span>VS</span>${h2hSelect('h2hB',ds,bName)}</div>
+  const metric=(label,key,fmt=v=>v,lower=false)=>{const av=a?.[key]||0,bv=b?.[key]||0;return `<div class="h2h-metric"><span>${label}</span><strong class="${lower?(av<bv?'lead':''):(av>bv?'lead':'')}">${fmt(av)}</strong><b class="${lower?(bv<av?'lead':''):(bv>av?'lead':'')}">${fmt(bv)}</b></div>`};
+  const body=`<p class="feature-note">Type either driver's name. Results come from every imported Hosted race.</p><div class="h2h-pickers">${h2hSearchBox('h2hA',ds,aName)}<span>VS</span>${h2hSearchBox('h2hB',ds,bName)}</div>
   <div class="h2h-names"><strong>${escapeHtml(aName)}</strong><strong>${escapeHtml(bName)}</strong></div>
-  <div class="h2h-board">
-    ${metric('STARTS','races')}${metric('WINS','wins')}${metric('TOP 5','top5')}${metric('TOP 10','top10')}
-    ${metric('LAPS LED','lapsLed')}${metric('AVG FINISH','avgFinish',v=>Number(v).toFixed(1))}
-    ${metric('AVG INCIDENTS','avgInc',v=>Number(v).toFixed(1))}${metric('CLEAN RATE','cleanRate',v=>Number(v).toFixed(1)+'%')}
-  </div>`;
-  featureShell('Head-to-Head','Pick any two hosted drivers and compare their careers.',body,'headtohead-page');
+  <div class="h2h-board">${metric('STARTS','races')}${metric('WINS','wins')}${metric('TOP 5','top5')}${metric('TOP 10','top10')}${metric('LAPS LED','lapsLed')}${metric('AVG FINISH','avgFinish',v=>Number(v).toFixed(1),true)}${metric('AVG INCIDENTS','avgInc',v=>Number(v).toFixed(1),true)}${metric('CLEAN RATE','cleanRate',v=>Number(v).toFixed(1)+'%')}</div>`;
+  featureShell('Head-to-Head','Search any two Hosted drivers and compare their full careers.',body,'headtohead-page');
 }
-
 function latestHostedRows(){
   const groups=hostedRaceGroups();
   return groups.length?groups[0].rows:[];
 }
 function renderRaceStats(){
-  const rows=latestHostedRows();
-  if(!rows.length){featureShell('Race Stats','Latest hosted race intelligence.','<div class="empty">No hosted race data loaded.</div>');return;}
-  const ordered=[...rows].sort((a,b)=>num(a['Finish Position'])-num(b['Finish Position']));
-  const valid=ordered.filter(r=>num(r['Finish Position'])>0);
-  const winner=valid[0], mover=[...valid].sort((a,b)=>(num(b['Start Position'])-num(b['Finish Position']))-(num(a['Start Position'])-num(a['Finish Position'])))[0];
-  const led=[...valid].sort((a,b)=>num(b['Laps Led'])-num(a['Laps Led']))[0];
-  const clean=valid.filter(r=>num(r.Incidents)===0).sort((a,b)=>num(a['Finish Position'])-num(b['Finish Position']))[0];
-  const pole=[...valid].sort((a,b)=>num(a['Start Position'])-num(b['Start Position']))[0];
-  const race=hostedRaceGroups()[0];
-  const cards=[
-    ['🏆','WINNER',winner?.Driver,`P${winner?.['Finish Position']||'--'}`],
-    ['🚀','BIGGEST MOVER',mover?.Driver,`+${Math.max(0,num(mover?.['Start Position'])-num(mover?.['Finish Position']))} spots`],
-    ['🔥','MOST LAPS LED',led?.Driver,`${num(led?.['Laps Led'])} laps`],
-    ['✨','CLEANEST TOP FINISHER',clean?.Driver,clean?`P${clean['Finish Position']} • 0 INC`:'--'],
-    ['⚡','POLE / BEST START',pole?.Driver,pole?`Start ${pole['Start Position']}`:'--'],
-    ['👥','FIELD SIZE',{name:`${valid.length} DRIVERS`},`${race?.track||''}`]
-  ];
-  featureShell('Race Stats',`${race?.track||'Latest hosted race'} • ${race?.date||''}`,`<div class="race-stat-grid">${cards.map(c=>recordCard(c[0],c[1],typeof c[2]==='object'?c[2]:{name:prettyName(String(c[2]||'--'))},c[3])).join('')}</div>`,'race-stats-page');
+  const body=`<div class="intelligence-launch"><div><small>HLRN ANALYTICS ENGINE</small><strong>Sunday + Monday Race Intelligence</strong><p>Full live intelligence dashboard with league switching, command-center metrics, stories and deeper race analysis.</p></div><button onclick="document.getElementById('raceIntelFrame')?.contentWindow?.location.reload()">↻ REFRESH</button></div><iframe id="raceIntelFrame" class="race-intelligence-frame" src="race-intelligence.html" title="HLRN Race Intelligence"></iframe>`;
+  featureShell('Race Intelligence','Full HLRN Sunday and Monday analytics dashboard.',body,'race-intelligence-page');
 }
-
 function recentRowsFor(name,n=5){
   return state.hostedRaceRows.filter(r=>prettyName(String(r.Driver||''))===name).sort((a,b)=>String(b['Race Date']||'').localeCompare(String(a['Race Date']||''))).slice(0,n);
 }
@@ -656,8 +642,8 @@ function powerScore(d){
   return Math.max(0,Math.round(100 - avg*1.4 + wins*14 + top5*4 - inc*1.2));
 }
 function renderPowerRankings(){
-  const ranked=hostedDriverStats().map(d=>({...d,power:powerScore(d)})).filter(d=>recentRowsFor(d.name,5).length).sort((a,b)=>b.power-a.power).slice(0,20);
-  const body=`<p class="feature-note">HLRN Power Score uses each driver's latest five hosted races: finishes, wins, Top 5s and incidents.</p>
+  const ranked=hostedDriverStats().filter(d=>d.races>=10).map(d=>({...d,power:powerScore(d)})).filter(d=>recentRowsFor(d.name,5).length).sort((a,b)=>b.power-a.power).slice(0,20);
+  const body=`<p class="feature-note">Minimum 10 Hosted starts. HLRN Power Score uses each eligible driver's latest five Hosted races: finishes, wins, Top 5s and incidents.</p>
   <div class="power-list">${ranked.map((d,i)=>`<button onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')" class="power-row"><b>${i+1}</b><div><strong>${escapeHtml(d.name)}</strong><span>${d.wins} career wins • Avg ${d.avgFinish.toFixed(1)}</span></div><em>${d.power}</em></button>`).join('')}</div>`;
   featureShell('Driver Power Rankings','Who is hottest right now in HLRN Hosted Racing?',body,'power-page');
 }
@@ -700,35 +686,39 @@ function renderTeams(){
   featureShell('Team Standings','Live team championship data from the same Sunday and Monday feeds used by the HLRN website.',body,'teams-page');
 }
 function spotlightDriver(){
-  const ds=hostedDriverStats(); if(!ds.length)return null;
-  return [...ds].sort((a,b)=>(b.wins*20+b.top5*5+b.top10*2+b.lapsLed*.1)-(a.wins*20+a.top5*5+a.top10*2+a.lapsLed*.1))[0];
+  const ds=hostedDriverStats().filter(d=>d.races>0); if(!ds.length)return null;
+  const ranked=[...ds].sort((a,b)=>(b.wins*20+b.top5*5+b.top10*2+b.lapsLed*.1+b.cleanRate*.05)-(a.wins*20+a.top5*5+a.top10*2+a.lapsLed*.1+a.cleanRate*.05));
+  const day=Math.floor(Date.now()/86400000); return ranked[day%Math.min(ranked.length,10)];
 }
 function renderSpotlight(){
   const d=spotlightDriver();
-  if(!d){featureShell('Driver Spotlight','Featured HLRN racer.','<div class="empty">No driver data loaded.</div>');return;}
-  const body=`<article class="spotlight-hero"><div class="spotlight-number">${initials(d.name)}</div><small>FEATURED HLRN DRIVER</small><h3>${escapeHtml(d.name)}</h3><p>${d.races} hosted starts • ${d.wins} wins • ${d.top5} Top 5s • ${d.lapsLed} laps led</p><div class="spotlight-stats"><b>${d.avgFinish.toFixed(1)}<span>AVG FIN</span></b><b>${d.cleanRate.toFixed(1)}%<span>CLEAN</span></b><b>${d.top10}<span>TOP 10</span></b></div><button class="btn primary" onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')">FULL DRIVER PROFILE</button></article>`;
-  featureShell('Driver Spotlight','A featured racer selected from current hosted career performance.',body,'spotlight-page');
+  if(!d){featureShell('Driver Spotlight','Featured HLRN racer.','<div class="empty">Hosted data is still loading. Tap refresh and try again.</div>');return;}
+  const recent=recentRowsFor(d.name,5), recentAvg=recent.length?(recent.reduce((a,r)=>a+num(r['Finish Position']),0)/recent.length).toFixed(1):'--';
+  const body=`<article class="spotlight-hero"><div class="spotlight-number">${initials(d.name)}</div><small>FEATURED HLRN DRIVER</small><h3>${escapeHtml(d.name)}</h3><p>${d.races} Hosted starts • ${d.wins} wins • ${d.top5} Top 5s • ${d.lapsLed} laps led</p><div class="spotlight-stats"><b>${d.avgFinish.toFixed(1)}<span>CAREER AVG</span></b><b>${recentAvg}<span>LAST 5 AVG</span></b><b>${d.cleanRate.toFixed(1)}%<span>CLEAN</span></b><b>${d.top10}<span>TOP 10</span></b></div><button class="btn primary" onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')">FULL DRIVER PROFILE</button></article>`;
+  featureShell('Driver Spotlight','A rotating featured racer powered by all Hosted career data.',body,'spotlight-page');
 }
-
 function renderRecap(){
   const groups=hostedRaceGroups(), race=groups[0], rows=latestHostedRows();
   if(!race||!rows.length){featureShell('Race Recap','Latest HLRN hosted race.','<div class="empty">No hosted results loaded.</div>');return;}
   const valid=[...rows].filter(r=>num(r['Finish Position'])>0).sort((a,b)=>num(a['Finish Position'])-num(b['Finish Position']));
-  const podium=valid.slice(0,3), led=[...valid].sort((a,b)=>num(b['Laps Led'])-num(a['Laps Led']))[0], mover=[...valid].sort((a,b)=>(num(b['Start Position'])-num(b['Finish Position']))-(num(a['Start Position'])-num(a['Finish Position'])))[0];
-  const body=`<article class="recap-hero"><small>RACE COMPLETE</small><h3>${escapeHtml(race.track)}</h3><span>${escapeHtml(race.date)} • ${valid.length} drivers</span></article>
-  <div class="recap-podium">${podium.map((r,i)=>`<div class="p${i+1}"><b>P${i+1}</b><strong>${escapeHtml(prettyName(String(r.Driver)))}</strong><span>#${escapeHtml(r['Car #']||'--')}</span></div>`).join('')}</div>
-  <article class="recap-story"><h3>Race Story</h3><p><strong>${escapeHtml(prettyName(String(podium[0]?.Driver||'The winner')))}</strong> took the victory at ${escapeHtml(race.track)}. ${escapeHtml(prettyName(String(led?.Driver||'')))} led the most laps with ${num(led?.['Laps Led'])}, while ${escapeHtml(prettyName(String(mover?.Driver||'')))} was the biggest mover, gaining ${Math.max(0,num(mover?.['Start Position'])-num(mover?.['Finish Position']))} positions from start to finish.</p></article>`;
-  featureShell('Race Recap','Automatic recap generated from the latest imported hosted race.',body,'recap-page');
+  const podium=valid.slice(0,3), winner=podium[0], led=[...valid].sort((a,b)=>num(b['Laps Led'])-num(a['Laps Led']))[0];
+  const mover=[...valid].sort((a,b)=>(num(b['Start Position'])-num(b['Finish Position']))-(num(a['Start Position'])-num(a['Finish Position'])))[0];
+  const clean=valid.filter(r=>num(r.Incidents)===0), pole=[...valid].sort((a,b)=>num(a['Start Position'])-num(b['Start Position']))[0];
+  const totalInc=valid.reduce((a,r)=>a+num(r.Incidents),0), totalLed=valid.reduce((a,r)=>a+num(r['Laps Led']),0);
+  const winName=prettyName(String(winner?.Driver||'The winner')), second=prettyName(String(podium[1]?.Driver||'')), third=prettyName(String(podium[2]?.Driver||''));
+  const gain=Math.max(0,num(mover?.['Start Position'])-num(mover?.['Finish Position']));
+  const story=`${winName} came away with the victory at ${race.track}, finishing ahead of ${second||'the runner-up'} and ${third||'the third-place finisher'} in a ${valid.length}-driver Hosted field. ${prettyName(String(pole?.Driver||winName))} started from the best grid position. ${prettyName(String(led?.Driver||winName))} controlled the most laps, leading ${num(led?.['Laps Led'])}${totalLed?` of the ${totalLed} recorded driver-led laps`:''}. ${prettyName(String(mover?.Driver||winName))} delivered the charge of the race by moving from P${num(mover?.['Start Position'])||'--'} to P${num(mover?.['Finish Position'])||'--'}, a gain of ${gain} positions. ${clean.length} drivers completed the event with zero incidents, while the field recorded ${totalInc} total incidents. The podium combined strong track position with execution, but the movement through the field and the laps-led battle show there was plenty happening behind the final finishing order.`;
+  const body=`<article class="recap-hero"><small>RACE COMPLETE • FULL REPORT</small><h3>${escapeHtml(race.track)}</h3><span>${escapeHtml(race.date)} • ${valid.length} drivers • ${totalInc} total incidents</span></article><div class="recap-podium">${podium.map((r,i)=>`<div class="p${i+1}"><b>P${i+1}</b><strong>${escapeHtml(prettyName(String(r.Driver)))}</strong><span>Start P${num(r['Start Position'])||'--'} • ${num(r.Incidents)} INC</span></div>`).join('')}</div><div class="recap-detail-grid"><article><small>MOST LAPS LED</small><strong>${escapeHtml(prettyName(String(led?.Driver||'--')))}</strong><span>${num(led?.['Laps Led'])} laps</span></article><article><small>BIGGEST MOVER</small><strong>${escapeHtml(prettyName(String(mover?.Driver||'--')))}</strong><span>+${gain} positions</span></article><article><small>CLEAN FINISHERS</small><strong>${clean.length}</strong><span>zero-incident drivers</span></article></div><article class="recap-story"><h3>The Full Race Story</h3><p>${escapeHtml(story)}</p></article>`;
+  featureShell('Race Recap','A deeper automatic story generated from the latest imported Hosted race.',body,'recap-page');
 }
-
 function renderIncidentWatch(){
-  const ds=hostedDriverStats().filter(d=>d.races>=2).sort((a,b)=>b.avgInc-a.avgInc);
+  const ds=hostedDriverStats().filter(d=>d.races>=10).sort((a,b)=>b.avgInc-a.avgInc);
   const clean=[...ds].sort((a,b)=>a.avgInc-b.avgInc).slice(0,5);
   const body=`<div class="incident-callout"><span>🚨</span><div><small>HIGHER NUMBER = MORE INCIDENTS</small><strong>Hosted Incident Watch</strong></div></div>
   <div class="incident-list">${ds.slice(0,25).map((d,i)=>`<article><b>${i+1}</b><div><strong>${escapeHtml(d.name)}</strong><span>${d.races} races • ${d.incidents} total</span></div><em>${d.avgInc.toFixed(1)}<small>AVG</small></em></article>`).join('')}</div>
-  <div class="section-head"><h3>Cleanest Regulars</h3><span>Minimum 2 races</span></div>
+  <div class="section-head"><h3>Cleanest Regulars</h3><span>Minimum 10 Hosted starts</span></div>
   <div class="clean-grid">${clean.map(d=>`<button onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')"><strong>${escapeHtml(d.name)}</strong><span>${d.avgInc.toFixed(1)} avg inc</span></button>`).join('')}</div>`;
-  featureShell('Incident Watch','Career hosted incident averages and clean-racing leaders.',body,'incidents-page');
+  featureShell('Incident Watch','Career Hosted incident averages for drivers with at least 10 starts.',body,'incidents-page');
 }
 
 function achievementLevel(d){
@@ -760,12 +750,18 @@ function renderFavorites(){
 function shareDriverCardName(){
   return hostedDriverStats().sort((a,b)=>b.wins-a.wins)[0]?.name||'';
 }
-function renderShareCards(){
-  const d=compareDriver(document.querySelector('#shareDriver')?.value||shareDriverCardName())||hostedDriverStats()[0];
+async function shareDriverStats(name){
+  const d=compareDriver(name); if(!d)return;
+  const text=`HLRN Driver Card — ${d.name}\n${d.races} Hosted starts • ${d.wins} wins • ${d.top5} Top 5s • ${d.top10} Top 10s • ${d.avgFinish.toFixed(1)} avg finish`;
+  try{if(navigator.share){await navigator.share({title:`HLRN — ${d.name}`,text});}else{await navigator.clipboard.writeText(text);alert('Driver stats copied to your clipboard.');}}catch(e){}
+}
+function renderShareCards(chosen=''){
   const ds=hostedDriverStats().sort((a,b)=>a.name.localeCompare(b.name));
-  const select=`<select id="shareDriver" onchange="renderShareCards()">${ds.map(x=>`<option ${d&&x.name===d.name?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select>`;
-  const body=d?`${select}<article class="share-stat-card" id="shareStatCard"><div class="share-brand">HLRN <span>DRIVER CARD</span></div><div class="share-driver-mark">${initials(d.name)}</div><small>HIGH LINE RACING NETWORK</small><h3>${escapeHtml(d.name)}</h3><div class="share-card-stats"><b>${d.races}<span>STARTS</span></b><b>${d.wins}<span>WINS</span></b><b>${d.top5}<span>TOP 5</span></b><b>${d.avgFinish.toFixed(1)}<span>AVG FIN</span></b></div><footer>RACING PEOPLE TOGETHER</footer></article><p class="feature-note">This card is designed to be screenshot-ready for Facebook, Discord or race announcements.</p>`:'<div class="empty">No driver data.</div>';
-  featureShell('Share Cards','Screenshot-ready HLRN driver graphics.',body,'sharecards-page');
+  const name=chosen||document.querySelector('#shareDriver')?.value||state.shareDriver||shareDriverCardName();
+  const d=compareDriver(name)||ds[0]; if(d)state.shareDriver=d.name;
+  const select=`<select id="shareDriver" onchange="state.shareDriver=this.value;renderShareCards(this.value)">${ds.map(x=>`<option ${d&&x.name===d.name?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</select>`;
+  const body=d?`${select}<article class="share-stat-card" id="shareStatCard"><div class="share-brand">HLRN <span>DRIVER CARD</span></div><div class="share-driver-mark">${initials(d.name)}</div><small>HIGH LINE RACING NETWORK • HOSTED CAREER</small><h3>${escapeHtml(d.name)}</h3><div class="share-card-stats"><b>${d.races}<span>STARTS</span></b><b>${d.wins}<span>WINS</span></b><b>${d.top5}<span>TOP 5</span></b><b>${d.avgFinish.toFixed(1)}<span>AVG FIN</span></b></div><footer>RACING PEOPLE TOGETHER</footer></article><div class="share-actions"><button class="btn primary" onclick="shareDriverStats('${encodeURIComponent(d.name)}'.includes('%')?decodeURIComponent('${encodeURIComponent(d.name)}'):'${escapeHtml(d.name)}')">SHARE DRIVER STATS</button><button class="btn" onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')">OPEN PROFILE</button></div><p class="feature-note">The card now stays on the selected driver. Use Share Driver Stats for the phone share sheet, then screenshot the card for a graphic post.</p>`:'<div class="empty">No driver data loaded.</div>';
+  featureShell('Share Cards','Working screenshot-ready HLRN driver cards with native sharing.',body,'sharecards-page');
 }
 
 
