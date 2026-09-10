@@ -79,7 +79,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '9.0',
+  appVersion: '9.1',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
   teamStandings: {Sunday: [], Monday: []},
@@ -375,19 +375,112 @@ function renderDrivers(filter=''){
   if(filter){ input.focus(); input.setSelectionRange(filter.length,filter.length); }
 }
 
-async function openHostedDriverProfile(driver){
-  clearInterval(countdownTimer);
-  state.currentView='driverProfile';
-  nav.forEach(n=>n.classList.remove('active'));
-  app.innerHTML=`<button class="profile-back" onclick="setView('drivers')">← Drivers</button><section class="driver-profile-hero"><div class="driver-profile-kicker">HLRN HOSTED CAREER</div><h2>${escapeHtml(driver)}</h2><p>Building career stats from every imported hosted race…</p></section><div class="profile-loading">Loading career stats…</div>`;
-  window.scrollTo({top:0,behavior:'smooth'});
+async function openHostedDriverProfile(encodedName){
   try{
-    if(!state.hostedRaceRows.length) await refreshHostedData(false);
-    const rows=state.hostedRaceRows.filter(r=>prettyName(String(r.Driver||'')).toLowerCase()===driver.toLowerCase());
-    if(!rows.length) throw new Error('No hosted race history found for this driver.');
-    renderHostedDriverProfileFromRows(driver,rows);
+    const raw = String(encodedName||'');
+    let name = raw;
+    try{ name = decodeURIComponent(raw); }catch(e){}
+    name = prettyName(String(name||'').trim());
+
+    // Prefer full career rows because they contain the richest Hosted profile data.
+    let careerRows = (state.hostedRaceRows||[]).filter(r=>prettyName(String(r.Driver||'').trim())===name);
+
+    // Fallback to the driver summary list if the row-level feed has not finished loading.
+    let summary = (state.hostedDrivers||[]).find(d=>prettyName(String(d.name||'').trim())===name);
+
+    // If an exact pretty-name match fails, try a normalized case-insensitive match.
+    if(!careerRows.length){
+      const target=name.toLowerCase();
+      careerRows=(state.hostedRaceRows||[]).filter(r=>prettyName(String(r.Driver||'').trim()).toLowerCase()===target);
+    }
+    if(!summary){
+      const target=name.toLowerCase();
+      summary=(state.hostedDrivers||[]).find(d=>prettyName(String(d.name||'').trim()).toLowerCase()===target);
+    }
+
+    // If data is still loading, show a proper loading state instead of "unable to load".
+    if(!careerRows.length && !summary){
+      app.innerHTML=`${networkBar()}
+        <button class="profile-back" onclick="setView('drivers')">← Drivers</button>
+        <section class="coming-live"><span>👤</span><h3>Hosted profile is loading</h3><p>We found the driver name, but the Hosted race database has not finished loading yet.</p><button class="btn primary" onclick="refreshHostedData().then(()=>openHostedDriverProfile('${encodeURIComponent(name)}'))">REFRESH HOSTED DATA</button></section>`;
+      return;
+    }
+
+    // Build career numbers safely from rows when available.
+    const races = careerRows.length || Number(summary?.races||0);
+    const finishes = careerRows.map(r=>num(r['Finish Position'])).filter(v=>v>0);
+    const wins = careerRows.length ? careerRows.filter(r=>num(r['Finish Position'])===1).length : Number(summary?.wins||0);
+    const top5 = careerRows.length ? careerRows.filter(r=>{const f=num(r['Finish Position']);return f>0&&f<=5}).length : Number(summary?.top5||0);
+    const top10 = careerRows.length ? careerRows.filter(r=>{const f=num(r['Finish Position']);return f>0&&f<=10}).length : Number(summary?.top10||0);
+    const avgFinish = finishes.length ? finishes.reduce((a,b)=>a+b,0)/finishes.length : Number(summary?.averageFinish||0);
+    const lapsLed = careerRows.reduce((a,r)=>a+num(r['Laps Led']),0);
+    const incidents = careerRows.reduce((a,r)=>a+num(r.Incidents),0);
+    const avgInc = races ? incidents/races : 0;
+
+    const sorted = [...careerRows].sort((a,b)=>String(b['Race Date']||'').localeCompare(String(a['Race Date']||'')));
+    const recent = sorted.slice(0,5);
+
+    const trackMap = new Map();
+    careerRows.forEach(r=>{
+      const track=String(r.Track||'').trim();
+      if(!track) return;
+      if(!trackMap.has(track)) trackMap.set(track,{track,races:0,wins:0,top5:0,finishes:[],lapsLed:0,incidents:0});
+      const t=trackMap.get(track), f=num(r['Finish Position']);
+      t.races++;
+      if(f===1)t.wins++;
+      if(f>0&&f<=5)t.top5++;
+      if(f>0)t.finishes.push(f);
+      t.lapsLed+=num(r['Laps Led']);
+      t.incidents+=num(r.Incidents);
+    });
+    const tracks=[...trackMap.values()].map(t=>({...t,avgFinish:t.finishes.length?t.finishes.reduce((a,b)=>a+b,0)/t.finishes.length:0})).sort((a,b)=>b.races-a.races||a.track.localeCompare(b.track));
+
+    const recentHtml = recent.length ? recent.map(r=>{
+      const f=num(r['Finish Position']), s=num(r['Start Position']);
+      const gain=(s>0&&f>0)?s-f:0;
+      return `<article class="profile-recent-row">
+        <div class="profile-finish ${f===1?'win':''}">P${f||'--'}</div>
+        <div><strong>${escapeHtml(String(r.Track||'Unknown Track'))}</strong><span>${escapeHtml(String(r['Race Date']||''))} • Start P${s||'--'} • ${num(r['Laps Led'])} led • ${num(r.Incidents)} inc</span></div>
+        <b class="${gain>0?'gain':gain<0?'loss':''}">${gain>0?'+'+gain:gain}</b>
+      </article>`;
+    }).join('') : `<div class="empty">Detailed recent-race rows are still loading.</div>`;
+
+    const tracksHtml = tracks.length ? tracks.map(t=>`<article class="profile-track-row">
+      <div><strong>${escapeHtml(t.track)}</strong><span>${t.races} races • ${t.wins} wins • ${t.top5} Top 5s</span></div>
+      <div><b>${t.avgFinish.toFixed(1)}</b><small>AVG FIN</small></div>
+      <div><b>${t.lapsLed}</b><small>LED</small></div>
+    </article>`).join('') : `<div class="empty">Track-by-track detail will appear when the full Hosted race feed is loaded.</div>`;
+
+    app.innerHTML=`${networkBar()}
+      <button class="profile-back" onclick="setView('drivers')">← Drivers</button>
+      <section class="driver-profile-hero">
+        <div class="driver-profile-avatar">${escapeHtml(initials(name))}</div>
+        <div><small>HLRN HOSTED DRIVER</small><h2>${escapeHtml(name)}</h2><p>${races} career starts • ${wins} wins</p></div>
+      </section>
+
+      <div class="career-stats-grid">
+        <article class="career-stat"><small>STARTS</small><strong>${races}</strong></article>
+        <article class="career-stat"><small>WINS</small><strong>${wins}</strong></article>
+        <article class="career-stat"><small>TOP 5</small><strong>${top5}</strong></article>
+        <article class="career-stat"><small>TOP 10</small><strong>${top10}</strong></article>
+        <article class="career-stat"><small>AVG FINISH</small><strong>${avgFinish?avgFinish.toFixed(1):'--'}</strong></article>
+        <article class="career-stat"><small>LAPS LED</small><strong>${lapsLed}</strong></article>
+        <article class="career-stat"><small>INCIDENTS</small><strong>${incidents}</strong></article>
+        <article class="career-stat"><small>AVG INC</small><strong>${avgInc.toFixed(1)}</strong></article>
+      </div>
+
+      <div class="section-head"><h3>Recent Hosted Races</h3><span>Latest 5</span></div>
+      <div class="profile-recent-list">${recentHtml}</div>
+
+      <div class="section-head"><h3>Track History</h3><span>${tracks.length} tracks</span></div>
+      <div class="profile-track-list">${tracksHtml}</div>`;
+    addPageMotion();
+    window.scrollTo({top:0,behavior:'smooth'});
   }catch(err){
-    app.innerHTML=`<button class="profile-back" onclick="setView('drivers')">← Drivers</button><section class="driver-profile-hero"><div class="driver-profile-kicker">HLRN HOSTED CAREER</div><h2>${escapeHtml(driver)}</h2><p>Unable to load the hosted-race profile.</p></section><div class="empty">${escapeHtml(err.message)}</div>`;
+    console.error('Hosted profile error',err);
+    app.innerHTML=`${networkBar()}
+      <button class="profile-back" onclick="setView('drivers')">← Drivers</button>
+      <section class="coming-live"><span>⚠️</span><h3>Hosted profile hit a loading error</h3><p>The driver profile data could not be built from the current live feed. Tap refresh to try again.</p><button class="btn primary" onclick="refreshHostedData().then(()=>setView('drivers'))">REFRESH DRIVER DATA</button></section>`;
   }
 }
 
