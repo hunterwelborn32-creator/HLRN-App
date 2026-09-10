@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v9-4-race-experience';
+const CACHE = 'hlrn-v9-5-iphone-safe-area';
 const APP_SHELL = [
   './',
   './index.html',

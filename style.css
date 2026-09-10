@@ -1529,3 +1529,101 @@ html.hlrn-race-pulse body:before{
   .hlrn-start-overlay{transition:none!important}
   .egg-checkers,.egg-smoke,.egg-tire{animation:none!important}
 }
+
+
+/* =========================================================
+   HLRN 9.5 — iPHONE SAFE AREA FIX
+   Keeps the app controls below the Dynamic Island / status bar.
+   ========================================================= */
+
+:root{
+  --hlrn-safe-top: env(safe-area-inset-top, 0px);
+  --hlrn-safe-left: env(safe-area-inset-left, 0px);
+  --hlrn-safe-right: env(safe-area-inset-right, 0px);
+  --hlrn-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+body{
+  padding-top:0!important;
+}
+
+/* Push the entire top bar below iPhone status-area content */
+.topbar{
+  padding-top:calc(11px + var(--hlrn-safe-top))!important;
+  padding-left:calc(14px + var(--hlrn-safe-left))!important;
+  padding-right:calc(14px + var(--hlrn-safe-right))!important;
+  min-height:calc(76px + var(--hlrn-safe-top))!important;
+}
+
+/* Sticky header should begin at the physical top, while its content sits in safe area */
+.topbar{
+  top:0!important;
+}
+
+/* Make sure clickable top-right controls are comfortably below Dynamic Island */
+.top-actions{
+  align-self:flex-end!important;
+  margin-bottom:2px!important;
+}
+
+/* Main content should respect landscape notches too */
+main{
+  padding-left:calc(14px + var(--hlrn-safe-left))!important;
+  padding-right:calc(14px + var(--hlrn-safe-right))!important;
+}
+
+/* Floating nav already uses bottom safe-area; add side safe-area too */
+.bottom-nav{
+  width:min(
+    calc(100% - 18px - var(--hlrn-safe-left) - var(--hlrn-safe-right)),
+    724px
+  )!important;
+  padding-left:calc(8px + var(--hlrn-safe-left))!important;
+  padding-right:calc(8px + var(--hlrn-safe-right))!important;
+}
+
+/* Starting-lights and Easter Egg content stays clear of phone cutouts */
+.hlrn-start-overlay,
+.hlrn-easter-egg{
+  padding-top:var(--hlrn-safe-top)!important;
+  padding-left:var(--hlrn-safe-left)!important;
+  padding-right:var(--hlrn-safe-right)!important;
+  padding-bottom:var(--hlrn-safe-bottom)!important;
+  box-sizing:border-box!important;
+}
+
+/* Slightly reduce header controls on narrow iPhones */
+@media(max-width:430px){
+  .topbar{
+    padding-top:calc(9px + var(--hlrn-safe-top))!important;
+    padding-left:calc(10px + var(--hlrn-safe-left))!important;
+    padding-right:calc(10px + var(--hlrn-safe-right))!important;
+    min-height:calc(70px + var(--hlrn-safe-top))!important;
+  }
+
+  main{
+    padding-left:calc(10px + var(--hlrn-safe-left))!important;
+    padding-right:calc(10px + var(--hlrn-safe-right))!important;
+  }
+
+  .top-actions{
+    gap:6px!important;
+  }
+
+  .top-network-pill{
+    padding:5px 7px!important;
+  }
+
+  .sound-toggle{
+    width:30px!important;
+    height:30px!important;
+    min-width:30px!important;
+  }
+}
+
+/* Standalone PWA: give a little extra breathing room under iPhone status bar */
+@media(display-mode:standalone){
+  .topbar{
+    border-top:1px solid transparent!important;
+  }
+}
