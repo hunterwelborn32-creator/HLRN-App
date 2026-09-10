@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v4-0';
+const CACHE = 'hlrn-v5-hosted-drivers';
 const APP_SHELL = [
   './',
   './index.html',
