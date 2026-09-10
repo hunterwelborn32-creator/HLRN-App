@@ -558,3 +558,42 @@ if('serviceWorker' in navigator){
 renderHome();
 refreshLiveData();
 refreshHostedData();
+
+const SUNDAY_SCHEDULE = [
+  {week:1, date:'2026-06-14', displayDate:'JUNE 14', track:'DAYTONA', car:'GEN 7', laps:'100 LAPS'},
+  {week:2, date:'2026-06-28', displayDate:'JUNE 28', track:'IOWA', car:'TRUCKS', laps:'200 LAPS'},
+  {week:3, date:'2026-07-12', displayDate:'JULY 12', track:'CHICAGOLAND', car:'ARCA', laps:'175 LAPS'},
+  {week:4, date:'2026-07-19', displayDate:'JULY 19', track:'ECHO PARK', car:'GEN 6', laps:'175 LAPS'},
+  {week:5, date:'2026-08-09', displayDate:'AUGUST 9', track:'CHARLOETTE', car:'GEN 7', laps:'175 LAPS'},
+  {week:6, date:'2026-08-16', displayDate:'AUGUST 16', track:'TEXAS', car:'TRUCKS', laps:'175 LAPS'},
+  {week:7, date:'2026-08-23', displayDate:'AUGUST 23', track:'AUTO CLUB', car:'ARCA', laps:'125 LAPS'},
+  {week:8, date:'2026-08-30', displayDate:'AUGUST 30', track:'TALLADEGA', car:'GEN 6', laps:'100 LAPS'},
+  {week:9, date:'2026-09-13', displayDate:'SEPTEMBER 13', track:'HOMESTEAD MIAMI', car:'GEN 7', laps:'175 LAPS'},
+  {week:10, date:'2026-09-20', displayDate:'SEPTEMBER 20', track:'MICHIGAN', car:'TRUCKS', laps:'125 LAPS'},
+  {week:11, date:'2026-09-27', displayDate:'SEPTEMBER 27', track:'INDIANAPOLIS', car:'ARCA', laps:'100 LAPS'},
+  {week:12, date:'2026-10-04', displayDate:'OCTOBER 4', track:'IRSS', car:'GEN 6', laps:'100 LAPS'},
+  {week:13, date:'2026-10-11', displayDate:'OCTOBER 11', track:'KANSAS', car:'GEN 7', laps:'175 LAPS'},
+  {week:14, date:'2026-10-18', displayDate:'OCTOBER 18', track:'LAS VEGAS', car:'TRUCKS', laps:'175 LAPS'},
+  {week:15, date:'2026-10-25', displayDate:'OCTOBER 25', track:'DAYTONA', car:'ARCA', laps:'100 LAPS'},
+  {week:16, date:'2026-11-01', displayDate:'NOVEMBER 1', track:'TALLADEGA', car:'GEN 6', laps:'100 LAPS'}
+];
+
+const MONDAY_SCHEDULE = [
+  {week:1, date:'2026-08-17', displayDate:'AUGUST 17', track:'DAYTONA', car:'GEN 7', laps:'100 LAPS'},
+  {week:2, date:'2026-08-24', displayDate:'AUGUST 24', track:'IOWA', car:'TRUCKS', laps:'150 LAPS'},
+  {week:3, date:'2026-08-31', displayDate:'AUGUST 31', track:'CHICAGOLAND', car:'ARCA', laps:'125 LAPS'},
+  {week:4, date:'2026-09-14', displayDate:'SEPTEMBER 14', track:'ECHO PARK', car:'GEN 7', laps:'125 LAPS'},
+  {week:5, date:'2026-09-21', displayDate:'SEPTEMBER 21', track:'CHARLOETTE', car:'GEN 7', laps:'125 LAPS'},
+  {week:6, date:'2026-09-28', displayDate:'SEPTEMBER 28', track:'TEXAS', car:'TRUCKS', laps:'125 LAPS'},
+  {week:7, date:'2026-10-05', displayDate:'OCTOBER 5', track:'AUTO CLUB', car:'ARCA', laps:'75 LAPS'},
+  {week:8, date:'2026-10-12', displayDate:'OCTOBER 12', track:'TALLADEGA', car:'TRUCKS', laps:'75 LAPS'},
+  {week:9, date:'2026-10-19', displayDate:'OCTOBER 19', track:'HOMESTEAD MIAMI', car:'GEN 7', laps:'125 LAPS'},
+  {week:10, date:'2026-10-26', displayDate:'OCTOBER 26', track:'MICHIGAN', car:'TRUCKS', laps:'125 LAPS'},
+  {week:11, date:'2026-11-02', displayDate:'NOVEMBER 2', track:'INDIANAPOLIS', car:'ARCA', laps:'80 LAPS'},
+  {week:12, date:'2026-11-09', displayDate:'NOVEMBER 9', track:'IRSS', car:'TRUCKS', laps:'75 LAPS'},
+  {week:13, date:'2026-11-16', displayDate:'NOVEMBER 16', track:'KANSAS', car:'GEN 7', laps:'125 LAPS'},
+  {week:14, date:'2026-11-23', displayDate:'NOVEMBER 23', track:'LAS VEGAS', car:'TRUCKS', laps:'125 LAPS'},
+  {week:15, date:'2026-11-30', displayDate:'NOVEMBER 30', track:'DAYTONA', car:'ARCA', laps:'100 LAPS'},
+  {week:16, date:'2026-12-07', displayDate:'DECEMBER 7', track:'TALLADEGA', car:'GEN 7', laps:'100 LAPS'}
+];
+
