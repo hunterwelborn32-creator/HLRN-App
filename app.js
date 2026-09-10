@@ -6,10 +6,50 @@ const LIVE = {
   configSheet: '1dbootrGi_ppHA90xF0OXv5XW2oOGfMNOwlPbsYdMEvw'
 };
 
+const FULL_SCHEDULE = {
+  Sunday: [
+    {race:1,date:'2026-06-14',track:'Daytona',car:'Gen 7',laps:100,setup:'4 Set 8'},
+    {race:2,date:'2026-06-21',track:'Iowa',car:'Truck 8',laps:100,setup:'6 Set 8'},
+    {race:3,date:'2026-06-28',track:'Chicagoland',car:'ARCA',laps:175,setup:'6 Set 8'},
+    {race:4,date:'2026-07-05',track:'EchoPark',car:'Gen 8',laps:175,setup:'6 Set 8'},
+    {race:5,date:'2026-07-12',track:'Charlotte',car:'Gen 7',laps:175,setup:'6 Set 8'},
+    {race:6,date:'2026-07-19',track:'Texas',car:'Truck 8',laps:175,setup:'6 Set 8'},
+    {race:7,date:'2026-07-26',track:'Auto Club',car:'ARCA',laps:100,setup:'6 Set 8'},
+    {race:8,date:'2026-08-02',track:'Talladega',car:'Gen 8',laps:100,setup:'6 Set 8'},
+    {race:9,date:'2026-08-09',track:'Homestead-Miami',car:'Gen 7',laps:175,setup:'6 Set 8'},
+    {race:10,date:'2026-08-16',track:'Michigan',car:'Truck 8',laps:125,setup:'6 Set 8'},
+    {race:11,date:'2026-08-23',track:'Indianapolis',car:'ARCA',laps:100,setup:'6 Set 8'},
+    {race:12,date:'2026-08-30',track:'iRacing Superspeedway',car:'Gen 8',laps:100,setup:'6 Set 8'},
+    {race:13,date:'2026-09-06',track:'Kansas',car:'Gen 7',laps:175,setup:'6 Set 8'},
+    {race:14,date:'2026-09-13',track:'Las Vegas',car:'Truck 8',laps:175,setup:'6 Set 8'},
+    {race:15,date:'2026-09-20',track:'Daytona',car:'ARCA',laps:100,setup:'6 Set 8'},
+    {race:16,date:'2026-09-27',track:'Talladega',car:'Gen 8',laps:100,setup:'6 Set 8'}
+  ],
+  Monday: [
+    {race:1,date:'2026-08-17',track:'Daytona',car:'Gen 7',laps:100,setup:'Fixed'},
+    {race:2,date:'2026-08-24',track:'Iowa',car:'NASCAR Truck 8',laps:150,setup:'Fixed'},
+    {race:3,date:'2026-08-31',track:'Chicagoland',car:'ARCA',laps:125,setup:'Fixed'},
+    {race:4,date:'2026-09-14',track:'EchoPark',car:'Gen 7',laps:125,setup:'Fixed'},
+    {race:5,date:'2026-09-21',track:'Charlotte',car:'Gen 7',laps:125,setup:'Fixed'},
+    {race:6,date:'2026-09-28',track:'Texas',car:'NASCAR Truck 8',laps:125,setup:'Fixed'},
+    {race:7,date:'2026-10-05',track:'Auto Club',car:'ARCA',laps:75,setup:'Fixed'},
+    {race:8,date:'2026-10-12',track:'Talladega',car:'NASCAR Truck 8',laps:75,setup:'Fixed'},
+    {race:9,date:'2026-10-19',track:'Homestead-Miami',car:'Gen 7',laps:125,setup:'Fixed'},
+    {race:10,date:'2026-10-26',track:'Michigan',car:'NASCAR Truck 8',laps:125,setup:'Fixed'},
+    {race:11,date:'2026-11-02',track:'Indianapolis',car:'ARCA',laps:80,setup:'Fixed'},
+    {race:12,date:'2026-11-09',track:'iRacing Superspeedway',car:'NASCAR Truck 8',laps:75,setup:'Fixed'},
+    {race:13,date:'2026-11-16',track:'Kansas',car:'Gen 7',laps:125,setup:'Fixed'},
+    {race:14,date:'2026-11-23',track:'Las Vegas',car:'NASCAR Truck 8',laps:125,setup:'Fixed'},
+    {race:15,date:'2026-11-30',track:'Daytona',car:'ARCA',laps:100,setup:'Fixed'},
+    {race:16,date:'2026-12-07',track:'Talladega',car:'Gen 7',laps:100,setup:'Fixed'}
+  ]
+};
+
 const state = {
   league: 'Sunday',
   homeLeague: 'Sunday',
   currentView: 'home',
+  scheduleLeague: 'Sunday',
   liveStatus: 'Connecting…',
   lastUpdated: null,
   nextRaces: {
@@ -26,7 +66,7 @@ const state = {
   hostedRaceRows: [],
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '4.0'
+  appVersion: '4.2'
 };
 
 const fallback = {
@@ -153,11 +193,30 @@ function renderStandings(){
 }
 function switchLeague(name){state.league=name;renderStandings();}
 
+function scheduleStatus(date,league){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const d=new Date(`${date}T12:00:00`); d.setHours(0,0,0,0);
+  if(d<today) return 'COMPLETED';
+  const all=FULL_SCHEDULE[league].filter(x=>new Date(`${x.date}T12:00:00`)>=today).sort((a,b)=>a.date.localeCompare(b.date));
+  return all.length && all[0].date===date ? 'NEXT' : 'UPCOMING';
+}
+function scheduleDateLabel(date){
+  const d=new Date(`${date}T12:00:00`);
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}).toUpperCase();
+}
 function renderSchedule(){
   state.currentView='schedule';
-  const rows = state.schedule.map(r=>{ const d=new Date(`${r.date}T12:00:00`); const mon=Number.isNaN(d)?'':d.toLocaleString('en-US',{month:'short'}).toUpperCase(); const day=Number.isNaN(d)?'':d.getDate(); return `<div class="race-row"><div class="race-date"><small>${mon}</small><strong>${day}</strong></div><div class="driver-meta"><strong>${escapeHtml(r.track)}</strong><small>${escapeHtml(r.league)} League • ${escapeHtml(r.time)}</small></div><span class="status">${escapeHtml(r.status||'UPCOMING')}</span></div>`}).join('');
-  app.innerHTML=`<div class="page-title-row"><div><h2 class="page-title">Schedule</h2><p class="page-sub">Upcoming HLRN league races</p></div>${liveBadge()}</div><section class="card">${rows||'<div class="empty">No upcoming races entered.</div>'}</section>`;
+  const tab=state.scheduleLeague||'Sunday';
+  let content='';
+  if(tab==='Hosted'){
+    content=`<section class="hosted-schedule-hero"><span class="schedule-kicker">HLRN HOSTED RACING</span><h3>Race Your Way</h3><p>New hosted races can be posted daily — any track, any car, fixed setups, and race times throughout the week.</p><div class="hosted-info-grid"><div><span>🏁</span><strong>NASCAR CUP</strong><small>Gen 7 / Next Gen</small></div><div><span>🏎️</span><strong>CLASSIC NASCAR</strong><small>87s / 2000s</small></div><div><span>🚚</span><strong>TRUCKS</strong><small>Truck Series</small></div><div><span>⚙️</span><strong>FIXED SETUPS</strong><small>Everyone uses the same setup</small></div><div><span>📅</span><strong>NEW RACES</strong><small>Posted daily</small></div><div><span>⏱️</span><strong>RACE ANYTIME</strong><small>All week</small></div></div><div class="hosted-tagline">RACE YOUR WAY • ANY TRACK • ANY CAR</div></section>`;
+  } else {
+    const rows=FULL_SCHEDULE[tab];
+    content=`<section class="schedule-list ${tab.toLowerCase()}">${rows.map(r=>{const st=scheduleStatus(r.date,tab);return `<article class="schedule-card ${st.toLowerCase()}"><div class="schedule-race-no"><small>RACE</small><strong>${r.race}</strong>${st==='NEXT'?'<em>NEXT</em>':''}</div><div class="schedule-main"><div class="schedule-date">${scheduleDateLabel(r.date)}</div><h3>${escapeHtml(r.track)}</h3><div class="schedule-meta"><span>${escapeHtml(r.car)}</span><span>${r.laps} LAPS</span><span>${escapeHtml(r.setup)}</span></div></div><div class="schedule-state">${st}</div></article>`}).join('')}</section>`;
+  }
+  app.innerHTML=`<div class="page-title-row"><div><h2 class="page-title">Schedule</h2><p class="page-sub">Full HLRN racing schedule</p></div>${liveBadge()}</div><div class="tabs schedule-tabs"><button class="tab ${tab==='Sunday'?'active sunday-tab':''}" onclick="switchScheduleLeague('Sunday')">Sunday</button><button class="tab ${tab==='Monday'?'active monday-tab':''}" onclick="switchScheduleLeague('Monday')">Monday</button><button class="tab ${tab==='Hosted'?'active hosted-tab':''}" onclick="switchScheduleLeague('Hosted')">Hosted</button></div>${content}`;
 }
+function switchScheduleLeague(name){state.scheduleLeague=name;renderSchedule();}
 
 function renderDrivers(filter=''){
   state.currentView='drivers';
@@ -234,26 +293,16 @@ async function refreshHostedData(rerender=true){
       loadGviz(HOSTED_SHEET,'DRIVER RANKINGS','A1:G1000'),
       loadGviz(HOSTED_SHEET,'DRIVER DATA','A1:M20000')
     ]);
-    const rankings=tableRows(rankT);
+    const rankings=tableRows(rankT); // kept available for compatibility, but NOT used to limit the driver directory
     state.hostedRaceRows=tableRows(dataT).filter(r=>String(r.Driver||'').trim());
-    state.hostedDrivers=rankings.map((r,i)=>({
-      name:prettyName(String(r.Driver||'')),
-      rank:Number(r.Rank)||i+1,
-      races:Number(r.Races)||0,
-      wins:Number(r.Wins)||0,
-      top5:Number(r['Top 5'])||0,
-      top10:Number(r['Top 10'])||0,
-      averageFinish:Number(r['Average Finish'])||0
-    })).filter(d=>d.name).sort((a,b)=>a.name.localeCompare(b.name));
-    if(!state.hostedDrivers.length && state.hostedRaceRows.length){
-      const m=new Map();
-      state.hostedRaceRows.forEach(r=>{
-        const name=prettyName(String(r.Driver||'')); if(!name)return;
-        const d=m.get(name)||{name,races:0,wins:0,top5:0,top10:0,finish:0,finishCount:0};
-        const f=num(r['Finish Position']); d.races++; if(f===1)d.wins++; if(f>=1&&f<=5)d.top5++; if(f>=1&&f<=10)d.top10++; if(f>0){d.finish+=f;d.finishCount++;} m.set(name,d);
-      });
-      state.hostedDrivers=[...m.values()].map(d=>({...d,averageFinish:d.finishCount?d.finish/d.finishCount:0})).sort((a,b)=>a.name.localeCompare(b.name));
-    }
+    const m=new Map();
+    state.hostedRaceRows.forEach(r=>{
+      const name=prettyName(String(r.Driver||'')).trim(); if(!name)return;
+      const key=name.toLowerCase();
+      const d=m.get(key)||{name,races:0,wins:0,top5:0,top10:0,finish:0,finishCount:0};
+      const f=num(r['Finish Position']); d.races++; if(f===1)d.wins++; if(f>=1&&f<=5)d.top5++; if(f>=1&&f<=10)d.top10++; if(f>0){d.finish+=f;d.finishCount++;} m.set(key,d);
+    });
+    state.hostedDrivers=[...m.values()].map(d=>({...d,averageFinish:d.finishCount?d.finish/d.finishCount:0})).sort((a,b)=>a.name.localeCompare(b.name));
     state.hostedDataStatus='LIVE';
   }catch(err){
     console.warn('HLRN hosted database connection failed:',err);
@@ -327,12 +376,16 @@ function buildDrivers(){
   state.drivers=[...map.values()].map(d=>({...d,leagues:d.leagues.join(' + ')})).sort((a,b)=>a.name.localeCompare(b.name));
 }
 function applySchedule(rows){
-  if(rows.length){ state.schedule=rows.filter(r=>r.League&&r.Date&&r.Track).map(r=>({league:String(r.League),date:String(r.Date),time:String(r.Time||'8:30 PM EST'),track:String(r.Track),status:String(r.Status||'UPCOMING')})); }
+  // The full league schedules are built into the app from the official HLRN schedule.
+  // The Config sheet can still supply times/links without replacing the 16-race schedules.
   ['Sunday','Monday'].forEach(league=>{
-    const upcoming=state.schedule.find(r=>r.league===league && String(r.status).toUpperCase()!=='COMPLETED');
+    const now=new Date(); now.setHours(0,0,0,0);
+    const upcoming=FULL_SCHEDULE[league].find(r=>new Date(`${r.date}T12:00:00`)>=now);
     if(upcoming){
+      const timeRow=(rows||[]).find(r=>String(r.League||'')===league && String(r.Date||'')===upcoming.date);
+      const time=String(timeRow?.Time||'8:30 PM EST');
       const d=new Date(`${upcoming.date}T20:30:00-04:00`);
-      state.nextRaces[league]={date:d.toLocaleString('en-US',{month:'short',day:'numeric'}).toUpperCase(),iso:d.toISOString(),track:upcoming.track,series:`${league} League`,time:upcoming.time,broadcast:state.links[`${league} Broadcast`]||''};
+      state.nextRaces[league]={date:d.toLocaleString('en-US',{month:'short',day:'numeric'}).toUpperCase(),iso:d.toISOString(),track:upcoming.track,series:`${league} League`,time,broadcast:state.links[`${league} Broadcast`]||''};
     }
   });
 }
