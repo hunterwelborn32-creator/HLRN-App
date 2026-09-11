@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-2-8-android-hosted-cache';
+const CACHE = 'hlrn-v11-2-9-fast-drivers-tab';
 const APP_SHELL = [
   './',
   './index.html',

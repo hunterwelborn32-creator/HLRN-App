@@ -90,7 +90,7 @@ const state = {
   hostedDataStatus: 'Connecting…',
   hostedCachePartial: false,
   links: {},
-  appVersion: '11.2.8',
+  appVersion: '11.2.9',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -855,30 +855,56 @@ function updateDriverDirectoryPage(page=1,query=''){
 }
 
 
-function hostedDriverDirectorySource(){
-  const names=new Set();
+
+function buildHostedDriverSummaryFast(){
+  const summary=new Map();
+
+  // Seed from existing hostedDrivers so cached data appears immediately.
   (state.hostedDrivers||[]).forEach(d=>{
-    if(d?.name) names.add(prettyName(String(d.name).trim()));
-  });
-  (state.hostedRaceRows||[]).forEach(r=>{
-    const n=prettyName(String(r.Driver||r.driver||r.Name||r.name||'').trim());
-    if(n) names.add(n);
-  });
-
-  return [...names].map(name=>{
-    const rows=hostedRowsForDriverCard(name);
-    const stats=profileStats(rows);
-    const hosted=(state.hostedDrivers||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
-
-    return {
+    if(!d?.name) return;
+    const name=prettyName(String(d.name).trim());
+    summary.set(name.toLowerCase(),{
       name,
-      races:state.hostedCachePartial?Number(hosted?.races||0):(stats.starts || Number(hosted?.races||0)),
-      wins:state.hostedCachePartial?Number(hosted?.wins||0):(stats.wins || Number(hosted?.wins||0)),
-      top5:state.hostedCachePartial?Number(hosted?.top5||0):(stats.top5 || Number(hosted?.top5||0)),
-      top10:state.hostedCachePartial?Number(hosted?.top10||0):(stats.top10 || Number(hosted?.top10||0)),
+      races:Number(d.races||0),
+      wins:Number(d.wins||0),
+      top5:Number(d.top5||0),
+      top10:Number(d.top10||0),
       leagues:'Hosted'
-    };
-  }).filter(d=>d.name).sort((a,b)=>a.name.localeCompare(b.name));
+    });
+  });
+
+  // If full Hosted rows are loaded, compute everything in a single pass.
+  if(Array.isArray(state.hostedRaceRows) && state.hostedRaceRows.length){
+    const full=new Map();
+    state.hostedRaceRows.forEach(r=>{
+      const name=prettyName(String(r.Driver||r.driver||r.Name||r.name||'').trim());
+      if(!name) return;
+      const key=name.toLowerCase();
+      const d=full.get(key)||{name,races:0,wins:0,top5:0,top10:0,leagues:'Hosted'};
+      const f=num(r['Finish Position']);
+      d.races++;
+      if(f===1)d.wins++;
+      if(f>0&&f<=5)d.top5++;
+      if(f>0&&f<=10)d.top10++;
+      full.set(key,d);
+    });
+
+    // Only overwrite with full-race data when we truly have the full Hosted dataset.
+    if(!state.hostedCachePartial){
+      return [...full.values()].sort((a,b)=>a.name.localeCompare(b.name));
+    }
+
+    // Cached snapshot may only contain recent rows; keep career summaries where available.
+    full.forEach((d,key)=>{
+      if(!summary.has(key)) summary.set(key,d);
+    });
+  }
+
+  return [...summary.values()].sort((a,b)=>a.name.localeCompare(b.name));
+}
+
+function hostedDriverDirectorySource(){
+  return buildHostedDriverSummaryFast();
 }
 
 function refreshHostedDriverDirectoryInPlace(){
@@ -918,13 +944,10 @@ function renderDrivers(filter=''){
   const f=filter.trim().toLowerCase();
 
   // Driver Directory is HOSTED ONLY.
-  const source=hostedDriverDirectorySource();
-
-  window.HLRN_DRIVER_DIRECTORY=source;
-
-  const mostWins=[...source].sort((a,b)=>(b.wins||0)-(a.wins||0))[0];
-  const mostStarts=[...source].sort((a,b)=>(b.races||0)-(a.races||0))[0];
-  const live=source.length>0;
+  const cachedSource=window.HLRN_DRIVER_DIRECTORY||[];
+  const mostWins=[...cachedSource].sort((a,b)=>(b.wins||0)-(a.wins||0))[0];
+  const mostStarts=[...cachedSource].sort((a,b)=>(b.races||0)-(a.races||0))[0];
+  const live=cachedSource.length>0 || (state.hostedDrivers||[]).length>0;
 
   app.innerHTML=`${networkBar()}
     <div class="page-title-row premium-page-head">
@@ -932,7 +955,7 @@ function renderDrivers(filter=''){
       <div class="sync-badge ${live?'live':''}"><i></i>${live?'LIVE':'LOADING'}</div>
     </div>
     <section class="driver-database-banner">
-      <div><small>DRIVER DATABASE</small><strong>${source.length}</strong><span>career profiles</span></div>
+      <div><small>DRIVER DATABASE</small><strong>${cachedSource.length||state.hostedDrivers.length||'--'}</strong><span>career profiles</span></div>
       <div><small>RACE RECORDS</small><strong>${(state.hostedRaceRows||[]).length}</strong><span>loaded starts</span></div>
     </section>
     <section class="driver-leaderboard-mini">
@@ -940,10 +963,28 @@ function renderDrivers(filter=''){
       <div><small>MOST STARTS</small>${mostStarts?driverLink(mostStarts.name):'<strong>--</strong>'}<span>${mostStarts?.races||0} starts</span></div>
     </section>
     <div class="search-wrap"><span>⌕</span><input class="search" id="driverSearch" placeholder="Search Hosted drivers..." value="${escapeHtml(filter)}" /></div>
-    <section class="card driver-list-card"></section>
+    <section class="card driver-list-card"><div class="empty">Loading Hosted drivers…</div></section>
     <nav class="driver-pagination" aria-label="Driver pages"></nav>`;
 
-  updateDriverDirectoryPage(filter?1:(state.driverPage||1),filter);
+  // Paint the Drivers screen first, then populate rows on the next frame.
+  requestAnimationFrame(()=>{
+    const source=hostedDriverDirectorySource();
+    window.HLRN_DRIVER_DIRECTORY=source;
+
+    const count=document.querySelector('.driver-database-banner > div:first-child strong');
+    if(count) count.textContent=String(source.length);
+
+    const mini=document.querySelector('.driver-leaderboard-mini');
+    if(mini && source.length){
+      const mostWins=[...source].sort((a,b)=>(b.wins||0)-(a.wins||0))[0];
+      const mostStarts=[...source].sort((a,b)=>(b.races||0)-(a.races||0))[0];
+      mini.innerHTML=`
+        <div><small>MOST WINS</small>${mostWins?driverLink(mostWins.name):'<strong>--</strong>'}<span>${mostWins?.wins||0} wins</span></div>
+        <div><small>MOST STARTS</small>${mostStarts?driverLink(mostStarts.name):'<strong>--</strong>'}<span>${mostStarts?.races||0} starts</span></div>`;
+    }
+
+    updateDriverDirectoryPage(filter?1:(state.driverPage||1),filter);
+  });
 
   const input=document.querySelector('#driverSearch');
   if(input){
