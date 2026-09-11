@@ -1663,3 +1663,54 @@ main{
   content:"";height:1px;flex:1;background:rgba(255,255,255,.06)
 }
 .push-pref-divider span{font-size:5px;font-weight:1000;letter-spacing:.16em}
+
+
+/* HLRN 10.5 — AUTOMATIC RACE RECAP CENTER */
+.recap-league-tabs{margin-bottom:10px}
+.recap-race-strip{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+.recap-race-strip::-webkit-scrollbar{display:none}
+.recap-race-strip button{flex:0 0 132px;text-align:left;border:1px solid rgba(255,255,255,.065);border-radius:13px;background:#10151c;color:#fff;padding:9px 10px}
+.recap-race-strip button.active{border-color:rgba(255,212,0,.32);background:#181a14;box-shadow:inset 0 0 0 1px rgba(255,212,0,.06)}
+.recap-race-strip small{display:block;color:#737d89;font-size:5px;font-weight:1000;letter-spacing:.09em}
+.recap-race-strip strong{display:block;margin-top:4px;font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recap-race-strip span{display:block;margin-top:3px;color:#697381;font-size:5px}
+.premium-recap{display:flex;justify-content:space-between;gap:14px;align-items:flex-end;padding:18px;border:1px solid rgba(255,255,255,.07);border-radius:18px;background:radial-gradient(circle at 90% 10%,rgba(255,212,0,.12),transparent 28%),linear-gradient(145deg,#151a22,#0a0e13)}
+.premium-recap small{color:#ffd400;font-size:6px;font-weight:1000;letter-spacing:.12em}
+.premium-recap h3{margin:5px 0 3px;font-size:25px;letter-spacing:-.045em}
+.premium-recap span{color:#7b8591;font-size:7px}
+.recap-winner-badge{text-align:right}
+.recap-winner-badge small{display:block;color:#727b87}
+.recap-winner-badge strong{display:block;margin-top:4px;font-size:15px}
+.recap-podium-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.recap-podium-card{padding:13px 10px;border-radius:15px;border:1px solid rgba(255,255,255,.06);background:#10151c;text-align:center}
+.recap-podium-card.place-1{background:linear-gradient(145deg,rgba(255,212,0,.10),#10151c);border-color:rgba(255,212,0,.18)}
+.recap-place{font-size:5px;color:#ffd400;font-weight:1000;letter-spacing:.1em}
+.recap-driver-mark{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;margin:8px auto;background:#202630;color:#fff;font-size:10px;font-weight:1000}
+.recap-podium-card strong{display:block;font-size:8px}
+.recap-podium-card span{display:block;margin-top:5px;color:#727c88;font-size:5.5px}
+.recap-detail-grid.upgraded{grid-template-columns:repeat(4,1fr)}
+.recap-highlights{border:1px solid rgba(255,255,255,.06);border-radius:17px;overflow:hidden;background:#0d1218}
+.recap-highlight{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start;padding:11px 12px;border-bottom:1px solid rgba(255,255,255,.05)}
+.recap-highlight:last-child{border-bottom:0}
+.recap-highlight b{color:#ffd400;font-size:7px}
+.recap-highlight span{font-size:8px;line-height:1.5;color:#d8dde3}
+.recap-story.upgraded{margin-top:12px}
+.recap-story-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.recap-story-head small{color:#ffd400;font-size:5px;font-weight:1000;letter-spacing:.12em}
+.recap-story-head h3{margin:4px 0 0}
+.recap-story-head>span{font-size:7px;font-weight:1000;color:#67717d}
+.recap-intel-callout{display:flex;gap:11px;align-items:center;margin-top:12px;padding:13px;border-radius:16px;border:1px solid rgba(255,122,39,.16);background:rgba(255,122,39,.055)}
+.recap-intel-callout>span{font-size:20px}
+.recap-intel-callout small{display:block;color:#ff7a27;font-size:5px;font-weight:1000;letter-spacing:.12em}
+.recap-intel-callout strong{display:block;margin-top:4px;font-size:9px;line-height:1.4}
+.recap-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:12px}
+.recap-actions .copied{color:#35d07f!important;border-color:#35d07f!important}
+@media(max-width:600px){
+  .premium-recap{display:block}
+  .recap-winner-badge{text-align:left;margin-top:13px;padding-top:10px;border-top:1px solid rgba(255,255,255,.05)}
+  .recap-podium-grid{grid-template-columns:1fr}
+  .recap-podium-card{display:grid;grid-template-columns:48px 1fr;grid-template-areas:"mark place" "mark name" "mark meta";text-align:left;align-items:center}
+  .recap-driver-mark{grid-area:mark;margin:0}.recap-place{grid-area:place}.recap-podium-card strong{grid-area:name;font-size:10px}.recap-podium-card span{grid-area:meta}
+  .recap-detail-grid.upgraded{grid-template-columns:1fr 1fr}
+  .recap-actions{grid-template-columns:1fr}
+}

@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v10-4-app-native-ri';
+const CACHE = 'hlrn-v10-5-race-recap-center';
 const APP_SHELL = [
   './',
   './index.html',

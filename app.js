@@ -79,7 +79,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '10.4',
+  appVersion: '10.5',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
   teamStandings: {Sunday: [], Monday: []},
@@ -506,7 +506,7 @@ function renderHome(){
       <button onclick="openFeature('tracks')"><span>🛣️</span><strong>Track Hub</strong><small>History by track</small></button>
       <button onclick="openFeature('teams')"><span>👥</span><strong>Teams</strong><small>Team championship center</small></button>
       <button onclick="openFeature('spotlight')"><span>🔦</span><strong>Driver Spotlight</strong><small>Featured HLRN driver</small></button>
-      <button onclick="openFeature('recap')"><span>📰</span><strong>Race Recap</strong><small>Latest hosted breakdown</small></button>
+      <button onclick="openFeature('recap')"><span>📰</span><strong>Race Recap</strong><small>Sunday • Monday • Hosted</small></button>
       <button onclick="openFeature('incidents')"><span>🚨</span><strong>Incident Watch</strong><small>Hosted incident leaderboard</small></button>
       <button onclick="openFeature('achievements')"><span>🎖️</span><strong>Achievements</strong><small>Career milestone board</small></button>
       <button onclick="openFeature('favorites')"><span>★</span><strong>Favorites</strong><small>Your saved drivers</small></button>
@@ -1173,20 +1173,227 @@ function renderSpotlight(){
   const body=`<article class="spotlight-hero"><div class="spotlight-number">${initials(d.name)}</div><small>FEATURED HLRN DRIVER</small><h3>${escapeHtml(d.name)}</h3><p>${d.races} Hosted starts • ${d.wins} wins • ${d.top5} Top 5s • ${d.lapsLed} laps led</p><div class="spotlight-stats"><b>${d.avgFinish.toFixed(1)}<span>CAREER AVG</span></b><b>${recentAvg}<span>LAST 5 AVG</span></b><b>${d.cleanRate.toFixed(1)}%<span>CLEAN</span></b><b>${d.top10}<span>TOP 10</span></b></div><button class="btn primary" onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')">FULL DRIVER PROFILE</button></article>`;
   featureShell('Driver Spotlight','A rotating featured racer powered by all Hosted career data.',body,'spotlight-page');
 }
-function renderRecap(){
-  const groups=hostedRaceGroups(), race=groups[0], rows=latestHostedRows();
-  if(!race||!rows.length){featureShell('Race Recap','Latest HLRN hosted race.','<div class="empty">No hosted results loaded.</div>');return;}
-  const valid=[...rows].filter(r=>num(r['Finish Position'])>0).sort((a,b)=>num(a['Finish Position'])-num(b['Finish Position']));
-  const podium=valid.slice(0,3), winner=podium[0], led=[...valid].sort((a,b)=>num(b['Laps Led'])-num(a['Laps Led']))[0];
-  const mover=[...valid].sort((a,b)=>(num(b['Start Position'])-num(b['Finish Position']))-(num(a['Start Position'])-num(a['Finish Position'])))[0];
-  const clean=valid.filter(r=>num(r.Incidents)===0), pole=[...valid].sort((a,b)=>num(a['Start Position'])-num(b['Start Position']))[0];
-  const totalInc=valid.reduce((a,r)=>a+num(r.Incidents),0), totalLed=valid.reduce((a,r)=>a+num(r['Laps Led']),0);
-  const winName=prettyName(String(winner?.Driver||'The winner')), second=prettyName(String(podium[1]?.Driver||'')), third=prettyName(String(podium[2]?.Driver||''));
-  const gain=Math.max(0,num(mover?.['Start Position'])-num(mover?.['Finish Position']));
-  const story=`${winName} came away with the victory at ${race.track}, finishing ahead of ${second||'the runner-up'} and ${third||'the third-place finisher'} in a ${valid.length}-driver Hosted field. ${prettyName(String(pole?.Driver||winName))} started from the best grid position. ${prettyName(String(led?.Driver||winName))} controlled the most laps, leading ${num(led?.['Laps Led'])}${totalLed?` of the ${totalLed} recorded driver-led laps`:''}. ${prettyName(String(mover?.Driver||winName))} delivered the charge of the race by moving from P${num(mover?.['Start Position'])||'--'} to P${num(mover?.['Finish Position'])||'--'}, a gain of ${gain} positions. ${clean.length} drivers completed the event with zero incidents, while the field recorded ${totalInc} total incidents. The podium combined strong track position with execution, but the movement through the field and the laps-led battle show there was plenty happening behind the final finishing order.`;
-  const body=`<article class="recap-hero"><small>RACE COMPLETE • FULL REPORT</small><h3>${escapeHtml(race.track)}</h3><span>${escapeHtml(race.date)} • ${valid.length} drivers • ${totalInc} total incidents</span></article><div class="recap-podium">${podium.map((r,i)=>`<div class="p${i+1}"><b>P${i+1}</b><strong>${escapeHtml(prettyName(String(r.Driver)))}</strong><span>Start P${num(r['Start Position'])||'--'} • ${num(r.Incidents)} INC</span></div>`).join('')}</div><div class="recap-detail-grid"><article><small>MOST LAPS LED</small><strong>${escapeHtml(prettyName(String(led?.Driver||'--')))}</strong><span>${num(led?.['Laps Led'])} laps</span></article><article><small>BIGGEST MOVER</small><strong>${escapeHtml(prettyName(String(mover?.Driver||'--')))}</strong><span>+${gain} positions</span></article><article><small>CLEAN FINISHERS</small><strong>${clean.length}</strong><span>zero-incident drivers</span></article></div><article class="recap-story"><h3>The Full Race Story</h3><p>${escapeHtml(story)}</p></article>`;
-  featureShell('Race Recap','A deeper automatic story generated from the latest imported Hosted race.',body,'recap-page');
+
+function recapLeagueGroups(league){
+  if(league==='Hosted') return hostedRaceGroups();
+  return raceGroupsForLeague(league);
 }
+
+function recapNormalizeRows(league,group){
+  if(!group) return [];
+  if(league==='Hosted'){
+    return [...group.rows].map(r=>({
+      driver:prettyName(String(r.Driver||'')),
+      finish:num(r['Finish Position']),
+      start:num(r['Start Position']),
+      incidents:num(r.Incidents),
+      lapsLed:num(r['Laps Led']),
+      points:num(r.Points),
+      track:String(r.Track||group.track||''),
+      date:String(r['Race Date']||group.date||''),
+      raceNo:0
+    })).filter(r=>r.finish>0).sort((a,b)=>a.finish-b.finish);
+  }
+  return [...group.rows].map(r=>({
+    driver:r.driver,
+    finish:num(r.finish),
+    start:num(r.start),
+    incidents:num(r.incidents),
+    lapsLed:num(r.lapsLed),
+    points:num(r.points),
+    track:String(r.track||group.track||''),
+    date:String(r.date||group.date||''),
+    raceNo:num(r.raceNo||group.raceNo)
+  })).filter(r=>r.finish>0).sort((a,b)=>a.finish-b.finish);
+}
+
+function recapDriverTrend(league,driver,raceNo){
+  if(league==='Hosted') return null;
+  const rows=(state.results[league]||[])
+    .filter(r=>r.driver===driver && (!raceNo || r.raceNo<=raceNo) && r.finish>0)
+    .sort((a,b)=>a.raceNo-b.raceNo);
+  if(!rows.length) return null;
+
+  let winStreak=0;
+  for(let i=rows.length-1;i>=0;i--){
+    if(rows[i].finish===1) winStreak++;
+    else break;
+  }
+  let top5Streak=0;
+  for(let i=rows.length-1;i>=0;i--){
+    if(rows[i].finish<=5) top5Streak++;
+    else break;
+  }
+  const last5=rows.slice(-5);
+  const winsLast5=last5.filter(r=>r.finish===1).length;
+  const top5Last5=last5.filter(r=>r.finish<=5).length;
+  const avgLast5=last5.length?last5.reduce((a,r)=>a+r.finish,0)/last5.length:0;
+  return {starts:rows.length,winStreak,top5Streak,winsLast5,top5Last5,avgLast5,last5};
+}
+
+function recapIntelligenceLine(league,driver,raceNo){
+  const t=recapDriverTrend(league,driver,raceNo);
+  if(!t) return '';
+  if(t.winStreak>=2) return `${driver} has now won ${t.winStreak} races in a row.`;
+  if(t.winsLast5>=3) return `${driver} has won ${t.winsLast5} of the last ${Math.min(5,t.starts)} races.`;
+  if(t.winsLast5===2) return `${driver} owns 2 wins in the last ${Math.min(5,t.starts)} races.`;
+  if(t.top5Streak>=4) return `${driver} has finished in the Top 5 in ${t.top5Streak} straight races.`;
+  if(t.top5Last5>=4) return `${driver} has ${t.top5Last5} Top-5 finishes in the last ${Math.min(5,t.starts)} races.`;
+  return '';
+}
+
+function buildRaceRecap(league,group){
+  const rows=recapNormalizeRows(league,group);
+  if(!rows.length) return null;
+
+  const podium=rows.slice(0,3);
+  const winner=podium[0];
+  const pole=[...rows].filter(r=>r.start>0).sort((a,b)=>a.start-b.start)[0]||winner;
+  const led=[...rows].sort((a,b)=>b.lapsLed-a.lapsLed)[0]||winner;
+  const mover=[...rows].sort((a,b)=>(b.start-b.finish)-(a.start-a.finish))[0]||winner;
+  const faller=[...rows].sort((a,b)=>(a.start-a.finish)-(b.start-b.finish))[0]||winner;
+  const clean=rows.filter(r=>r.incidents===0);
+  const totalInc=rows.reduce((a,r)=>a+r.incidents,0);
+  const totalLed=rows.reduce((a,r)=>a+r.lapsLed,0);
+  const gain=mover.start>0?mover.start-mover.finish:0;
+  const loss=faller.start>0?faller.finish-faller.start:0;
+  const raceNo=league==='Hosted'?0:num(group.raceNo||winner.raceNo);
+  const track=group.track||winner.track||'HLRN Race';
+  const date=group.date||winner.date||'';
+  const winnerTrend=recapIntelligenceLine(league,winner.driver,raceNo);
+  const runnerTrend=podium[1]?recapIntelligenceLine(league,podium[1].driver,raceNo):'';
+
+  const highlights=[];
+  highlights.push(`${winner.driver} won at ${track}${podium[1]?`, beating ${podium[1].driver}`:''}${podium[2]?` and ${podium[2].driver}`:''}.`);
+  if(winnerTrend) highlights.push(winnerTrend);
+  if(led && led.lapsLed>0) highlights.push(`${led.driver} led a race-high ${led.lapsLed} laps.`);
+  if(gain>0) highlights.push(`${mover.driver} was the biggest mover, climbing ${gain} positions from P${mover.start} to P${mover.finish}.`);
+  if(clean.length) highlights.push(`${clean.length} driver${clean.length===1?'':'s'} finished with zero incidents.`);
+  if(runnerTrend && runnerTrend!==winnerTrend) highlights.push(runnerTrend);
+
+  const storyParts=[
+    `${winner.driver} came away with the ${league==='Hosted'?'Hosted ':''}victory at ${track}, leading a ${rows.length}-driver finishing order.`,
+    podium[1]&&podium[2]?`${podium[1].driver} finished second with ${podium[2].driver} completing the podium.`:'',
+    pole?`${pole.driver} started from the best grid position${pole.start?` at P${pole.start}`:''}.`:'',
+    led&&led.lapsLed>0?`${led.driver} spent the most time out front with ${led.lapsLed} laps led${totalLed?` out of ${totalLed} recorded laps led across the field`:''}.`:'',
+    gain>0?`${mover.driver} delivered the charge of the race, gaining ${gain} spots from P${mover.start} to P${mover.finish}.`:'',
+    loss>0&&faller.driver!==mover.driver?`${faller.driver} had the biggest drop in track position, falling ${loss} spots from P${faller.start} to P${faller.finish}.`:'',
+    `${clean.length} drivers recorded zero incidents, while the field totaled ${totalInc} incidents.`,
+    winnerTrend,
+    runnerTrend&&runnerTrend!==winnerTrend?runnerTrend:''
+  ].filter(Boolean);
+
+  const shortRecap=`${league}${raceNo?` Race ${raceNo}`:''} — ${track}: ${winner.driver} takes the win${podium[1]?`, ${podium[1].driver} P2`:''}${podium[2]?`, ${podium[2].driver} P3`:''}. ${gain>0?`${mover.driver} gained ${gain} spots. `:''}${led&&led.lapsLed>0?`${led.driver} led ${led.lapsLed} laps. `:''}${winnerTrend}`.replace(/\s+/g,' ').trim();
+
+  return {
+    league,raceNo,track,date,rows,podium,winner,pole,led,mover,faller,clean,totalInc,totalLed,gain,loss,
+    winnerTrend,runnerTrend,highlights,story:storyParts.join(' '),shortRecap
+  };
+}
+
+function switchRecapLeague(league){
+  state.recapLeague=league;
+  state.recapRaceKey='';
+  renderRecap();
+}
+function selectRecapRace(key){
+  state.recapRaceKey=decodeURIComponent(key);
+  renderRecap();
+}
+async function copyRecap(type='discord'){
+  const recap=window.HLRN_ACTIVE_RECAP;
+  if(!recap) return;
+  const title=`HLRN ${recap.league}${recap.raceNo?` Race ${recap.raceNo}`:''} — ${recap.track}`;
+  const podium=recap.podium.map((r,i)=>`P${i+1}: ${r.driver}`).join('\n');
+  const highlights=recap.highlights.map(x=>`• ${x}`).join('\n');
+  const text=type==='show'
+    ? `${title}\n${recap.date}\n\nOPEN:\n${recap.winner.driver} gets the win at ${recap.track}.\n\nKEY TALKING POINTS:\n${highlights}\n\nFULL STORY:\n${recap.story}\n\nNEXT SEGMENT:\nUse the Race Intelligence page for Hot Driver, Driver To Watch and championship context.`
+    : `🏁 ${title}\n${recap.date}\n\n🏆 PODIUM\n${podium}\n\n📊 RACE NOTES\n${highlights}\n\n${recap.shortRecap}\n\nHigh Line Racing Network`;
+  try{
+    await navigator.clipboard.writeText(text);
+    const btn=document.querySelector(`[data-recap-copy="${type}"]`);
+    if(btn){
+      const old=btn.textContent; btn.textContent='COPIED ✓'; btn.classList.add('copied');
+      setTimeout(()=>{btn.textContent=old;btn.classList.remove('copied')},1400);
+    }
+  }catch(e){ alert('Could not copy recap on this device.'); }
+}
+
+function renderRecap(){
+  state.currentView='feature'; state.featureView='recap';
+  const league=state.recapLeague||'Sunday';
+  const groups=recapLeagueGroups(league);
+  const selected=groups.find(g=>g.key===state.recapRaceKey)||groups[0];
+
+  if(selected && !state.recapRaceKey) state.recapRaceKey=selected.key;
+  const recap=buildRaceRecap(league,selected);
+
+  const tabs=`<div class="tabs premium-tabs recap-league-tabs">
+    <button class="${league==='Sunday'?'active':''}" onclick="switchRecapLeague('Sunday')">SUNDAY</button>
+    <button class="${league==='Monday'?'active':''}" onclick="switchRecapLeague('Monday')">MONDAY</button>
+    <button class="${league==='Hosted'?'active':''}" onclick="switchRecapLeague('Hosted')">HOSTED</button>
+  </div>`;
+
+  const raceSelector=groups.length?`<div class="recap-race-strip">${groups.slice(0,16).map(g=>`
+    <button class="${selected?.key===g.key?'active':''}" onclick="selectRecapRace('${encodeURIComponent(g.key)}')">
+      <small>${league==='Hosted'?'HOSTED':`RACE ${g.raceNo}`}</small>
+      <strong>${escapeHtml(g.track||'Race')}</strong>
+      <span>${escapeHtml(g.date||'')}</span>
+    </button>`).join('')}</div>`:'';
+
+  if(!recap){
+    featureShell('Race Recap','Automatic Sunday, Monday and Hosted race stories.',`${tabs}${raceSelector}<div class="empty">No completed ${league} race results are loaded yet.</div>`,'recap-page');
+    return;
+  }
+
+  window.HLRN_ACTIVE_RECAP=recap;
+
+  const podiumHtml=recap.podium.map((r,i)=>`<article class="recap-podium-card place-${i+1}">
+    <div class="recap-place">${i===0?'WINNER':`P${i+1}`}</div>
+    <div class="recap-driver-mark">${initials(r.driver)}</div>
+    <strong>${escapeHtml(r.driver)}</strong>
+    <span>Start P${r.start||'--'} • ${r.incidents} INC • ${r.lapsLed} led</span>
+  </article>`).join('');
+
+  const highlights=recap.highlights.map((h,i)=>`<div class="recap-highlight"><b>${String(i+1).padStart(2,'0')}</b><span>${escapeHtml(h)}</span></div>`).join('');
+
+  const body=`${tabs}
+    ${raceSelector}
+    <section class="recap-hero premium-recap ${league.toLowerCase()}">
+      <div><small>${league.toUpperCase()} • ${recap.raceNo?`RACE ${recap.raceNo}`:'LATEST HOSTED'} • AUTOMATIC RECAP</small>
+      <h3>${escapeHtml(recap.track)}</h3>
+      <span>${escapeHtml(recap.date)} • ${recap.rows.length} drivers • ${recap.totalInc} total incidents</span></div>
+      <div class="recap-winner-badge"><small>WINNER</small><strong>${escapeHtml(recap.winner.driver)}</strong></div>
+    </section>
+
+    <div class="recap-podium-grid">${podiumHtml}</div>
+
+    <div class="recap-detail-grid upgraded">
+      <article><small>🏁 POLE / BEST START</small><strong>${escapeHtml(recap.pole?.driver||'--')}</strong><span>P${recap.pole?.start||'--'}</span></article>
+      <article><small>💨 MOST LAPS LED</small><strong>${escapeHtml(recap.led?.driver||'--')}</strong><span>${recap.led?.lapsLed||0} laps</span></article>
+      <article><small>↗ BIGGEST MOVER</small><strong>${escapeHtml(recap.mover?.driver||'--')}</strong><span>+${Math.max(0,recap.gain)} positions</span></article>
+      <article><small>✨ CLEAN FINISHERS</small><strong>${recap.clean.length}</strong><span>zero-incident drivers</span></article>
+    </div>
+
+    <div class="section-head"><h3>Race Highlights</h3><span>AUTO-GENERATED</span></div>
+    <section class="recap-highlights">${highlights}</section>
+
+    <article class="recap-story upgraded">
+      <div class="recap-story-head"><div><small>FULL RACE STORY</small><h3>${escapeHtml(recap.winner.driver)} wins at ${escapeHtml(recap.track)}</h3></div><span>HLRN</span></div>
+      <p>${escapeHtml(recap.story)}</p>
+    </article>
+
+    ${recap.winnerTrend?`<section class="recap-intel-callout"><span>🔥</span><div><small>RACE INTELLIGENCE TAKEAWAY</small><strong>${escapeHtml(recap.winnerTrend)}</strong></div></section>`:''}
+
+    <div class="recap-actions">
+      <button class="btn primary" data-recap-copy="discord" onclick="copyRecap('discord')">COPY FOR DISCORD</button>
+      <button class="btn" data-recap-copy="show" onclick="copyRecap('show')">COPY FOR THE SHOW</button>
+      <button class="btn" onclick="state.resultsLeague='${league}';renderResults()">OPEN FULL RESULTS</button>
+    </div>`;
+
+  featureShell('Race Recap','Automatic race stories for Sunday, Monday and Hosted Racing — built from the actual results.',body,'recap-page');
+}
+
 function renderIncidentWatch(){
   const ds=hostedDriverStats().filter(d=>d.races>=10).sort((a,b)=>b.avgInc-a.avgInc);
   const clean=[...ds].sort((a,b)=>a.avgInc-b.avgInc).slice(0,5);
