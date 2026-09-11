@@ -89,7 +89,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.1.6',
+  appVersion: '11.1.7',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -2051,6 +2051,9 @@ function filterRulesInPlace(query=''){
 
     section.style.display=sectionVisible?'':'none';
     if(q && sectionVisible) section.classList.add('open');
+
+    const arrow=section.querySelector('.rulebook-section-head b');
+    if(arrow) arrow.textContent=section.classList.contains('open')?'⌃':'⌄';
   });
 
   const meta=document.querySelector('.rule-search-meta');
@@ -2072,6 +2075,18 @@ function filterRulesInPlace(query=''){
   }
 }
 
+
+function toggleRuleSection(btn){
+  const section=btn?.closest('.rulebook-section');
+  if(!section) return;
+  section.classList.toggle('open');
+
+  const arrow=btn.querySelector('b');
+  if(arrow){
+    arrow.textContent=section.classList.contains('open')?'⌃':'⌄';
+  }
+}
+
 function renderRules(query=''){
   state.rulesQuery=query;
   const q=String(query||'').trim().toLowerCase();
@@ -2080,7 +2095,7 @@ function renderRules(query=''){
   const sectionHtml=sections.map((s,si)=>{
     const rules=s.rules;
     matchCount+=rules.length;
-    return `<section class="rulebook-section" data-rule-section="${si}"><button class="rulebook-section-head" onclick="this.parentElement.classList.toggle('open')"><span>${si+1}</span><div><small>OFFICIAL HLRN RULEBOOK</small><strong>${escapeHtml(s.title.replace(/^Section\s*\d+\s*\|\s*/i,''))}</strong></div><b>⌄</b></button><div class="rulebook-rules">${rules.map(r=>`<article class="rulebook-rule" data-rule-search="${escapeHtml([r.title,...r.lines].join(' ').toLowerCase())}"><h3>${escapeHtml(r.title)}</h3>${r.lines.map(line=>`<p>${escapeHtml(line)}</p>`).join('')}</article>`).join('')}</div></section>`;
+    return `<section class="rulebook-section" data-rule-section="${si}"><button type="button" class="rulebook-section-head" onclick="toggleRuleSection(this)"><span>${si+1}</span><div><small>OFFICIAL HLRN RULEBOOK</small><strong>${escapeHtml(s.title.replace(/^Section\s*\d+\s*\|\s*/i,''))}</strong></div><b>⌄</b></button><div class="rulebook-rules">${rules.map(r=>`<article class="rulebook-rule" data-rule-search="${escapeHtml([r.title,...r.lines].join(' ').toLowerCase())}"><h3>${escapeHtml(r.title)}</h3>${r.lines.map(line=>`<p>${escapeHtml(line)}</p>`).join('')}</article>`).join('')}</div></section>`;
   }).join('');
   const body=`<section class="rules-command"><div><small>OFFICIAL RULE BOOK</small><strong>7 SECTIONS</strong><span>48 HR protest window • 3 wreck levels • 2 GWC attempts</span></div><button onclick="openFeature('admin')">RACE CONTROL ›</button></section>
   <div class="rule-search"><input id="ruleSearchInput" value="${escapeHtml(query)}" placeholder="Search caution, restart, yellow line, protest..." oninput="filterRulesInPlace(this.value)"><span>⌕</span></div>

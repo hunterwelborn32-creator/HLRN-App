@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-1-6-social-rules-search';
+const CACHE = 'hlrn-v11-1-7-rule-section-toggle';
 const APP_SHELL = [
   './',
   './index.html',
