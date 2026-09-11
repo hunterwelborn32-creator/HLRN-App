@@ -89,7 +89,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.2.5',
+  appVersion: '11.2.6',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -703,10 +703,11 @@ function ensureHostedData(){
   hostedLazyLoading=true;
   refreshHostedData(false).then(()=>{
     HLRN_AUTO_REFRESH.lastHosted=Date.now();
+    // Populate Hosted Drivers as soon as the asynchronous database finishes loading,
+    // without redrawing the whole page or jumping the user back to the top.
+    refreshHostedDriverDirectoryInPlace();
   }).catch(()=>{}).finally(()=>{
     hostedLazyLoading=false;
-    // Never rerender the current screen automatically while the user is reading/scrolling.
-    // Fresh Hosted data will be used the next time the screen is opened or explicitly changed.
   });
 }
 
@@ -741,14 +742,25 @@ function updateDriverDirectoryPage(page=1,query=''){
   if(list){
     list.innerHTML=pageRows.length
       ? driverDirectoryRowsHtml(pageRows)
-      : `<div class="empty">${q?`No drivers match "${escapeHtml(query)}".`:'No drivers loaded.'}</div>`;
+      : `<div class="empty">${q?`No drivers match "${escapeHtml(query)}".`:(state.hostedDataStatus==='LIVE'?'No Hosted drivers found.':'Loading Hosted drivers…')}</div>`;
   }
 
   const pager=document.querySelector('.driver-pagination');
   if(pager){
-    const pageButtons=Array.from({length:totalPages},(_,i)=>i+1)
-      .map(n=>`<button type="button" class="${n===safePage?'active':''}" onclick="updateDriverDirectoryPage(${n},document.querySelector('#driverSearch')?.value||'')">${n}</button>`)
-      .join('');
+    const pageSet=new Set();
+    pageSet.add(1);
+    pageSet.add(totalPages);
+    for(let n=safePage-2;n<=safePage+2;n++){
+      if(n>=1 && n<=totalPages) pageSet.add(n);
+    }
+    const pageList=[...pageSet].sort((a,b)=>a-b);
+
+    let last=0;
+    const pageButtons=pageList.map(n=>{
+      const gap=n-last>1 ? `<span class="driver-page-ellipsis">…</span>` : '';
+      last=n;
+      return `${gap}<button type="button" class="${n===safePage?'active':''}" onclick="updateDriverDirectoryPage(${n},document.querySelector('#driverSearch')?.value||'')">${n}</button>`;
+    }).join('');
 
     pager.innerHTML=filtered.length?`
       <button type="button" class="driver-page-arrow" ${safePage===1?'disabled':''} onclick="updateDriverDirectoryPage(${safePage-1},document.querySelector('#driverSearch')?.value||'')">‹</button>
@@ -759,20 +771,18 @@ function updateDriverDirectoryPage(page=1,query=''){
   }
 }
 
-function renderDrivers(filter=''){
-  state.currentView='drivers';
-  ensureHostedData();
-  const f=filter.trim().toLowerCase();
 
-  // Driver Directory is HOSTED ONLY.
+function hostedDriverDirectorySource(){
   const names=new Set();
-  (state.hostedDrivers||[]).forEach(d=>{if(d?.name)names.add(prettyName(String(d.name).trim()));});
+  (state.hostedDrivers||[]).forEach(d=>{
+    if(d?.name) names.add(prettyName(String(d.name).trim()));
+  });
   (state.hostedRaceRows||[]).forEach(r=>{
     const n=prettyName(String(r.Driver||r.driver||r.Name||r.name||'').trim());
     if(n) names.add(n);
   });
 
-  const source=[...names].map(name=>{
+  return [...names].map(name=>{
     const rows=hostedRowsForDriverCard(name);
     const stats=profileStats(rows);
     const hosted=(state.hostedDrivers||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
@@ -786,6 +796,46 @@ function renderDrivers(filter=''){
       leagues:'Hosted'
     };
   }).filter(d=>d.name).sort((a,b)=>a.name.localeCompare(b.name));
+}
+
+function refreshHostedDriverDirectoryInPlace(){
+  if(state.currentView!=='drivers') return;
+
+  const source=hostedDriverDirectorySource();
+  window.HLRN_DRIVER_DIRECTORY=source;
+
+  const count=document.querySelector('.driver-database-banner > div:first-child strong');
+  if(count) count.textContent=String(source.length);
+
+  const raceCount=document.querySelector('.driver-database-banner > div:nth-child(2) strong');
+  if(raceCount) raceCount.textContent=String((state.hostedRaceRows||[]).length);
+
+  const badge=document.querySelector('.sync-badge');
+  if(badge){
+    badge.classList.toggle('live',source.length>0);
+    badge.innerHTML=`<i></i>${source.length?'LIVE':'LOADING'}`;
+  }
+
+  const query=document.querySelector('#driverSearch')?.value||'';
+  updateDriverDirectoryPage(query?1:(state.driverPage||1),query);
+
+  const mini=document.querySelector('.driver-leaderboard-mini');
+  if(mini && source.length){
+    const mostWins=[...source].sort((a,b)=>(b.wins||0)-(a.wins||0))[0];
+    const mostStarts=[...source].sort((a,b)=>(b.races||0)-(a.races||0))[0];
+    mini.innerHTML=`
+      <div><small>MOST WINS</small>${mostWins?driverLink(mostWins.name):'<strong>--</strong>'}<span>${mostWins?.wins||0} wins</span></div>
+      <div><small>MOST STARTS</small>${mostStarts?driverLink(mostStarts.name):'<strong>--</strong>'}<span>${mostStarts?.races||0} starts</span></div>`;
+  }
+}
+
+function renderDrivers(filter=''){
+  state.currentView='drivers';
+  ensureHostedData();
+  const f=filter.trim().toLowerCase();
+
+  // Driver Directory is HOSTED ONLY.
+  const source=hostedDriverDirectorySource();
 
   window.HLRN_DRIVER_DIRECTORY=source;
 

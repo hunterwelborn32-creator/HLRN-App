@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-2-5-hosted-drivers-only';
+const CACHE = 'hlrn-v11-2-6r2-compact-pagination';
 const APP_SHELL = [
   './',
   './index.html',
