@@ -89,7 +89,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.1.5',
+  appVersion: '11.1.6',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -2031,27 +2031,73 @@ function ruleMatches(section,query){
   const hay=[section.title,...section.rules.flatMap(r=>[r.title,...r.lines])].join(' ').toLowerCase();
   return hay.includes(query.toLowerCase());
 }
+
+function filterRulesInPlace(query=''){
+  state.rulesQuery=query;
+  const q=String(query||'').trim().toLowerCase();
+  const sections=[...document.querySelectorAll('.rulebook-section')];
+  let visibleRules=0;
+
+  sections.forEach(section=>{
+    const rules=[...section.querySelectorAll('.rulebook-rule')];
+    let sectionVisible=0;
+
+    rules.forEach(rule=>{
+      const hay=String(rule.dataset.ruleSearch||rule.textContent||'').toLowerCase();
+      const match=!q || hay.includes(q);
+      rule.style.display=match?'':'none';
+      if(match){sectionVisible++;visibleRules++;}
+    });
+
+    section.style.display=sectionVisible?'':'none';
+    if(q && sectionVisible) section.classList.add('open');
+  });
+
+  const meta=document.querySelector('.rule-search-meta');
+  if(meta){
+    meta.innerHTML=`<strong>${visibleRules}</strong> ${q?'matching rules':'rules indexed'} • Published HLRN rulebook`;
+  }
+
+  let empty=document.querySelector('.rule-search-empty');
+  const rulebook=document.querySelector('.rulebook');
+  if(!visibleRules && q){
+    if(!empty && rulebook){
+      empty=document.createElement('div');
+      empty.className='empty rule-search-empty';
+      empty.textContent='No rules match that search.';
+      rulebook.appendChild(empty);
+    }
+  }else if(empty){
+    empty.remove();
+  }
+}
+
 function renderRules(query=''){
   state.rulesQuery=query;
   const q=String(query||'').trim().toLowerCase();
   const sections=(typeof HLRN_RULES!=='undefined'?HLRN_RULES:[]);
   let matchCount=0;
   const sectionHtml=sections.map((s,si)=>{
-    const rules=s.rules.filter(r=>{
-      if(!q)return true;
-      const hit=[r.title,...r.lines].join(' ').toLowerCase().includes(q);
-      if(hit) matchCount++;
-      return hit;
-    });
-    if(q && !rules.length)return '';
-    if(!q) matchCount+=rules.length;
-    return `<section class="rulebook-section"><button class="rulebook-section-head" onclick="this.parentElement.classList.toggle('open')"><span>${si+1}</span><div><small>OFFICIAL HLRN RULEBOOK</small><strong>${escapeHtml(s.title.replace(/^Section\s*\d+\s*\|\s*/i,''))}</strong></div><b>⌄</b></button><div class="rulebook-rules">${rules.map(r=>`<article class="rulebook-rule"><h3>${escapeHtml(r.title)}</h3>${r.lines.map(line=>`<p>${escapeHtml(line)}</p>`).join('')}</article>`).join('')}</div></section>`;
+    const rules=s.rules;
+    matchCount+=rules.length;
+    return `<section class="rulebook-section" data-rule-section="${si}"><button class="rulebook-section-head" onclick="this.parentElement.classList.toggle('open')"><span>${si+1}</span><div><small>OFFICIAL HLRN RULEBOOK</small><strong>${escapeHtml(s.title.replace(/^Section\s*\d+\s*\|\s*/i,''))}</strong></div><b>⌄</b></button><div class="rulebook-rules">${rules.map(r=>`<article class="rulebook-rule" data-rule-search="${escapeHtml([r.title,...r.lines].join(' ').toLowerCase())}"><h3>${escapeHtml(r.title)}</h3>${r.lines.map(line=>`<p>${escapeHtml(line)}</p>`).join('')}</article>`).join('')}</div></section>`;
   }).join('');
   const body=`<section class="rules-command"><div><small>OFFICIAL RULE BOOK</small><strong>7 SECTIONS</strong><span>48 HR protest window • 3 wreck levels • 2 GWC attempts</span></div><button onclick="openFeature('admin')">RACE CONTROL ›</button></section>
-  <div class="rule-search"><input id="ruleSearchInput" value="${escapeHtml(query)}" placeholder="Search caution, restart, yellow line, protest..." oninput="renderRules(this.value)"><span>⌕</span></div>
+  <div class="rule-search"><input id="ruleSearchInput" value="${escapeHtml(query)}" placeholder="Search caution, restart, yellow line, protest..." oninput="filterRulesInPlace(this.value)"><span>⌕</span></div>
   <div class="rule-search-meta"><strong>${matchCount}</strong> ${q?'matching rules':'rules indexed'} • Published HLRN rulebook</div>
   <div class="rulebook">${sectionHtml||'<div class="empty">No rules match that search.</div>'}</div>`;
   featureShell('Official Rules','Full searchable HLRN rulebook — conduct, procedures, penalties, protests, championship, broadcast and officials.',body,'rules-page');
+  if(query){
+    requestAnimationFrame(()=>{
+      filterRulesInPlace(query);
+      const input=document.querySelector('#ruleSearchInput');
+      if(input){
+        input.focus();
+        const end=input.value.length;
+        input.setSelectionRange(end,end);
+      }
+    });
+  }
 }
 
 function renderAdmin(){
@@ -2093,8 +2139,8 @@ function renderSocials(){
     </div>
     <div class="section-head socials-section-head community-head"><h3>Join the Community</h3><span>CONNECT</span></div>
     <div class="social-grid">
-      <button class="social-card facebook-card" onclick="openSocial('https://www.facebook.com/groups/hlrnzone')"><span class="social-platform-icon">${facebookLogo}</span><span class="social-card-copy"><small>FACEBOOK</small><strong>HLRNZone</strong><em>News • Discussions • Community</em></span><span class="social-go">›</span></button>
-      <button class="social-card discord-card" onclick="openSocial('https://discord.gg/3CzX6FJQ655')"><span class="social-platform-icon">${discordLogo}</span><span class="social-card-copy"><small>DISCORD</small><strong>HLRN Hangout</strong><em>Chat • Race talk • HLRN community</em></span><span class="social-go">›</span></button>
+      <button class="social-card facebook-card" onclick="openSocial('https://www.facebook.com/share/1F8o3B6HV2/?mibextid=wwXIfr')"><span class="social-platform-icon">${facebookLogo}</span><span class="social-card-copy"><small>FACEBOOK</small><strong>HLRNZone</strong><em>News • Discussions • Community</em></span><span class="social-go">›</span></button>
+      <button class="social-card discord-card" onclick="openSocial('https://discord.gg/cJhxrChaV')"><span class="social-platform-icon">${discordLogo}</span><span class="social-card-copy"><small>DISCORD</small><strong>HLRN Hangout</strong><em>Chat • Race talk • HLRN community</em></span><span class="social-go">›</span></button>
       <button class="social-card website-card" onclick="openSocial(state.links['HLRN Website'] || 'https://sites.google.com/view/highlineracingnetwork/home')"><span class="social-platform-icon">${globeLogo}</span><span class="social-card-copy"><small>OFFICIAL WEBSITE</small><strong>High Line Racing Network</strong><em>Schedules • Results • Driver profiles • More</em></span><span class="social-go">›</span></button>
     </div>
     <div class="socials-footer-line"><span></span>RACING BRINGS US TOGETHER<span></span></div>`;

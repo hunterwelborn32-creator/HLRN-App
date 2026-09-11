@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-1-5-navigation-history';
+const CACHE = 'hlrn-v11-1-6-social-rules-search';
 const APP_SHELL = [
   './',
   './index.html',
