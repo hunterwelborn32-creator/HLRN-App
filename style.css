@@ -1791,3 +1791,21 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important}
   }
   .bottom-nav .nav-item{min-height:58px!important}
 }
+
+
+/* HLRN 11.1.9 — AUTOMATIC DATA SYNC */
+.network-auto-sync{
+  display:flex;align-items:center;gap:4px;padding:5px 6px;border-radius:8px;
+  background:rgba(53,208,127,.06);border:1px solid rgba(53,208,127,.12);
+  color:#7d8792;font-size:5px;font-weight:1000;letter-spacing:.08em
+}
+.network-auto-sync i,.auto-sync-note i{
+  width:5px;height:5px;border-radius:50%;background:#35d07f;
+  box-shadow:0 0 9px rgba(53,208,127,.5)
+}
+.auto-sync-note{
+  display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:7px 9px;
+  border-radius:9px;background:rgba(53,208,127,.06);border:1px solid rgba(53,208,127,.12);
+  color:#7f8994;font-size:6px;font-weight:1000;letter-spacing:.08em
+}
+.auto-sync-note.compact{margin-top:0;padding:6px 8px}

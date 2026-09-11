@@ -89,7 +89,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.1.8',
+  appVersion: '11.1.9',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -300,7 +300,7 @@ function networkBar(){
     <div><small>SUNDAY</small><strong>W${seasonWeek('Sunday')}</strong></div>
     <div><small>MONDAY</small><strong>W${seasonWeek('Monday')}</strong></div>
     <div><small>HOSTED</small><strong>${state.hostedDrivers.length||'--'} DRV</strong></div>
-    <button id="refreshDataBtn" class="network-refresh" onclick="refreshNow()" aria-label="Refresh HLRN data">↻</button>
+    <div class="network-auto-sync" title="HLRN refreshes automatically"><i></i><span>AUTO</span></div>
     <div class="network-trackline" aria-hidden="true"><span></span></div>
   </section>`;
 }
@@ -666,7 +666,7 @@ let hostedLazyLoading=false;
 function ensureHostedData(){
   if(state.hostedDataStatus==='LIVE' || hostedLazyLoading) return;
   hostedLazyLoading=true;
-  refreshHostedData(false).catch(()=>{}).finally(()=>{
+  refreshHostedData(false).then(()=>{HLRN_AUTO_REFRESH.lastHosted=Date.now();}).catch(()=>{}).finally(()=>{
     hostedLazyLoading=false;
     if(state.currentView==='drivers') renderDrivers(document.querySelector('#driverSearch')?.value||'');
   });
@@ -884,7 +884,7 @@ function openHLRNDriverProfile(name,addHistory=true){
     const hosted=(state.hostedDrivers||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
     if(hosted){ openHostedDriverProfile(name); return; }
     app.innerHTML=`${networkBar()}<button class="profile-back" onclick="hlrnBack('drivers')">← Drivers</button>
-      <section class="coming-live"><span>👤</span><h3>Driver data is still loading</h3><p>We found ${escapeHtml(name)}, but the race history has not finished syncing yet.</p><button class="btn primary" onclick="refreshNow()">REFRESH DATA</button></section>`;
+      <section class="coming-live"><span>👤</span><h3>Driver data is still loading</h3><p>We found ${escapeHtml(name)}, but the race history is still syncing. HLRN will update this profile automatically.</p><div class="auto-sync-note"><i></i>AUTO SYNC ACTIVE</div></section>`;
     return;
   }
 
@@ -1002,7 +1002,7 @@ function openHostedDriverProfile(encodedName){
     if(!careerRows.length && !summary){
       app.innerHTML=`${networkBar()}
         <button class="profile-back" onclick="hlrnBack('drivers')">← Drivers</button>
-        <section class="coming-live"><span>👤</span><h3>Hosted profile is loading</h3><p>We found the driver name, but the Hosted race database has not finished loading yet.</p><button class="btn primary" onclick="refreshHostedData().then(()=>openHostedDriverProfile('${encodeURIComponent(name)}'))">REFRESH HOSTED DATA</button></section>`;
+        <section class="coming-live"><span>👤</span><h3>Hosted profile is loading</h3><p>We found the driver name, but the Hosted race database is still syncing. This profile will update automatically.</p><div class="auto-sync-note"><i></i>AUTO SYNC ACTIVE</div></section>`;
       return;
     }
 
@@ -1080,7 +1080,7 @@ function openHostedDriverProfile(encodedName){
     console.error('Hosted profile error',err);
     app.innerHTML=`${networkBar()}
       <button class="profile-back" onclick="hlrnBack('drivers')">← Drivers</button>
-      <section class="coming-live"><span>⚠️</span><h3>Hosted profile hit a loading error</h3><p>The driver profile data could not be built from the current live feed. Tap refresh to try again.</p><button class="btn primary" onclick="refreshHostedData().then(()=>setView('drivers'))">REFRESH DRIVER DATA</button></section>`;
+      <section class="coming-live"><span>⚠️</span><h3>Hosted profile hit a loading error</h3><p>The driver profile data is temporarily unavailable. HLRN will retry automatically.</p><div class="auto-sync-note"><i></i>AUTO SYNC RETRYING</div></section>`;
   }
 }
 
@@ -1477,7 +1477,7 @@ function renderHeadToHead(){
   }
 }
 function renderRaceStats(){
-  const body=`<div class="intelligence-launch"><div><small>HLRN ANALYTICS ENGINE</small><strong>Sunday + Monday Race Intelligence</strong><p>Full live intelligence dashboard with league switching, command-center metrics, stories and deeper race analysis.</p></div><button onclick="document.getElementById('raceIntelFrame')?.contentWindow?.location.reload()">↻ REFRESH</button></div><iframe id="raceIntelFrame" class="race-intelligence-frame" src="race-intelligence.html?v=10.4&app=1" title="HLRN Race Intelligence"></iframe>`;
+  const body=`<div class="intelligence-launch"><div><small>HLRN ANALYTICS ENGINE</small><strong>Sunday + Monday Race Intelligence</strong><p>Full live intelligence dashboard with league switching, command-center metrics, stories and deeper race analysis.</p></div><div class="auto-sync-note compact"><i></i>AUTO SYNC</div></div><iframe id="raceIntelFrame" class="race-intelligence-frame" src="race-intelligence.html?v=10.4&app=1" title="HLRN Race Intelligence"></iframe>`;
   featureShell('Race Intelligence','Full HLRN Sunday and Monday analytics dashboard.',body,'race-intelligence-page');
 }
 function recentRowsFor(name,n=5){
@@ -2013,7 +2013,7 @@ function renderNotifications(){
     ${pushPrefRow('monday','M','Monday League','Receive Monday-specific alerts','mon')}
     ${pushPrefRow('hosted','H','Hosted Racing','Receive Hosted-specific alerts','hosted')}
   </section>
-  <section class="notification-status"><span class="${state.announcementsStatus==='LIVE'?'live':''}"></span><div><small>DISCORD ANNOUNCEMENT BRIDGE</small><strong>${escapeHtml(state.announcementsStatus)}</strong></div><button onclick="refreshDiscordAnnouncements().then(()=>renderNotifications())">↻ REFRESH</button></section>
+  <section class="notification-status"><span class="${state.announcementsStatus==='LIVE'?'live':''}"></span><div><small>DISCORD ANNOUNCEMENT BRIDGE</small><strong>${escapeHtml(state.announcementsStatus)}</strong></div><div class="auto-sync-note compact"><i></i>AUTO SYNC</div></section>
   <div class="notification-races">${raceItems.map(x=>`<article class="${x.cls}"><b>${x.icon}</b><div><small>${x.type}</small><strong>${escapeHtml(x.title)}</strong><span>${escapeHtml(x.text)}</span></div></article>`).join('')}</div>
   <div class="section-head"><h3>Official Bulletins</h3><span>${state.announcements.length} loaded</span></div>
   <div class="notification-list">${bulletinHtml||'<div class="empty">Connecting to HLRN announcements…</div>'}</div>`;
@@ -2320,7 +2320,7 @@ async function refreshDiscordAnnouncements(){
   }
 }
 
-async function refreshLiveData(){
+async function refreshLiveData(rerender=true){
   state.liveStatus='Connecting…';
   try{
     const [sunT,monT,sunRT,monRT,newsT,scheduleT,configT,linksT]=await Promise.all([
@@ -2348,7 +2348,60 @@ async function refreshLiveData(){
     buildDrivers();
   }
   await Promise.allSettled([refreshDiscordAnnouncements(),refreshTeamStandings()]);
-  rerenderCurrent();
+  if(rerender) rerenderCurrent();
+}
+
+
+const HLRN_AUTO_REFRESH={
+  liveEvery:180000,      // 3 minutes
+  hostedEvery:600000,    // 10 minutes
+  lastLive:0,
+  lastHosted:0,
+  liveBusy:false,
+  hostedBusy:false
+};
+
+function inputIsActive(){
+  const el=document.activeElement;
+  return !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
+}
+
+async function autoRefreshLive(force=false){
+  if(document.visibilityState==='hidden' || HLRN_AUTO_REFRESH.liveBusy) return;
+  if(!force && Date.now()-HLRN_AUTO_REFRESH.lastLive<HLRN_AUTO_REFRESH.liveEvery) return;
+  HLRN_AUTO_REFRESH.liveBusy=true;
+  try{
+    // Silent refresh avoids closing the keyboard or rebuilding the current screen.
+    await refreshLiveData(false);
+    HLRN_AUTO_REFRESH.lastLive=Date.now();
+  }finally{
+    HLRN_AUTO_REFRESH.liveBusy=false;
+  }
+}
+
+async function autoRefreshHosted(force=false){
+  if(document.visibilityState==='hidden' || HLRN_AUTO_REFRESH.hostedBusy) return;
+  const hostedRelevant=
+    state.hostedDataStatus==='LIVE' ||
+    state.currentView==='drivers' ||
+    state.resultsLeague==='Hosted' ||
+    state.scheduleLeague==='Hosted';
+  if(!hostedRelevant) return;
+  if(!force && Date.now()-HLRN_AUTO_REFRESH.lastHosted<HLRN_AUTO_REFRESH.hostedEvery) return;
+  HLRN_AUTO_REFRESH.hostedBusy=true;
+  try{
+    await refreshHostedData(false);
+    HLRN_AUTO_REFRESH.lastHosted=Date.now();
+  }finally{
+    HLRN_AUTO_REFRESH.hostedBusy=false;
+  }
+}
+
+function startHLRNAutoRefresh(){
+  setInterval(()=>{
+    autoRefreshLive(false);
+    autoRefreshHosted(false);
+  },60000);
 }
 
 let deferredPrompt;
@@ -2365,7 +2418,8 @@ if('serviceWorker' in navigator){
       document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'){
     registration.update().catch(()=>{});
-    refreshLiveData();
+    autoRefreshLive(false);
+    autoRefreshHosted(false);
     updateSoundButton();
   }
 });
@@ -2391,6 +2445,9 @@ if(startParams.get('view')==='notifications'){
 }
 refreshPushStatus().catch(()=>{});
 buildDrivers();
-refreshLiveData();
-// Hosted database loads only when a Hosted/Drivers screen is opened.
+refreshLiveData().finally(()=>{
+  HLRN_AUTO_REFRESH.lastLive=Date.now();
+  startHLRNAutoRefresh();
+});
+// Hosted database loads only when a Hosted/Drivers screen is opened and then refreshes automatically.
 

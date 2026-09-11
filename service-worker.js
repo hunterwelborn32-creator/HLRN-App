@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-1-8-ios-external-links';
+const CACHE = 'hlrn-v11-1-9-auto-refresh';
 const APP_SHELL = [
   './',
   './index.html',
