@@ -89,7 +89,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.2.4',
+  appVersion: '11.2.5',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -764,30 +764,26 @@ function renderDrivers(filter=''){
   ensureHostedData();
   const f=filter.trim().toLowerCase();
 
+  // Driver Directory is HOSTED ONLY.
   const names=new Set();
-  (state.drivers||[]).forEach(d=>{if(d?.name)names.add(prettyName(String(d.name).trim()));});
   (state.hostedDrivers||[]).forEach(d=>{if(d?.name)names.add(prettyName(String(d.name).trim()));});
-  ['Sunday','Monday'].forEach(league=>(state.standings[league]||[]).forEach(d=>{if(d?.name)names.add(prettyName(String(d.name).trim()));}));
+  (state.hostedRaceRows||[]).forEach(r=>{
+    const n=prettyName(String(r.Driver||r.driver||r.Name||r.name||'').trim());
+    if(n) names.add(n);
+  });
 
   const source=[...names].map(name=>{
-    const rows=driverProfileRows(name);
+    const rows=hostedRowsForDriverCard(name);
     const stats=profileStats(rows);
-    const leagues=[];
-    if(rows.some(r=>r.source==='Sunday'))leagues.push('Sunday');
-    if(rows.some(r=>r.source==='Monday'))leagues.push('Monday');
-    if(rows.some(r=>r.source==='Hosted'))leagues.push('Hosted');
-
     const hosted=(state.hostedDrivers||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
-    const standingS=(state.standings.Sunday||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
-    const standingM=(state.standings.Monday||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
 
     return {
       name,
-      races:stats.starts || Number(hosted?.races||0) || Number(standingS?.races||0)+Number(standingM?.races||0),
-      wins:stats.wins || Number(hosted?.wins||0) || Number(standingS?.wins||0)+Number(standingM?.wins||0),
-      top5:stats.top5 || Number(hosted?.top5||0) || Number(standingS?.top5||0)+Number(standingM?.top5||0),
-      top10:stats.top10 || Number(hosted?.top10||0) || Number(standingS?.top10||0)+Number(standingM?.top10||0),
-      leagues:leagues.length?leagues.join(' • '):((standingS?'Sunday ':'')+(standingM?'Monday ':'')+(hosted?'Hosted':'')).trim()
+      races:stats.starts || Number(hosted?.races||0),
+      wins:stats.wins || Number(hosted?.wins||0),
+      top5:stats.top5 || Number(hosted?.top5||0),
+      top10:stats.top10 || Number(hosted?.top10||0),
+      leagues:'Hosted'
     };
   }).filter(d=>d.name).sort((a,b)=>a.name.localeCompare(b.name));
 
@@ -799,18 +795,18 @@ function renderDrivers(filter=''){
 
   app.innerHTML=`${networkBar()}
     <div class="page-title-row premium-page-head">
-      <div><span class="page-kicker hosted-kicker">HLRN DRIVER DATABASE</span><h2 class="page-title">Drivers</h2><p class="page-sub">Sunday • Monday • Hosted career profiles</p></div>
+      <div><span class="page-kicker hosted-kicker">HLRN DRIVER DATABASE</span><h2 class="page-title">Drivers</h2><p class="page-sub">Hosted racing career profiles</p></div>
       <div class="sync-badge ${live?'live':''}"><i></i>${live?'LIVE':'LOADING'}</div>
     </div>
     <section class="driver-database-banner">
       <div><small>DRIVER DATABASE</small><strong>${source.length}</strong><span>career profiles</span></div>
-      <div><small>RACE RECORDS</small><strong>${(state.hostedRaceRows||[]).length+(state.results.Sunday||[]).length+(state.results.Monday||[]).length}</strong><span>loaded starts</span></div>
+      <div><small>RACE RECORDS</small><strong>${(state.hostedRaceRows||[]).length}</strong><span>loaded starts</span></div>
     </section>
     <section class="driver-leaderboard-mini">
       <div><small>MOST WINS</small>${mostWins?driverLink(mostWins.name):'<strong>--</strong>'}<span>${mostWins?.wins||0} wins</span></div>
       <div><small>MOST STARTS</small>${mostStarts?driverLink(mostStarts.name):'<strong>--</strong>'}<span>${mostStarts?.races||0} starts</span></div>
     </section>
-    <div class="search-wrap"><span>⌕</span><input class="search" id="driverSearch" placeholder="Search every HLRN driver..." value="${escapeHtml(filter)}" /></div>
+    <div class="search-wrap"><span>⌕</span><input class="search" id="driverSearch" placeholder="Search Hosted drivers..." value="${escapeHtml(filter)}" /></div>
     <section class="card driver-list-card"></section>
     <nav class="driver-pagination" aria-label="Driver pages"></nav>`;
 
