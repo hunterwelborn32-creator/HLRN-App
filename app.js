@@ -90,7 +90,7 @@ const state = {
   hostedDataStatus: 'Connecting…',
   hostedCachePartial: false,
   links: {},
-  appVersion: '11.3.2',
+  appVersion: '11.3.3',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -787,6 +787,13 @@ function ensureHostedData(){
       else if(state.featureView==='recap' && (state.recapLeague||'Sunday')==='Hosted') renderRecap();
       requestAnimationFrame(()=>window.scrollTo(0,y));
     }
+
+    // Hosted Race Archive is also a Hosted-data page.
+    if(state.currentView==='results' && state.resultsLeague==='Hosted'){
+      const y=window.scrollY||0;
+      renderResults(false);
+      requestAnimationFrame(()=>window.scrollTo(0,y));
+    }
   }).catch(err=>{
     console.warn('Hosted on-demand load failed',err);
   }).finally(()=>{
@@ -1447,11 +1454,18 @@ function hostedRaceGroups(){
   });
   return [...groups.entries()].map(([key,rows])=>({key,rows,track:String(rows[0]?.Track||''),date:String(rows[0]?.['Race Date']||'')})).sort((a,b)=>Date.parse(b.date||0)-Date.parse(a.date||0));
 }
-function switchResultsLeague(league){ state.resultsLeague=league; state.selectedRaceKey=''; renderResults(false); hlrnRouteState({kind:'results',league:state.resultsLeague,key:state.selectedRaceKey},true); }
+function switchResultsLeague(league){
+  state.resultsLeague=league;
+  state.selectedRaceKey='';
+  if(league==='Hosted') ensureHostedData();
+  renderResults(false);
+  hlrnRouteState({kind:'results',league:state.resultsLeague,key:state.selectedRaceKey},true);
+}
 function selectRace(key){ state.selectedRaceKey=decodeURIComponent(key); renderResults(false); hlrnRouteState({kind:'results',league:state.resultsLeague,key:state.selectedRaceKey},true); }
 function renderResults(addHistory=true){
   clearInterval(countdownTimer); state.currentView='results'; nav.forEach(n=>n.classList.remove('active'));
   const league=state.resultsLeague||'Sunday';
+  if(league==='Hosted') ensureHostedData();
   if(addHistory) hlrnRouteState({kind:'results',league,key:state.selectedRaceKey||''});
   const groups=league==='Hosted'?hostedRaceGroups():raceGroupsForLeague(league);
   const selected=groups.find(g=>g.key===state.selectedRaceKey)||groups[0];
@@ -1475,10 +1489,10 @@ function renderResults(addHistory=true){
   }
   app.innerHTML=`${networkBar()}<div class="page-title-row premium-page-head"><div><span class="page-kicker">OFFICIAL RESULTS</span><h2 class="page-title">Race Archive</h2><p class="page-sub">Every loaded HLRN race, one place</p></div>${liveBadge()}</div>
     <div class="tabs results-tabs"><button class="tab ${league==='Sunday'?'active sunday-result-tab':''}" onclick="switchResultsLeague('Sunday')">Sunday</button><button class="tab ${league==='Monday'?'active monday-result-tab':''}" onclick="switchResultsLeague('Monday')">Monday</button><button class="tab ${league==='Hosted'?'active hosted-result-tab':''}" onclick="switchResultsLeague('Hosted')">Hosted</button></div>
-    <div class="archive-scroller">${selector||'<div class="empty">No races loaded yet.</div>'}</div>
+    <div class="archive-scroller">${selector||`<div class="empty">${league==='Hosted' && state.hostedDataStatus!=='LIVE'?'Loading Hosted race archive…':'No races loaded yet.'}</div>`}</div>
     ${winnerSpotlight}
     <div class="section-head"><h3>${selected?escapeHtml(selected.track):'Race Results'}</h3><span>${escapeHtml(summary)}</span></div>
-    <section class="card archive-table">${rowsHtml||'<div class="empty">No race results loaded.</div>'}</section><button class="back-home" onclick="hlrnBack('home')">← Back Home</button>`;
+    <section class="card archive-table">${rowsHtml||`<div class="empty">${league==='Hosted' && state.hostedDataStatus!=='LIVE'?'Hosted results are syncing…':'No race results loaded.'}</div>`}</section><button class="back-home" onclick="hlrnBack('home')">← Back Home</button>`;
 }
 
 
