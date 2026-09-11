@@ -90,7 +90,7 @@ const state = {
   hostedDataStatus: 'Connecting…',
   hostedCachePartial: false,
   links: {},
-  appVersion: '11.3.0',
+  appVersion: '11.3.1',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -1769,8 +1769,7 @@ function powerScoreDetails(d){
     - Average finish is the strongest performance factor.
     - Win / Top-5 / Top-10 rates reward sustained career performance.
     - Raw career wins add a small longevity bonus.
-    - Incidents carry a heavy penalty.
-    - 8x+ incident races receive an extra penalty.
+    - Incidents are tracked for reference only and DO NOT affect the ranking.
     - Poor career results cannot be rescued by simply having many starts.
   */
   const raw=
@@ -1779,9 +1778,7 @@ function powerScoreDetails(d){
     + winRate*0.70
     + top5Rate*0.32
     + top10Rate*0.12
-    + Math.min(wins,20)*0.75
-    - avgInc*5.25
-    - (highInc/races*100)*0.15;
+    + Math.min(wins,20)*0.75;
 
   return {
     score:Math.max(0,Math.round(raw)),
@@ -1808,22 +1805,23 @@ function renderPowerRankings(){
     .sort((a,b)=>
       b.power-a.power ||
       a.powerData.avgFinish-b.powerData.avgFinish ||
-      a.powerData.avgInc-b.powerData.avgInc ||
+      b.powerData.winRate-a.powerData.winRate ||
+      b.powerData.top5Rate-a.powerData.top5Rate ||
       b.powerData.wins-a.powerData.wins
     )
     .slice(0,20);
 
-  const body=`<p class="feature-note"><strong>ALL-TIME HOSTED RACES.</strong> Minimum 10 Hosted starts. Rankings now use a driver's entire Hosted career. Average finish, win rate, Top-5 rate and Top-10 rate raise the score. Incidents carry a heavy penalty, including an extra penalty for 8x+ races.</p>
+  const body=`<p class="feature-note"><strong>ALL-TIME HOSTED RACES.</strong> Minimum 10 Hosted starts. Rankings use a driver's entire Hosted career. Average finish, win rate, Top-5 rate, Top-10 rate and career wins determine the score. <strong>Incident points do not count for or against a driver.</strong></p>
   <div class="power-list">${ranked.map((d,i)=>`<button onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')" class="power-row upgraded-power">
     <b>${i+1}</b>
     <div>
       <strong>${escapeHtml(d.name)}</strong>
       <span>${d.powerData.races} starts • ${d.powerData.wins} W • ${d.powerData.top5} T5 • ${d.powerData.top10} T10 • Avg Fin ${d.powerData.avgFinish.toFixed(1)}</span>
-      <small>${d.powerData.avgInc.toFixed(1)} avg incidents • ${d.powerData.totalInc} career incidents • ${d.powerData.winRate.toFixed(1)}% win rate</small>
+      <small>${d.powerData.winRate.toFixed(1)}% win rate • ${d.powerData.top5Rate.toFixed(1)}% Top-5 rate • ${d.powerData.top10Rate.toFixed(1)}% Top-10 rate</small>
     </div>
     <em>${d.power}</em>
   </button>`).join('')}</div>`;
-  featureShell('Driver Power Rankings','Best all-time Hosted performers — speed, consistency and cleanliness all matter.',body,'power-page');
+  featureShell('Driver Power Rankings','Best all-time Hosted performers — based on results and consistency only.',body,'power-page');
 }
 
 function trackStats(){

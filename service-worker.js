@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-3-0-alltime-power-rankings';
+const CACHE = 'hlrn-v11-3-1-power-no-incidents';
 const APP_SHELL = [
   './',
   './index.html',
