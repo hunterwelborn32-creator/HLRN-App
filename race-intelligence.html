@@ -1298,6 +1298,114 @@ body{background:#020202!important;overflow-x:hidden}
 
 </style>
 
+<style id="hlrn-phone-full-content-fix">
+/* =========================================================
+   HLRN 10.3 — PHONE FULL-CONTENT FIX
+   Keep every Race Intelligence field visible on narrow phones.
+   ========================================================= */
+@media(max-width:700px){
+  html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!important}
+  body{padding:0!important}
+  .shell{
+    width:100%!important;max-width:100%!important;margin:0!important;
+    padding-left:0!important;padding-right:0!important;overflow:visible!important
+  }
+
+  /* Never let long stats/text force content beyond the phone edge. */
+  .shell *{min-width:0}
+  .brand,.brand>div,.card-driver,.card-reason,.card-stat,
+  .story-card,.story-title,.story-body,.story-stat,
+  .deep-title,.deep-summary,.deep-point,.deep-action,
+  .detail-name,.detail-category,.trend-row,
+  .broadcast-note,.broadcast-note-text,.broadcast-note-read{
+    max-width:100%!important;overflow-wrap:anywhere!important;word-break:normal!important
+  }
+
+  /* Main intelligence cards: one full-width card per row. */
+  .intel-grid{
+    grid-template-columns:1fr!important;
+    gap:10px!important;margin:10px 8px!important
+  }
+  .intel-card{
+    width:100%!important;max-width:none!important;min-height:0!important;
+    padding:16px 15px!important;overflow:visible!important
+  }
+  .card-top{align-items:flex-start!important}
+  .card-tag{white-space:normal!important;text-align:right!important;line-height:1.25!important}
+  .card-title{font-size:10px!important;white-space:normal!important}
+  .card-driver{font-size:clamp(23px,7.5vw,32px)!important;line-height:1!important;white-space:normal!important}
+  .card-reason{font-size:11px!important;line-height:1.5!important;white-space:normal!important;overflow:visible!important}
+  .card-stat{font-size:9px!important;line-height:1.35!important;white-space:normal!important;overflow:visible!important}
+
+  /* Storylines: full width, no clipped columns. */
+  .story-section{margin:12px 8px!important;padding:14px 12px!important;overflow:visible!important}
+  .story-head{gap:8px!important;flex-wrap:wrap!important}
+  .story-grid{grid-template-columns:1fr!important;gap:9px!important}
+  .story-card{width:100%!important;overflow:visible!important}
+
+  /* Deep-dive content stacks vertically. */
+  .category-deep{margin:12px 8px!important;padding:15px 12px!important;overflow:visible!important}
+  .deep-head{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:10px!important}
+  .deep-pill{max-width:100%!important;white-space:normal!important}
+  .deep-grid{grid-template-columns:1fr 1fr!important;gap:7px!important}
+  .deep-metric{padding:10px 8px!important}
+  .deep-metric strong{font-size:15px!important;white-space:normal!important}
+  .deep-body{grid-template-columns:1fr!important;gap:10px!important}
+  .deep-box{overflow:visible!important}
+  .deep-race{
+    grid-template-columns:34px minmax(0,1fr) 32px 38px 30px!important;
+    gap:5px!important;font-size:8px!important
+  }
+  .deep-race .track{white-space:normal!important;overflow-wrap:anywhere!important}
+
+  /* Driver detail stats/readout. */
+  .detail-wrap{margin:12px 8px!important;padding:14px 12px!important;overflow:visible!important}
+  .detail-head{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:12px!important}
+  .score{align-self:flex-start!important}
+  .stat-grid{grid-template-columns:1fr 1fr!important;gap:7px!important}
+  .stat{padding:10px 8px!important;overflow:visible!important}
+  .stat-value{font-size:17px!important;white-space:normal!important}
+  .detail-body{grid-template-columns:1fr!important;gap:10px!important}
+  .race{
+    grid-template-columns:34px minmax(0,1fr) 42px 42px 30px!important;
+    gap:5px!important;padding:9px 6px!important
+  }
+  .race-track{white-space:normal!important;overflow-wrap:anywhere!important;font-size:8px!important}
+  .mini-label{font-size:5px!important}
+  .mini-value{font-size:9px!important}
+  .trend-row{gap:8px!important}
+  .trend-row span,.trend-row strong{white-space:normal!important}
+
+  /* Broadcast Notes: one readable note at a time. */
+  .broadcast-section{margin:12px 8px 18px!important;border-radius:16px!important;overflow:hidden!important}
+  .broadcast-head{padding:14px 12px!important;flex-wrap:wrap!important}
+  .broadcast-head>div{flex:1 1 190px!important}
+  .copy-notes-btn{flex:0 0 auto!important}
+  .broadcast-hero{padding:12px!important;align-items:flex-start!important}
+  .broadcast-hero>div:last-child{min-width:0!important}
+  .broadcast-hero strong{white-space:normal!important;overflow-wrap:anywhere!important}
+  .broadcast-notes{grid-template-columns:1fr!important}
+  .broadcast-note{width:100%!important;min-height:0!important;padding:14px 12px!important;overflow:visible!important}
+  .broadcast-note-top{align-items:flex-start!important;flex-wrap:wrap!important}
+  .broadcast-note-stat{text-align:left!important;white-space:normal!important}
+  .broadcast-note-text{font-size:11px!important}
+  .broadcast-note-read{font-size:8px!important}
+  .broadcast-footer{flex-wrap:wrap!important}
+
+  /* Command center/hero must also stay inside viewport. */
+  .cc-command-deck,.cc-meter-band,.toolbar{max-width:calc(100% - 16px)!important}
+  .hero,.hero-inner{width:100%!important;max-width:100%!important;overflow:hidden!important}
+  .hero h1{overflow-wrap:anywhere!important}
+}
+
+@media(max-width:390px){
+  .deep-grid,.stat-grid{grid-template-columns:1fr!important}
+  .brand-title{font-size:20px!important}
+  .league-btn{font-size:10px!important;padding-left:7px!important;padding-right:7px!important}
+  .deep-race{grid-template-columns:30px minmax(0,1fr) 28px 34px 26px!important}
+  .race{grid-template-columns:30px minmax(0,1fr) 36px 36px 27px!important}
+}
+</style>
 </head>
 
 <body>
