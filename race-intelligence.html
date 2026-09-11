@@ -2145,27 +2145,29 @@ function buildAnalytics(){
         : 0;
 
     const rankScore = number(d.rank)>0 ? Math.max(0,100-(number(d.rank)-1)*6) : 35;
-    const finishScore = seasonAvgFinish>0 ? Math.max(0,100-(seasonAvgFinish-1)*4) : 30;
-    const recentScore = recentAvgFinish>0 ? Math.max(0,100-(recentAvgFinish-1)*4.5) : finishScore;
+    const finishScore = seasonAvgFinish>0 ? finishQuality(seasonAvgFinish) : 0;
+    const recentScore = recentAvgFinish>0 ? finishQuality(recentAvgFinish) : finishScore;
     const winScore = Math.min(100,pct(wins,Math.max(1,starts))*350);
     const topScore = Math.min(100,pct(top10,Math.max(1,starts)));
     const gainScore = Math.max(0,Math.min(100,50+(avgGain*9)));
     const cleanScore = Math.max(0,Math.min(100,100-(avgInc*7)));
 
     const overall =
-      rankScore*.19 +
-      finishScore*.20 +
-      recentScore*.20 +
+      rankScore*.16 +
+      finishScore*.28 +
+      recentScore*.24 +
       winScore*.11 +
       topScore*.10 +
-      gainScore*.09 +
-      cleanScore*.06 +
-      consistency*.05;
+      gainScore*.04 +
+      cleanScore*.03 +
+      consistency*.04;
 
+    // Momentum must include actual finishing quality. Moving forward while still
+    // finishing P30-P40 is not treated like front-running momentum.
     const trendScore =
-      improvement*9 +
-      recentGain*5 +
-      (recent.length ? Math.max(0,12-recentAvgFinish) : 0) +
+      improvement*7 +
+      recentGain*2 +
+      recentScore*.28 +
       (recent.some(r=>r.finish===1) ? 18 : 0);
 
     return {
@@ -2190,6 +2192,8 @@ function buildAnalytics(){
       recentInc,
       consistency,
       improvement,
+      finishScore,
+      recentScore,
       overall,
       trendScore,
       winStreak,
@@ -2233,6 +2237,17 @@ function trailingStreak(list,predicate){
   return count;
 }
 
+function finishQuality(position){
+  const p=number(position);
+  if(p<=0) return 0;
+  // HLRN finish scale: P1 is best (100), P40 is worst (0).
+  // Anything worse than P40 stays at 0 instead of accidentally becoming valuable.
+  return Math.max(0,Math.min(100,100-((p-1)*(100/39))));
+}
+
+function goodFinish(position){ return number(position)>0 && number(position)<=10; }
+function solidFinish(position){ return number(position)>0 && number(position)<=20; }
+
 function formString(races,count=5){
   return races.slice(-count).map(r=>"P"+r.finish).join(" • ");
 }
@@ -2254,10 +2269,10 @@ function hotFormReason(d){
   if(d.top5Last5>=4){
     return `${d.top5Last5} Top 5 finishes in the last ${Math.min(5,d.races.length)} races.`;
   }
-  if(d.improvement>0){
-    return `Recent finishes are ${round(d.improvement,1)} spots better than the season average.`;
+  if(d.improvement>0 && d.recentAvgFinish<=18){
+    return `Recent finishes are ${round(d.improvement,1)} spots better than the season average with a ${formatFinish(d.recentAvgFinish)} recent average.`;
   }
-  return "One of the strongest recent performers in the field.";
+  return `Recent average finish: ${formatFinish(d.recentAvgFinish)}.`;
 }
 
 function broadcastStat(d){
@@ -2312,64 +2327,94 @@ function chooseCategories(){
     return;
   }
 
-  // 1) CHAMPIONSHIP FAVORITE:
-  // The best complete season profile, not simply whoever won most recently.
-  const favorite = maxBy(experienced,d=>
-    d.overall*1.25 +
-    Math.max(0,18-d.seasonAvgFinish)*3 +
-    d.top5Rate*.28 +
-    d.winRate*.22 +
-    d.consistency*.18
+  // Positive cards should represent GOOD RESULTS, not just one isolated metric.
+  // P1 is best; the farther the average moves toward P40, the harder it is to
+  // qualify for a positive card.
+  const frontHalf = all.filter(d=>d.seasonAvgFinish>0 && d.seasonAvgFinish<=20);
+  const recentFrontHalf = multiRace.filter(d=>d.recentAvgFinish>0 && d.recentAvgFinish<=20);
+  const recentTop15 = multiRace.filter(d=>
+    d.recentAvgFinish>0 &&
+    d.recentAvgFinish<=15
+  );
+
+  // 1) CHAMPIONSHIP FAVORITE
+  const favoritePool=experienced.filter(d=>
+    d.seasonAvgFinish<=20 ||
+    d.winRate>0 ||
+    d.top10Rate>=30
+  );
+  const favorite = maxBy(favoritePool.length?favoritePool:experienced,d=>
+    d.overall*1.35 +
+    d.finishScore*.50 +
+    d.recentScore*.25 +
+    d.top5Rate*.30 +
+    d.winRate*.24
   );
 
   const used = new Set(favorite ? [favorite.id] : []);
 
-  // 2) HOT DRIVER:
-  // Purely recent form — wins, streaks and last-five performance matter most.
-  const hot = scorePick(multiRace,d=>
+  // 2) HOT DRIVER
+  // A driver cannot become "Hot" merely by improving from P40 to P30.
+  const hotPool=multiRace.filter(d=>
+    d.winStreak>=1 ||
+    d.winsLast5>=1 ||
+    d.top5Last5>=2 ||
+    d.recentAvgFinish<=15
+  );
+  const hot = scorePick(hotPool.length?hotPool:recentTop15,d=>
     d.winStreak*42 +
     d.winsLast3*26 +
     d.winsLast5*20 +
     d.top5Streak*8 +
-    d.top5Last5*6 +
-    Math.max(0,12-d.recentAvgFinish)*4 +
-    Math.max(0,d.improvement)*8
+    d.top5Last5*7 +
+    d.recentScore*.45 +
+    Math.max(0,d.improvement)*5
   ,used);
   if(hot) used.add(hot.id);
 
-  // 3) SLEEPER:
-  // Lower championship position, but clear recent improvement.
-  let sleeperPool=all.filter(d=>d.rank>=6 && d.races.length>=2);
-  if(!sleeperPool.length) sleeperPool=all.filter(d=>d.rank>=4 && d.races.length>=2);
-  if(!sleeperPool.length) sleeperPool=multiRace;
+  // 3) SLEEPER
+  // Lower in points, but recent RESULTS must actually be respectable.
+  let sleeperPool=recentFrontHalf.filter(d=>d.rank>=6);
+  if(!sleeperPool.length) sleeperPool=recentFrontHalf.filter(d=>d.rank>=4);
+  if(!sleeperPool.length) sleeperPool=recentTop15;
   const sleeper=scorePick(sleeperPool,d=>
-    Math.max(0,d.improvement)*18 +
-    Math.max(0,d.recentGain)*6 +
-    d.top10Rate*.32 +
-    Math.max(0,16-d.recentAvgFinish)*3
+    d.recentScore*.55 +
+    Math.max(0,d.improvement)*12 +
+    d.top10Rate*.30 +
+    Math.max(0,d.recentGain)*2
   ,used);
   if(sleeper) used.add(sleeper.id);
 
-  // 4) CONSISTENCY:
-  // Low week-to-week variation. Wins and momentum are intentionally secondary.
-  const consistent=scorePick(experienced,d=>
-    d.consistency*1.4 +
-    d.top10Rate*.25 +
-    Math.max(0,20-d.seasonAvgFinish)
+  // 4) CONSISTENCY
+  // "Consistently P35" is NOT a positive consistency card.
+  const consistentPool=experienced.filter(d=>
+    d.seasonAvgFinish>0 &&
+    d.seasonAvgFinish<=20 &&
+    (d.top10Rate>=20 || d.seasonAvgFinish<=15)
+  );
+  const consistent=scorePick(consistentPool.length?consistentPool:frontHalf,d=>
+    d.consistency*.95 +
+    d.finishScore*.65 +
+    d.top10Rate*.35
   ,used);
   if(consistent) used.add(consistent.id);
 
-  // 5) HARD CHARGER:
-  // Position gain only — who consistently moves forward from start to finish.
-  const mover=scorePick(multiRace,d=>
-    Math.max(0,d.recentGain)*12 +
-    Math.max(0,d.avgGain)*8 +
-    Math.max(0,d.top10Rate)*.08
+  // 5) HARD CHARGER
+  // Position gain matters, but the finishing result matters too.
+  const moverPool=multiRace.filter(d=>
+    d.recentGain>0 &&
+    d.recentAvgFinish>0 &&
+    d.recentAvgFinish<=22
+  );
+  const mover=scorePick(moverPool.length?moverPool:recentFrontHalf,d=>
+    Math.max(0,d.recentGain)*9 +
+    Math.max(0,d.avgGain)*5 +
+    d.recentScore*.45 +
+    d.top10Rate*.12
   ,used);
   if(mover) used.add(mover.id);
 
-  // 6) RECENT WINNER:
-  // This card is factual and can intentionally duplicate another category.
+  // 6) RECENT WINNER — factual.
   const latestRaceNo = results.reduce((m,r)=>Math.max(m,number(r.raceNumber)),0);
   const latestRaceResults = results.filter(r=>number(r.raceNumber)===latestRaceNo && number(r.finish)>0);
   const latestWinnerResult =
@@ -2381,85 +2426,98 @@ function chooseCategories(){
       ? analytics.find(d=>d.id===String(latestWinnerResult.driverId)) || favorite
       : favorite;
 
-  // 7) TROUBLE WATCH:
-  // Requires deterioration: recent finish drop and/or incident increase.
+  // 7) TROUBLE WATCH — this is intentionally where BAD finishing belongs.
   const troublePool=multiRace.filter(d=>
     (d.recentAvgFinish-d.seasonAvgFinish)>=1.5 ||
+    d.recentAvgFinish>=25 ||
     (d.recentInc-d.avgInc)>=1.5
   );
   const trouble=scorePick(troublePool.length?troublePool:multiRace,d=>
-    Math.max(0,d.recentAvgFinish-d.seasonAvgFinish)*12 +
-    Math.max(0,d.recentInc-d.avgInc)*10 +
-    d.recentInc*2
+    Math.max(0,d.recentAvgFinish-d.seasonAvgFinish)*10 +
+    Math.max(0,d.recentAvgFinish-20)*5 +
+    Math.max(0,d.recentInc-d.avgInc)*7 +
+    d.recentInc
   ,new Set([favorite?.id,hot?.id].filter(Boolean)));
 
-  // 8) BOUNCE-BACK:
-  // Stronger established driver whose latest result was a clear outlier to the bad side.
+  // 8) BOUNCE-BACK — established good driver coming off a BAD finish.
   const bouncePool=experienced.filter(d=>
     d.latest &&
     d.latest.finish>0 &&
+    d.seasonAvgFinish<=20 &&
     d.latest.finish-d.seasonAvgFinish>=3
   );
-  const bounce=scorePick(bouncePool.length?bouncePool:experienced,d=>
-    Math.max(0,(d.latest?.finish||0)-d.seasonAvgFinish)*12 +
-    d.overall*.22 +
-    d.top10Rate*.15 -
-    Math.max(0,d.recentInc-d.avgInc)*2
+  const bounce=scorePick(bouncePool,d=>
+    Math.max(0,(d.latest?.finish||0)-d.seasonAvgFinish)*10 +
+    d.finishScore*.45 +
+    d.overall*.20 +
+    d.top10Rate*.18
   ,new Set([trouble?.id].filter(Boolean)));
 
-  // 9) DARK HORSE:
-  // Not a top favorite; rewards exceptional conversion or limited-start success.
+  // 9) DARK HORSE
+  // Needs a real performance case: win, strong Top-5 conversion, or solid recent avg.
   let darkPool=all.filter(d=>
     d.id!==favorite?.id &&
     d.id!==hot?.id &&
-    ((d.rank>=6 && d.races.length>=2) || (d.races.length<=3 && d.wins>=1))
+    d.rank>=4 &&
+    (
+      d.wins>=1 ||
+      d.top5Rate>=25 ||
+      (d.recentAvgFinish>0 && d.recentAvgFinish<=15)
+    )
   );
-  if(!darkPool.length) darkPool=all.filter(d=>d.id!==favorite?.id && d.rank>=4);
-  if(!darkPool.length) darkPool=multiRace;
+  if(!darkPool.length) darkPool=recentTop15.filter(d=>d.id!==favorite?.id && d.id!==hot?.id);
   const darkHorse=maxBy(darkPool,d=>
-    d.winRate*.48 +
+    d.winRate*.50 +
     d.top5Rate*.38 +
-    Math.max(0,d.avgGain)*5 +
-    d.consistency*.16 +
-    Math.max(0,14-d.recentAvgFinish)*2 +
+    d.recentScore*.40 +
+    d.finishScore*.22 +
+    Math.max(0,d.avgGain)*2 +
     (d.races.length<=3 && d.wins>=1 ? 30 : 0)
   );
 
-  // 10) DRIVER TO WATCH:
-  // The best next-race blend after removing the obvious headline picks.
+  // 10) DRIVER TO WATCH
+  // Must have actual results backing the recommendation.
   const watchExcluded=new Set([
     favorite?.id,hot?.id,sleeper?.id,darkHorse?.id,recentWinner?.id
   ].filter(Boolean));
-  const watch=scorePick(all,d=>
-    Math.max(0,d.trendScore)*1.25 +
-    Math.max(0,d.recentGain)*6 +
-    d.consistency*.22 +
-    d.top5Last5*5 +
-    d.winsLast5*9 +
-    Math.max(0,14-d.recentAvgFinish)*3
+  const watchPool=all.filter(d=>
+    d.recentAvgFinish>0 &&
+    (
+      d.recentAvgFinish<=18 ||
+      d.top5Last5>=2 ||
+      d.winsLast5>=1
+    )
+  );
+  const watch=scorePick(watchPool,d=>
+    d.recentScore*.55 +
+    Math.max(0,d.trendScore)*.75 +
+    d.consistency*.18 +
+    d.top5Last5*6 +
+    d.winsLast5*10 +
+    Math.max(0,d.recentGain)*2
   ,watchExcluded);
 
   categories = [
     makeCategory("favorite",favorite,
-      "Best complete season profile: finishing speed, points strength, Top-5 conversion and consistency.",
+      `Best complete profile: ${formatFinish(favorite?.seasonAvgFinish)} season average with championship strength and front-running results.`,
       "Rating " + Math.round(favorite?.overall || 0)),
     makeCategory("hot",hot,
       hotFormReason(hot),
       broadcastStat(hot)),
     makeCategory("sleeper",sleeper,
       sleeper?.improvement>0
-        ? `Sitting #${sleeper.rank||"—"} in points but recent finishes are ${round(sleeper.improvement,1)} spots better than the season average.`
-        : "Lower in the standings than the recent performance suggests.",
+        ? `Recent average ${formatFinish(sleeper.recentAvgFinish)} is ${round(sleeper.improvement,1)} spots better than the season average.`
+        : `Recent average ${formatFinish(sleeper?.recentAvgFinish)} is outperforming the driver's championship position.`,
       "UNDER THE RADAR"),
     makeCategory("consistent",consistent,
-      `Reliable every week: ${round(consistent?.top10Rate,0)}% Top-10 rate with one of the tightest finish spreads in the field.`,
+      `Consistent AND competitive: ${formatFinish(consistent?.seasonAvgFinish)} season average with a ${round(consistent?.top10Rate,0)}% Top-10 rate.`,
       "CONSISTENCY " + Math.round(consistent?.consistency || 0)),
     makeCategory("mover",mover,
-      `Gaining ${signed(mover?.recentGain ?? mover?.avgGain)} positions per race recently — the strongest forward-progress signal in the field.`,
+      `Gaining ${signed(mover?.recentGain ?? mover?.avgGain)} positions per race recently while averaging ${formatFinish(mover?.recentAvgFinish)} at the finish.`,
       "HARD CHARGER"),
     makeCategory("recentWinner",recentWinner,
       latestWinnerResult && number(latestWinnerResult.finish)===1
-        ? "Winner of the most recently completed HLRN race. This card tracks the freshest victory, even if that driver appears elsewhere."
+        ? "Winner of the most recently completed HLRN race."
         : "Best finisher from the most recently completed HLRN race.",
       latestWinnerResult ? "RACE " + number(latestWinnerResult.raceNumber) + " WINNER" : "LATEST RESULT"),
     makeCategory("trouble",trouble,
@@ -2473,8 +2531,8 @@ function chooseCategories(){
       darkHorse?.races.length<=3 ? `${darkHorse.wins} WINS / ${darkHorse.races.length} STARTS` : round(darkHorse?.top5Rate,0) + "% TOP 5"),
     makeCategory("watch",watch,
       watch?.winsLast5>=2
-        ? `${watch.winsLast5} wins in the last ${Math.min(5,watch.races.length)} plus supporting momentum make this the strongest next-race watch signal.`
-        : `Recent form, racecraft and consistency are all pointing upward without already being one of the obvious headline picks.`,
+        ? `${watch.winsLast5} wins in the last ${Math.min(5,watch.races.length)} with a ${formatFinish(watch.recentAvgFinish)} recent average.`
+        : `Recent average ${formatFinish(watch?.recentAvgFinish)} plus strong form makes this a legitimate next-race watch.`,
       watch?.recentForm ? watch.recentForm : "NEXT-RACE WATCH")
   ].filter(c=>c.driver);
 }
@@ -2494,8 +2552,8 @@ function signed(v){
 
 function trendLabel(d){
   if(!d) return "—";
-  if(d.improvement>=2 || d.trendScore>=20) return "Heating Up";
-  if(d.improvement<=-2) return "Cooling Off";
+  if((d.improvement>=2 || d.trendScore>=20) && d.recentAvgFinish>0 && d.recentAvgFinish<=18) return "Heating Up";
+  if(d.improvement<=-2 || d.recentAvgFinish>=25) return "Cooling Off";
   return "Steady";
 }
 

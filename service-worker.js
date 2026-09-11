@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-3-3-hosted-race-archive-fix';
+const CACHE = 'hlrn-v11-3-4-race-intelligence-finish-logic';
 const APP_SHELL = [
   './',
   './index.html',
