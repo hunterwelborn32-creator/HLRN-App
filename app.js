@@ -79,7 +79,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.1',
+  appVersion: '11.1.1',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
   teamStandings: {Sunday: [], Monday: []},
@@ -133,25 +133,48 @@ nav.forEach(n=>n.addEventListener('click',()=>{
 function addPageMotion(){
   attachHLRNEasterEgg();
   updateSoundButton();
-
-  // Phones get the fast path: one simple page fade, no forced-layout countups,
-  // no per-card RAF loop, and no extra IntersectionObserver work.
-  if(HLRN_PERF.isPhone || HLRN_PERF.reduceMotion){
-    app.classList.remove('view-enter');
-    requestAnimationFrame(()=>app.classList.add('view-enter'));
-    return;
-  }
-
   requestAnimationFrame(()=>{
     app.classList.remove('view-enter');
+    void app.offsetWidth;
     app.classList.add('view-enter');
 
-    const animated=app.querySelectorAll(
-      '.quick-card,.result-card,.announcement-card,.feature-launchpad button,.podium-card,.standing-row,.schedule-card,.record-card,.track-card,.career-stat,.archive-race-chip,.profile-recent-row,.profile-track-row,.social-card,.notification-bulletin,.rulebook-section'
+    // Stagger high-value cards so pages feel like a broadcast package loading in.
+    const animated = app.querySelectorAll(
+      '.quick-card,.result-card,.announcement-card,.feature-launchpad button,.podium-card,.standing-row,.schedule-card,.driver-list-card,.record-card,.track-card,.career-stat,.archive-race-chip,.profile-recent-row,.profile-track-row,.social-card,.notification-bulletin,.rulebook-section'
     );
     animated.forEach((el,i)=>{
-      el.classList.add('hlrn-reveal');
-      el.style.setProperty('--hlrn-delay',`${Math.min(i,10)*22}ms`);
+      el.classList.remove('hlrn-reveal');
+      el.style.setProperty('--hlrn-delay', `${Math.min(i,18)*28}ms`);
+      requestAnimationFrame(()=>el.classList.add('hlrn-reveal'));
+    });
+
+    // Count-up animation for numeric stat tiles.
+    app.querySelectorAll('.career-stat strong,.record-card b,.snapshot-card strong,.pulse-card strong').forEach(el=>{
+      const raw=(el.textContent||'').trim();
+      if(!/^\d+(\.\d+)?%?$/.test(raw)) return;
+      const hasPct=raw.endsWith('%');
+      const target=parseFloat(raw);
+      if(!Number.isFinite(target)) return;
+      const decimals=(raw.includes('.')?raw.split('.')[1].replace('%','').length:0);
+      const duration=520;
+      const start=performance.now();
+      const tick=(now)=>{
+        const p=Math.min(1,(now-start)/duration);
+        const eased=1-Math.pow(1-p,3);
+        const val=target*eased;
+        el.textContent=(decimals?val.toFixed(decimals):Math.round(val).toString())+(hasPct?'%':'');
+        if(p<1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+
+    // Animated meters/progress bars.
+    app.querySelectorAll('.progress-fill,.bar-fill,.meter-fill,.championship-fill').forEach(el=>{
+      const width=el.style.width || getComputedStyle(el).width;
+      if(!width) return;
+      el.dataset.finalWidth=width;
+      el.style.width='0';
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{ el.style.width=el.dataset.finalWidth; }));
     });
 
     setupScrollReveal();
@@ -182,10 +205,10 @@ function setupScrollReveal(){
 }
 
 function racePulse(){
-  if(HLRN_PERF.isPhone || HLRN_PERF.reduceMotion) return;
   document.documentElement.classList.remove('hlrn-race-pulse');
+  void document.documentElement.offsetWidth;
   document.documentElement.classList.add('hlrn-race-pulse');
-  setTimeout(()=>document.documentElement.classList.remove('hlrn-race-pulse'),650);
+  setTimeout(()=>document.documentElement.classList.remove('hlrn-race-pulse'),900);
 }function refreshNow(){
   const btn=document.querySelector('#refreshDataBtn');
   if(btn) btn.classList.add('spinning');
@@ -570,106 +593,60 @@ function renderSchedule(){
 }
 function switchScheduleLeague(name){state.scheduleLeague=name;renderSchedule();}
 
-function driverDataVersion(){
-  return [
-    (state.drivers||[]).length,
-    (state.hostedDrivers||[]).length,
-    (state.hostedRaceRows||[]).length,
-    (state.results.Sunday||[]).length,
-    (state.results.Monday||[]).length,
-    (state.standings.Sunday||[]).length,
-    (state.standings.Monday||[]).length
-  ].join(':');
-}
-
-function buildDriverIndex(){
-  const version=driverDataVersion();
-  if(HLRN_PERF.driverIndexVersion===version && HLRN_PERF.driverIndex.length) return HLRN_PERF.driverIndex;
+function renderDrivers(filter=''){
+  state.currentView='drivers';
+  const f=filter.trim().toLowerCase();
 
   const names=new Set();
   (state.drivers||[]).forEach(d=>{if(d?.name)names.add(prettyName(String(d.name).trim()));});
   (state.hostedDrivers||[]).forEach(d=>{if(d?.name)names.add(prettyName(String(d.name).trim()));});
   ['Sunday','Monday'].forEach(league=>(state.standings[league]||[]).forEach(d=>{if(d?.name)names.add(prettyName(String(d.name).trim()));}));
 
-  const hostedByName=new Map();
-  (state.hostedRaceRows||[]).forEach(r=>{
-    const name=prettyName(String(r.Driver||'').trim()); if(!name)return;
-    const key=name.toLowerCase();
-    if(!hostedByName.has(key))hostedByName.set(key,[]);
-    hostedByName.get(key).push(r);
-  });
-  const leagueByName={Sunday:new Map(),Monday:new Map()};
-  ['Sunday','Monday'].forEach(league=>{
-    (state.results[league]||[]).forEach(r=>{
-      const key=String(r.driver||'').trim().toLowerCase();if(!key)return;
-      if(!leagueByName[league].has(key))leagueByName[league].set(key,[]);
-      leagueByName[league].get(key).push(r);
-    });
-  });
-
   const source=[...names].map(name=>{
-    const key=name.toLowerCase();
-    const leagueRows=[];
-    ['Sunday','Monday'].forEach(league=>{
-      (leagueByName[league].get(key)||[]).forEach(r=>leagueRows.push({
-        source:league,start:num(r.start),finish:num(r.finish),lapsLed:num(r.lapsLed),incidents:num(r.incidents)
-      }));
-    });
-    (hostedByName.get(key)||[]).forEach(r=>leagueRows.push({
-      source:'Hosted',start:num(r['Start Position']),finish:num(r['Finish Position']),lapsLed:num(r['Laps Led']),incidents:num(r.Incidents)
-    }));
-    const stats=profileStats(leagueRows.filter(r=>r.finish>0));
-    const hosted=(state.hostedDrivers||[]).find(d=>String(d.name||'').toLowerCase()===key);
-    const s=(state.standings.Sunday||[]).find(d=>String(d.name||'').toLowerCase()===key);
-    const m=(state.standings.Monday||[]).find(d=>String(d.name||'').toLowerCase()===key);
+    const rows=driverProfileRows(name);
+    const stats=profileStats(rows);
     const leagues=[];
-    if(leagueRows.some(r=>r.source==='Sunday')||s)leagues.push('Sunday');
-    if(leagueRows.some(r=>r.source==='Monday')||m)leagues.push('Monday');
-    if(leagueRows.some(r=>r.source==='Hosted')||hosted)leagues.push('Hosted');
+    if(rows.some(r=>r.source==='Sunday'))leagues.push('Sunday');
+    if(rows.some(r=>r.source==='Monday'))leagues.push('Monday');
+    if(rows.some(r=>r.source==='Hosted'))leagues.push('Hosted');
+
+    // If result rows are still loading, preserve summary stats from existing sources.
+    const hosted=(state.hostedDrivers||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
+    const standingS=(state.standings.Sunday||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
+    const standingM=(state.standings.Monday||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
 
     return {
       name,
-      races:stats.starts || Number(hosted?.races||0) || Number(s?.races||0)+Number(m?.races||0),
-      wins:stats.wins || Number(hosted?.wins||0) || Number(s?.wins||0)+Number(m?.wins||0),
-      top5:stats.top5 || Number(hosted?.top5||0) || Number(s?.top5||0)+Number(m?.top5||0),
-      top10:stats.top10 || Number(hosted?.top10||0) || Number(s?.top10||0)+Number(m?.top10||0),
-      leagues:leagues.join(' • ')
+      races:stats.starts || Number(hosted?.races||0) || Number(standingS?.races||0)+Number(standingM?.races||0),
+      wins:stats.wins || Number(hosted?.wins||0) || Number(standingS?.wins||0)+Number(standingM?.wins||0),
+      top5:stats.top5 || Number(hosted?.top5||0) || Number(standingS?.top5||0)+Number(standingM?.top5||0),
+      top10:stats.top10 || Number(hosted?.top10||0) || Number(standingS?.top10||0)+Number(standingM?.top10||0),
+      leagues:leagues.length?leagues.join(' • '):((standingS?'Sunday ':'')+(standingM?'Monday ':'')+(hosted?'Hosted':'')).trim()
     };
   }).filter(d=>d.name).sort((a,b)=>a.name.localeCompare(b.name));
 
-  HLRN_PERF.driverIndexVersion=version;
-  HLRN_PERF.driverIndex=source;
-  return source;
-}
-
-function renderDriverListOnly(filter=''){
-  const source=buildDriverIndex();
-  const f=String(filter||'').trim().toLowerCase();
-  const filtered=f?source.filter(d=>d.name.toLowerCase().includes(f)):source;
-  const list=document.querySelector('.driver-list-card');
-  if(!list)return;
-
-  list.innerHTML=filtered.map(d=>{
+  const filtered=source.filter(d=>d.name.toLowerCase().includes(f));
+  const rows=filtered.map(d=>{
     const initialsText=d.name.split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
     const encoded=encodeURIComponent(d.name).replace(/'/g,'%27');
     return `<button class="driver-row driver-click" onclick="openHLRNDriverProfile(decodeURIComponent('${encoded}'))">
       <div class="avatar">${escapeHtml(initialsText)}</div>
-      <div class="driver-meta"><strong>${escapeHtml(d.name)}</strong><small>${escapeHtml(d.leagues||'HLRN')} • ${d.races} starts • ${d.wins} wins • ${d.top5} T5 • ${d.top10} T10</small></div>
+      <div class="driver-meta">
+        <strong>${escapeHtml(d.name)}</strong>
+        <small>${escapeHtml(d.leagues||'HLRN')} • ${d.races} starts • ${d.wins} wins • ${d.top5} T5 • ${d.top10} T10</small>
+      </div>
       <div class="driver-chevron">›</div>
     </button>`;
-  }).join('') || `<div class="empty">No drivers match your search.</div>`;
-}
+  }).join('');
 
-function renderDrivers(filter=''){
-  state.currentView='drivers';
-  const source=buildDriverIndex();
   const mostWins=[...source].sort((a,b)=>(b.wins||0)-(a.wins||0))[0];
   const mostStarts=[...source].sort((a,b)=>(b.races||0)-(a.races||0))[0];
+  const live=source.length>0;
 
   app.innerHTML=`${networkBar()}
     <div class="page-title-row premium-page-head">
       <div><span class="page-kicker hosted-kicker">HLRN DRIVER DATABASE</span><h2 class="page-title">Drivers</h2><p class="page-sub">Sunday • Monday • Hosted career profiles</p></div>
-      <div class="sync-badge ${source.length?'live':''}"><i></i>${source.length?'LIVE':'LOADING'}</div>
+      <div class="sync-badge ${live?'live':''}"><i></i>${live?'LIVE':'LOADING'}</div>
     </div>
     <section class="driver-database-banner">
       <div><small>DRIVER DATABASE</small><strong>${source.length}</strong><span>career profiles</span></div>
@@ -680,17 +657,12 @@ function renderDrivers(filter=''){
       <div><small>MOST STARTS</small>${mostStarts?driverLink(mostStarts.name):'<strong>--</strong>'}<span>${mostStarts?.races||0} starts</span></div>
     </section>
     <div class="search-wrap"><span>⌕</span><input class="search" id="driverSearch" placeholder="Search every HLRN driver..." value="${escapeHtml(filter)}" /></div>
-    <section class="card driver-list-card"></section>`;
-
-  renderDriverListOnly(filter);
+    <section class="card driver-list-card">${rows||`<div class="empty">${live?'No drivers match your search.':'Loading HLRN driver database…'}</div>`}</section>`;
 
   const input=document.querySelector('#driverSearch');
   if(input){
-    input.addEventListener('input',e=>{
-      clearTimeout(driverSearchTimer);
-      const value=e.target.value;
-      driverSearchTimer=setTimeout(()=>renderDriverListOnly(value),90);
-    });
+    input.addEventListener('input',e=>renderDrivers(e.target.value));
+    if(filter){input.focus();input.setSelectionRange(filter.length,filter.length);}
   }
 }
 
@@ -2157,7 +2129,7 @@ async function refreshDiscordAnnouncements(){
 }
 
 async function refreshLiveData(){
-  state.liveStatus='Connecting…';
+  state.liveStatus='Connecting…'; rerenderCurrent();
   try{
     const [sunT,monT,sunRT,monRT,newsT,scheduleT,configT,linksT]=await Promise.all([
       loadGviz(LIVE.standingsSheet,'Sunday Drivers','A1:J250'), loadGviz(LIVE.standingsSheet,'Monday Drivers','A1:J250'),
@@ -2175,8 +2147,8 @@ async function refreshLiveData(){
     if(!state.announcements.length) state.announcements=JSON.parse(JSON.stringify(fallback.announcements));
     const linkRows=tableRows(linksT); state.links={}; linkRows.forEach(r=>{ if(r.Name) state.links[String(r.Name)]=String(r.URL||''); });
     const cfg=tableRows(configT); cfg.forEach(r=>{ if(r.Key==='App Version' && r.Value) state.appVersion=String(r.Value); });
-    applySchedule(tableRows(scheduleT)); buildDrivers(); HLRN_PERF.driverIndexVersion='';
-    state.liveStatus='LIVE'; state.lastUpdated=Date.now(); HLRN_PERF.lastLiveRefresh=Date.now();
+    applySchedule(tableRows(scheduleT)); buildDrivers();
+    state.liveStatus='LIVE'; state.lastUpdated=Date.now();
   }catch(err){
     console.warn('HLRN live data connection failed:',err);
     state.liveStatus='OFFLINE DATA';
@@ -2202,14 +2174,10 @@ if('serviceWorker' in navigator){
       const registration=await navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'}); await registration.update();
       if(registration.waiting) registration.waiting.postMessage({type:'SKIP_WAITING'});
       registration.addEventListener('updatefound',()=>{const worker=registration.installing;if(!worker)return;worker.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller)worker.postMessage({type:'SKIP_WAITING'});});});
-      document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState!=='visible')return;
-  registration.update().catch(()=>{});
-  if(Date.now()-HLRN_PERF.lastLiveRefresh>180000){
-    Promise.allSettled([refreshLiveData(),refreshHostedData(false)]);
-  }
-  updateSoundButton();
-});
+      document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){registration.update().catch(()=>{});refreshLiveData();
+updateSoundButton();
+attachHLRNEasterEgg();
+setTimeout(showStartingLights,120);}});
     }catch(err){console.warn('HLRN update check failed:',err);}
   });
 }
@@ -2218,6 +2186,6 @@ const startParams=new URLSearchParams(location.search);
 if(startParams.get('view')==='notifications') openFeature('notifications');
 else renderHome();
 refreshPushStatus().catch(()=>{});
-HLRN_PERF.lastLiveRefresh=Date.now();
-Promise.allSettled([refreshLiveData(),refreshHostedData()]);
+refreshLiveData();
+refreshHostedData();
 

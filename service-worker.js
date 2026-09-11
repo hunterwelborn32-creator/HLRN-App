@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-1-performance';
+const CACHE = 'hlrn-v11-1-1-rollback';
 const APP_SHELL = [
   './',
   './index.html',
