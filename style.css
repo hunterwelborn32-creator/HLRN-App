@@ -1821,3 +1821,12 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important}
 .power-row.upgraded-power em{
   min-width:46px;text-align:center
 }
+
+
+/* HLRN 11.2.2 — ANDROID TAP COMPATIBILITY */
+button,.nav-item,.quick-card,.feature-launchpad button,.driver-click,.social-card{
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+.bottom-nav,.bottom-nav *{pointer-events:auto!important}
+#app{pointer-events:auto}

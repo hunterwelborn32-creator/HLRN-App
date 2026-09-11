@@ -89,7 +89,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.2.1',
+  appVersion: '11.2.2',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -128,7 +128,11 @@ const HLRN_HISTORY={restoring:false,ready:false};
 
 function hlrnRouteState(route,replace=false){
   if(HLRN_HISTORY.restoring) return;
-  const payload={hlrn:true,route,scrollY:0};
+  const payload={hlrn:true,route,scrollY:window.scrollY||0};
+  try{
+    sessionStorage.setItem('hlrn-last-route',JSON.stringify(route));
+    sessionStorage.setItem('hlrn-last-scroll',String(window.scrollY||0));
+  }catch(e){}
   try{
     if(replace) history.replaceState(payload,'',location.href);
     else history.pushState(payload,'',location.href);
@@ -166,6 +170,18 @@ function restoreHLRNRoute(route){
   }
 }
 
+
+function persistCurrentHLRNRoute(){
+  try{
+    const route=history.state?.hlrn ? history.state.route : null;
+    if(route) sessionStorage.setItem('hlrn-last-route',JSON.stringify(route));
+    sessionStorage.setItem('hlrn-last-scroll',String(window.scrollY||0));
+  }catch(e){}
+}
+
+window.addEventListener('beforeunload',persistCurrentHLRNRoute);
+window.addEventListener('pagehide',persistCurrentHLRNRoute);
+
 window.addEventListener('popstate',e=>{
   const route=e.state?.hlrn?e.state.route:null;
   restoreHLRNRoute(route);
@@ -192,10 +208,35 @@ function setView(view,opts={}){
   window.scrollTo({top:0,behavior:'auto'});
 }
 
+
+function hlrnAndroidTapFallback(){
+  if(window.__hlrnAndroidTapFallback) return;
+  window.__hlrnAndroidTapFallback=true;
+
+  document.addEventListener('click',function(e){
+    const navBtn=e.target.closest && e.target.closest('.nav-item[data-view]');
+    if(navBtn){
+      e.preventDefault();
+      e.stopPropagation();
+      setView(navBtn.dataset.view);
+      return;
+    }
+
+    const action=e.target.closest && e.target.closest('[data-hlrn-action]');
+    if(!action) return;
+    const type=action.dataset.hlrnAction;
+    const value=action.dataset.hlrnValue||'';
+    if(type==='feature'){ e.preventDefault(); openFeature(value); }
+    else if(type==='results'){ e.preventDefault(); state.resultsLeague=value||'Sunday'; renderResults(); }
+    else if(type==='view'){ e.preventDefault(); setView(value||'home'); }
+  },false);
+}
+
 window.hlrnNav=function(view){
   try{if(navigator.vibrate)navigator.vibrate(8);}catch(e){}
   setView(view);
 };
+hlrnAndroidTapFallback();
 
 function addPageMotion(){
   attachHLRNEasterEgg();
@@ -431,7 +472,7 @@ function triggerHLRNEasterEgg(){
   `;
   document.body.appendChild(egg);
   requestAnimationFrame(()=>egg.classList.add('active'));
-  if(navigator.vibrate) navigator.vibrate([45,30,45,30,90]);
+  try{if(navigator.vibrate) navigator.vibrate([45,30,45,30,90]);}catch(e){}
   setTimeout(()=>egg.classList.add('exit'),2200);
   setTimeout(()=>egg.remove(),2900);
 }
@@ -2439,7 +2480,12 @@ window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferredP
 
 if('serviceWorker' in navigator){
   let refreshing=false;
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(refreshing)return;refreshing=true;window.location.reload();});
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+  if(refreshing)return;
+  refreshing=true;
+  persistCurrentHLRNRoute();
+  window.location.reload();
+});
   window.addEventListener('load',async()=>{
     try{
       const registration=await navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'}); await registration.update();
@@ -2458,17 +2504,34 @@ if('serviceWorker' in navigator){
 }
 
 const startParams=new URLSearchParams(location.search);
-if(startParams.get('view')==='notifications'){
+let restoredRoute=null;
+try{
+  const saved=sessionStorage.getItem('hlrn-last-route');
+  if(saved) restoredRoute=JSON.parse(saved);
+}catch(e){}
+
+const forcedView=startParams.get('view');
+
+if(forcedView==='notifications'){
   openFeature('notifications',false);
   hlrnRouteState({kind:'feature',name:'notifications'},true);
-}else if(startParams.get('view')==='recap'){
+}else if(forcedView==='recap'){
   state.recapLeague=startParams.get('league')||'Sunday';
   openFeature('recap',false);
   hlrnRouteState({kind:'feature',name:'recap'},true);
-}else if(startParams.get('view')==='results'){
+}else if(forcedView==='results'){
   state.resultsLeague=startParams.get('league')||'Sunday';
   renderResults(false);
   hlrnRouteState({kind:'results',league:state.resultsLeague,key:''},true);
+}else if(restoredRoute){
+  restoreHLRNRoute(restoredRoute);
+  hlrnRouteState(restoredRoute,true);
+  requestAnimationFrame(()=>{
+    try{
+      const y=Number(sessionStorage.getItem('hlrn-last-scroll')||0);
+      if(Number.isFinite(y) && y>0) window.scrollTo(0,y);
+    }catch(e){}
+  });
 }else{
   renderHome();
   hlrnRouteState({kind:'view',view:'home'},true);

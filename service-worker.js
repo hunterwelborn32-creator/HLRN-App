@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-2-1-power-last10-incidents';
+const CACHE = 'hlrn-v11-2-2-android-tap-refresh-state';
 const APP_SHELL = [
   './',
   './index.html',
