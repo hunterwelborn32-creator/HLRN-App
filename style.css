@@ -1912,3 +1912,46 @@ html,body{
 body,.app-shell,#app{
   overscroll-behavior:contain!important;
 }
+
+
+/* HLRN 11.3.2 — MOBILE SCROLL FIX */
+html{
+  height:auto!important;
+  min-height:100%!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  overscroll-behavior-y:auto!important;
+  -webkit-overflow-scrolling:touch;
+}
+body{
+  height:auto!important;
+  min-height:100vh!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  overscroll-behavior-y:auto!important;
+  touch-action:pan-y!important;
+  -webkit-overflow-scrolling:touch;
+}
+.app-shell{
+  height:auto!important;
+  min-height:100vh!important;
+  overflow:visible!important;
+  touch-action:pan-y!important;
+}
+#app{
+  height:auto!important;
+  min-height:calc(100vh - 90px)!important;
+  overflow:visible!important;
+  touch-action:pan-y!important;
+  overscroll-behavior:auto!important;
+  -webkit-overflow-scrolling:touch;
+}
+.feature-page,.card,.power-list,.driver-list-card,.standings-card,.schedule-list{
+  touch-action:pan-y!important;
+}
+/* Keep pull-to-refresh suppression from hijacking normal vertical scrolling. */
+@media (display-mode: standalone){
+  html,body,#app,.app-shell{
+    overscroll-behavior-y:auto!important;
+  }
+}

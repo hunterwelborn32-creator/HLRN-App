@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-3-1-power-no-incidents';
+const CACHE = 'hlrn-v11-3-2-mobile-scroll-fix';
 const APP_SHELL = [
   './',
   './index.html',
