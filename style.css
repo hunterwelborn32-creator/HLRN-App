@@ -1903,3 +1903,12 @@ button,.nav-item,.quick-card,.feature-launchpad button,.driver-click,.social-car
     max-width:220px;
   }
 }
+
+
+/* HLRN 11.2.8 — ANDROID STABILITY: disable browser pull-to-refresh */
+html,body{
+  overscroll-behavior-y:contain!important;
+}
+body,.app-shell,#app{
+  overscroll-behavior:contain!important;
+}

@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-2-7-hosted-feature-autoload';
+const CACHE = 'hlrn-v11-2-8-android-hosted-cache';
 const APP_SHELL = [
   './',
   './index.html',

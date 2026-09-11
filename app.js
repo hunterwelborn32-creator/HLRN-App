@@ -88,8 +88,9 @@ const state = {
   hostedRaceRows: [],
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
+  hostedCachePartial: false,
   links: {},
-  appVersion: '11.2.7',
+  appVersion: '11.2.8',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -531,7 +532,9 @@ function prettyName(name=''){
 
 function liveBadge(){
   const ok = state.liveStatus === 'LIVE';
-  return `<div class="sync-badge ${ok?'live':''}"><i></i>${ok?'LIVE DATA':escapeHtml(state.liveStatus)}</div>`;
+  const hasUsableHosted=(state.hostedRaceRows||[]).length || (state.hostedDrivers||[]).length;
+  const label=ok?'LIVE DATA':(hasUsableHosted?'DATA READY':state.liveStatus);
+  return `<div class="sync-badge ${ok||hasUsableHosted?'live':''}"><i></i>${escapeHtml(label)}</div>`;
 }
 
 function countdownMarkup(){
@@ -697,6 +700,70 @@ function renderSchedule(){
 }
 function switchScheduleLeague(name){state.scheduleLeague=name;renderSchedule();}
 
+
+const HLRN_HOSTED_CACHE_KEY='hlrn-hosted-snapshot-v1';
+
+function saveHostedSnapshot(){
+  try{
+    if(!(state.hostedDrivers||[]).length) return;
+
+    // Keep only the latest 12 races per driver so the snapshot stays small enough
+    // for mobile storage but still fully supports Last-10 Power Rankings after reload.
+    const byDriver=new Map();
+    (state.hostedRaceRows||[]).forEach(r=>{
+      const name=prettyName(String(r.Driver||'').trim());
+      if(!name) return;
+      if(!byDriver.has(name)) byDriver.set(name,[]);
+      byDriver.get(name).push(r);
+    });
+
+    const recent=[];
+    byDriver.forEach(rows=>{
+      rows.sort((a,b)=>String(b['Race Date']||'').localeCompare(String(a['Race Date']||'')));
+      rows.slice(0,12).forEach(r=>recent.push({
+        Driver:r.Driver||'',
+        'Race Date':r['Race Date']||'',
+        'Race ID':r['Race ID']||'',
+        Track:r.Track||'',
+        'Start Position':r['Start Position']||0,
+        'Finish Position':r['Finish Position']||0,
+        'Laps Led':r['Laps Led']||0,
+        Incidents:r.Incidents||0,
+        Points:r.Points||0,
+        'Car #':r['Car #']||''
+      }));
+    });
+
+    const snap={
+      savedAt:Date.now(),
+      drivers:state.hostedDrivers,
+      recent,
+      latest:state.hostedLatest
+    };
+    sessionStorage.setItem(HLRN_HOSTED_CACHE_KEY,JSON.stringify(snap));
+  }catch(e){
+    console.warn('Hosted snapshot save skipped',e);
+  }
+}
+
+function loadHostedSnapshot(){
+  try{
+    const raw=sessionStorage.getItem(HLRN_HOSTED_CACHE_KEY);
+    if(!raw) return false;
+    const snap=JSON.parse(raw);
+    if(!snap || !Array.isArray(snap.drivers) || !snap.drivers.length) return false;
+
+    state.hostedDrivers=snap.drivers;
+    state.hostedRaceRows=Array.isArray(snap.recent)?snap.recent:[];
+    state.hostedLatest=snap.latest||null;
+    state.hostedDataStatus='CACHED';
+    state.hostedCachePartial=true;
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
 let hostedLazyLoading=false;
 function ensureHostedData(){
   if(state.hostedDataStatus==='LIVE' || hostedLazyLoading) return;
@@ -805,10 +872,10 @@ function hostedDriverDirectorySource(){
 
     return {
       name,
-      races:stats.starts || Number(hosted?.races||0),
-      wins:stats.wins || Number(hosted?.wins||0),
-      top5:stats.top5 || Number(hosted?.top5||0),
-      top10:stats.top10 || Number(hosted?.top10||0),
+      races:state.hostedCachePartial?Number(hosted?.races||0):(stats.starts || Number(hosted?.races||0)),
+      wins:state.hostedCachePartial?Number(hosted?.wins||0):(stats.wins || Number(hosted?.wins||0)),
+      top5:state.hostedCachePartial?Number(hosted?.top5||0):(stats.top5 || Number(hosted?.top5||0)),
+      top10:state.hostedCachePartial?Number(hosted?.top10||0):(stats.top10 || Number(hosted?.top10||0)),
       leagues:'Hosted'
     };
   }).filter(d=>d.name).sort((a,b)=>a.name.localeCompare(b.name));
@@ -1271,7 +1338,9 @@ function renderHostedDriverProfileFromRows(driver,rows){
 }
 
 async function refreshHostedData(rerender=true){
-  state.hostedDataStatus='Connecting…';
+  if(!(state.hostedRaceRows||[]).length && !(state.hostedDrivers||[]).length){
+    state.hostedDataStatus='Connecting…';
+  }
   try{
     const [rankT,dataT,latestMetaT,latestResultsT]=await Promise.all([
       loadGviz(HOSTED_SHEET,'DRIVER RANKINGS','A1:G1000'),
@@ -1304,9 +1373,15 @@ async function refreshHostedData(rerender=true){
     });
     state.hostedDrivers=[...m.values()].map(d=>({...d,averageFinish:d.finishCount?d.finish/d.finishCount:0})).sort((a,b)=>a.name.localeCompare(b.name));
     state.hostedDataStatus='LIVE';
+    state.hostedCachePartial=false;
+    saveHostedSnapshot();
   }catch(err){
     console.warn('HLRN hosted database connection failed:',err);
-    state.hostedDataStatus='HOSTED DATA OFFLINE';
+    if((state.hostedRaceRows||[]).length || (state.hostedDrivers||[]).length){
+      state.hostedDataStatus=state.hostedCachePartial?'CACHED':'LIVE';
+    }else{
+      state.hostedDataStatus='HOSTED DATA OFFLINE';
+    }
   }
   if(rerender && state.currentView==='drivers') renderDrivers(document.querySelector('#driverSearch')?.value||'');
   else if(rerender && state.currentView==='home') renderHome();
@@ -1450,6 +1525,22 @@ function compareDriver(name){
   return hostedDriverStats().find(d=>d.name===name)||null;
 }
 function h2hSafeDrivers(){
+  if(state.hostedCachePartial && Array.isArray(state.hostedDrivers) && state.hostedDrivers.length){
+    return state.hostedDrivers
+      .filter(d=>d && d.name)
+      .map(d=>({
+        name:String(d.name),
+        races:Number(d.races||0),
+        wins:Number(d.wins||0),
+        top5:Number(d.top5||0),
+        top10:Number(d.top10||0),
+        lapsLed:Number(d.lapsLed||0),
+        avgFinish:Number(d.averageFinish||0),
+        avgInc:Number(d.avgInc||0),
+        cleanRate:Number(d.cleanRate||0)
+      }))
+      .sort((a,b)=>a.name.localeCompare(b.name));
+  }
   try{
     const career=hostedDriverStats();
     if(Array.isArray(career) && career.length){
@@ -2624,6 +2715,8 @@ if('serviceWorker' in navigator){
     }catch(err){console.warn('HLRN update check failed:',err);}
   });
 }
+
+loadHostedSnapshot();
 
 const startParams=new URLSearchParams(location.search);
 let restoredRoute=null;
