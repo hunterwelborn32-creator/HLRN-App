@@ -89,7 +89,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.1.3',
+  appVersion: '11.1.4',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -660,7 +660,7 @@ function renderDrivers(filter=''){
   const rows=filtered.map(d=>{
     const initialsText=d.name.split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
     const encoded=encodeURIComponent(d.name).replace(/'/g,'%27');
-    return `<button class="driver-row driver-click" onclick="openHLRNDriverProfile(decodeURIComponent('${encoded}'))">
+    return `<button class="driver-row driver-click" data-search-name="${escapeHtml(d.name.toLowerCase())}" onclick="openHLRNDriverProfile(decodeURIComponent('${encoded}'))">
       <div class="avatar">${escapeHtml(initialsText)}</div>
       <div class="driver-meta">
         <strong>${escapeHtml(d.name)}</strong>
@@ -695,10 +695,25 @@ function renderDrivers(filter=''){
     input.addEventListener('input',e=>{
       const q=String(e.target.value||'').trim().toLowerCase();
       const cards=[...document.querySelectorAll('.driver-list-card .driver-row')];
+      let visible=0;
       cards.forEach(card=>{
-        const name=String(card.querySelector('.driver-meta strong')?.textContent||'').toLowerCase();
-        card.hidden=!!q && !name.includes(q);
+        const name=String(card.dataset.searchName||card.querySelector('.driver-meta strong')?.textContent||'').toLowerCase();
+        const match=!q || name.includes(q);
+        card.style.display=match?'flex':'none';
+        if(match)visible++;
       });
+
+      let empty=document.querySelector('.driver-search-empty');
+      if(!visible && q){
+        if(!empty){
+          empty=document.createElement('div');
+          empty.className='empty driver-search-empty';
+          document.querySelector('.driver-list-card')?.appendChild(empty);
+        }
+        empty.textContent='No drivers match "'+e.target.value+'".';
+      }else if(empty){
+        empty.remove();
+      }
     });
     if(filter){
       input.focus();
