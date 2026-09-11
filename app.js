@@ -89,7 +89,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.2.6',
+  appVersion: '11.2.7',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -703,10 +703,26 @@ function ensureHostedData(){
   hostedLazyLoading=true;
   refreshHostedData(false).then(()=>{
     HLRN_AUTO_REFRESH.lastHosted=Date.now();
-    // Populate Hosted Drivers as soon as the asynchronous database finishes loading,
-    // without redrawing the whole page or jumping the user back to the top.
+
+    // Drivers page can be updated in place.
     refreshHostedDriverDirectoryInPlace();
-  }).catch(()=>{}).finally(()=>{
+
+    // If the user is sitting on a Hosted-powered feature, redraw that feature once
+    // the data arrives. Preserve their scroll position.
+    const hostedFeatures=new Set(['power','records','tracks','headtohead','spotlight','recap']);
+    if(state.currentView==='feature' && hostedFeatures.has(state.featureView)){
+      const y=window.scrollY||0;
+      if(state.featureView==='power') renderPowerRankings();
+      else if(state.featureView==='records') renderRecords();
+      else if(state.featureView==='tracks') renderTrackHub();
+      else if(state.featureView==='headtohead') renderHeadToHead();
+      else if(state.featureView==='spotlight') renderSpotlight();
+      else if(state.featureView==='recap' && (state.recapLeague||'Sunday')==='Hosted') renderRecap();
+      requestAnimationFrame(()=>window.scrollTo(0,y));
+    }
+  }).catch(err=>{
+    console.warn('Hosted on-demand load failed',err);
+  }).finally(()=>{
     hostedLazyLoading=false;
   });
 }
@@ -1408,6 +1424,11 @@ function recordCard(icon,label,d,value,sub=''){
   return `<article class="record-card"><span>${icon}</span><small>${label}</small><strong>${escapeHtml(d?.name||'--')}</strong><b>${escapeHtml(value??'--')}</b><em>${escapeHtml(sub)}</em></article>`;
 }
 function renderRecords(){
+  ensureHostedData();
+  if(state.hostedDataStatus!=='LIVE' && !(state.hostedRaceRows||[]).length){
+    featureShell('Records & Milestones','All-time hosted career leaders from every imported race.','<section class="coming-live"><span>🏆</span><h3>Loading Hosted records…</h3><p>This page will fill in automatically when the Hosted database is ready.</p><div class="auto-sync-note"><i></i>CONNECTING</div></section>','records-page');
+    return;
+  }
   const ds=hostedDriverStats();
   const top=(key,low=false)=>[...ds].sort((a,b)=>low?(a[key]||999)-(b[key]||999):(b[key]||0)-(a[key]||0))[0];
   const minAvg=[...ds].filter(d=>d.races>=3&&d.avgFinish>0).sort((a,b)=>a.avgFinish-b.avgFinish)[0];
@@ -1517,6 +1538,7 @@ function filterH2HList(input,side){
 }
 
 function renderHeadToHead(){
+  ensureHostedData();
   // Render a visible page immediately so this feature can never fail silently.
   featureShell(
     'Head-to-Head',
@@ -1529,7 +1551,7 @@ function renderHeadToHead(){
     const drivers=h2hSafeDrivers();
 
     if(drivers.length<2){
-      const body=`<section class="coming-live"><span>⚔️</span><h3>Hosted driver database is loading</h3><p>Head-to-Head needs at least two Hosted drivers. Tap refresh and the lists will populate as soon as the Hosted data finishes loading.</p><button class="btn primary" onclick="refreshHostedData().then(()=>renderHeadToHead())">REFRESH HOSTED DATA</button></section>`;
+      const body=`<section class="coming-live"><span>⚔️</span><h3>Loading Hosted driver database…</h3><p>Head-to-Head will populate automatically as soon as the Hosted data finishes loading.</p><div class="auto-sync-note"><i></i>CONNECTING</div></section>`;
       featureShell('Head-to-Head','Search a driver or scroll the complete Hosted driver list.',body,'headtohead-page');
       return;
     }
@@ -1619,6 +1641,12 @@ function powerScoreDetails(d){
 function powerScore(d){ return powerScoreDetails(d).score; }
 
 function renderPowerRankings(){
+  ensureHostedData();
+  if(state.hostedDataStatus!=='LIVE' && !(state.hostedRaceRows||[]).length){
+    const body=`<section class="coming-live"><span>⚡</span><h3>Loading Hosted race data…</h3><p>Power Rankings will appear automatically as soon as the Hosted database finishes loading.</p><div class="auto-sync-note"><i></i>CONNECTING</div></section>`;
+    featureShell('Driver Power Rankings','Who is hottest — and cleanest — over the last 10 Hosted races?',body,'power-page');
+    return;
+  }
   const ranked=hostedDriverStats()
     .filter(d=>d.races>=10)
     .map(d=>({...d,powerData:powerScoreDetails(d)}))
@@ -1655,6 +1683,11 @@ function trackStats(){
   }).sort((a,b)=>b.races-a.races||a.track.localeCompare(b.track));
 }
 function renderTrackHub(){
+  ensureHostedData();
+  if(state.hostedDataStatus!=='LIVE' && !(state.hostedRaceRows||[]).length){
+    featureShell('Track Hub','Every hosted track, its race history and winningest driver.','<section class="coming-live"><span>🏁</span><h3>Loading Hosted track data…</h3><p>Track history will appear automatically when Hosted data is ready.</p><div class="auto-sync-note"><i></i>CONNECTING</div></section>','tracks-page');
+    return;
+  }
   const ts=trackStats();
   const body=`<div class="track-grid">${ts.map(t=>`<article class="track-card"><div class="track-road">〰</div><small>HLRN TRACK HISTORY</small><strong>${escapeHtml(t.track)}</strong><span>${t.races} races • ${t.starts} driver starts</span><div><b>${escapeHtml(t.topWinner)}</b><em>${t.topWins} wins</em></div><footer>${t.avgInc.toFixed(1)} avg incidents / driver start</footer></article>`).join('')}</div>`;
   featureShell('Track Hub','Every hosted track, its race history and winningest driver.',body,'tracks-page');
@@ -1683,8 +1716,9 @@ function spotlightDriver(){
   const day=Math.floor(Date.now()/86400000); return ranked[day%Math.min(ranked.length,10)];
 }
 function renderSpotlight(){
+  ensureHostedData();
   const d=spotlightDriver();
-  if(!d){featureShell('Driver Spotlight','Featured HLRN racer.','<div class="empty">Hosted data is still loading. Tap refresh and try again.</div>');return;}
+  if(!d){featureShell('Driver Spotlight','Featured HLRN racer.','<section class="coming-live"><span>⭐</span><h3>Loading Hosted driver data…</h3><p>The spotlight will appear automatically when the Hosted database is ready.</p><div class="auto-sync-note"><i></i>CONNECTING</div></section>');return;}
   const recent=recentRowsFor(d.name,5), recentAvg=recent.length?(recent.reduce((a,r)=>a+num(r['Finish Position']),0)/recent.length).toFixed(1):'--';
   const body=`<article class="spotlight-hero"><div class="spotlight-number">${initials(d.name)}</div><small>FEATURED HLRN DRIVER</small><h3>${escapeHtml(d.name)}</h3><p>${d.races} Hosted starts • ${d.wins} wins • ${d.top5} Top 5s • ${d.lapsLed} laps led</p><div class="spotlight-stats"><b>${d.avgFinish.toFixed(1)}<span>CAREER AVG</span></b><b>${recentAvg}<span>LAST 5 AVG</span></b><b>${d.cleanRate.toFixed(1)}%<span>CLEAN</span></b><b>${d.top10}<span>TOP 10</span></b></div><button class="btn primary" onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')">FULL DRIVER PROFILE</button></article>`;
   featureShell('Driver Spotlight','A rotating featured racer powered by all Hosted career data.',body,'spotlight-page');
@@ -1837,6 +1871,7 @@ async function copyRecap(type='discord'){
 
 function renderRecap(){
   state.currentView='feature'; state.featureView='recap';
+  if((state.recapLeague||'Sunday')==='Hosted') ensureHostedData();
   const league=state.recapLeague||'Sunday';
   const groups=recapLeagueGroups(league);
   const selected=groups.find(g=>g.key===state.recapRaceKey)||groups[0];

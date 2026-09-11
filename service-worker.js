@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-2-6r2-compact-pagination';
+const CACHE = 'hlrn-v11-2-7-hosted-feature-autoload';
 const APP_SHELL = [
   './',
   './index.html',
