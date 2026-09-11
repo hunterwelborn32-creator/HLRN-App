@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v9-6-notification-center';
+const CACHE = 'hlrn-v9-8-push-pref-sync';
 const APP_SHELL = [
   './',
   './index.html',

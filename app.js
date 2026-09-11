@@ -79,7 +79,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '9.6',
+  appVersion: '9.8',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
   teamStandings: {Sunday: [], Monday: []},
@@ -1263,7 +1263,7 @@ async function getPushSubscription(){
 }
 
 function defaultPushPrefs(){
-  return {announcements:true,sunday:true,monday:true,hosted:true};
+  return {announcements:true,reminders:true,results:true,schedule:true,sunday:true,monday:true,hosted:true};
 }
 function getPushPrefs(){
   try{
@@ -1275,7 +1275,7 @@ function getPushPrefs(){
 }
 function getPushTopics(){
   const p=getPushPrefs();
-  return Object.keys(p).filter(k=>p[k]);
+  return ['prefs-v2',...Object.keys(p).filter(k=>p[k])];
 }
 async function savePushPrefs(nextPrefs){
   localStorage.setItem('hlrnPushPrefs',JSON.stringify(nextPrefs));
@@ -1314,6 +1314,13 @@ async function refreshPushStatus(){
   if(Notification.permission==='denied'){ state.pushStatus='BLOCKED'; return; }
   const sub=await getPushSubscription().catch(()=>null);
   state.pushStatus=sub?'ENABLED':(Notification.permission==='granted'?'READY':'OFF');
+  if(sub){
+    fetch(HLRN_PUSH.worker+'/subscribe',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({subscription:sub.toJSON(),topics:getPushTopics()})
+    }).catch(()=>{});
+  }
 }
 async function enablePushNotifications(){
   if(!pushSupported()){
@@ -1416,9 +1423,13 @@ function renderNotifications(){
   <section class="push-preferences">
     <div class="push-pref-head"><div><small>NOTIFICATION PREFERENCES</small><strong>Choose Your Alerts</strong></div><span>1 HR + 30 MIN RACE REMINDERS</span></div>
     ${pushPrefRow('announcements','📣','Announcements','Official HLRN Discord announcements')}
-    ${pushPrefRow('sunday','S','Sunday League','Race reminders and future Sunday alerts','sun')}
-    ${pushPrefRow('monday','M','Monday League','Race reminders and future Monday alerts','mon')}
-    ${pushPrefRow('hosted','H','Hosted Racing','Future Hosted results and event alerts','hosted')}
+    ${pushPrefRow('reminders','⏱️','Race Reminders','1-hour and 30-minute race alerts')}
+    ${pushPrefRow('results','🏆','Results Posted','New Sunday, Monday and Hosted race results')}
+    ${pushPrefRow('schedule','🗓️','Schedule Changes','Alerts when HLRN schedule data changes')}
+    <div class="push-pref-divider"><span>LEAGUES</span></div>
+    ${pushPrefRow('sunday','S','Sunday League','Receive Sunday-specific alerts','sun')}
+    ${pushPrefRow('monday','M','Monday League','Receive Monday-specific alerts','mon')}
+    ${pushPrefRow('hosted','H','Hosted Racing','Receive Hosted-specific alerts','hosted')}
   </section>
   <section class="notification-status"><span class="${state.announcementsStatus==='LIVE'?'live':''}"></span><div><small>DISCORD ANNOUNCEMENT BRIDGE</small><strong>${escapeHtml(state.announcementsStatus)}</strong></div><button onclick="refreshDiscordAnnouncements().then(()=>renderNotifications())">↻ REFRESH</button></section>
   <div class="notification-races">${raceItems.map(x=>`<article class="${x.cls}"><b>${x.icon}</b><div><small>${x.type}</small><strong>${escapeHtml(x.title)}</strong><span>${escapeHtml(x.text)}</span></div></article>`).join('')}</div>
