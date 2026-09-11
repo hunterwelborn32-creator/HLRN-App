@@ -79,7 +79,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.0',
+  appVersion: '11.0.1',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
   teamStandings: {Sunday: [], Monday: []},
@@ -596,29 +596,82 @@ function switchScheduleLeague(name){state.scheduleLeague=name;renderSchedule();}
 function renderDrivers(filter=''){
   state.currentView='drivers';
   const f=filter.trim().toLowerCase();
-  const source=state.hostedDrivers;
-  const rows=source.filter(d=>String(d.name||'').toLowerCase().includes(f)).map(d=>{
-    const initials=String(d.name||'').split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
-    return `<button class="driver-row driver-click" onclick="openHLRNDriverProfile(decodeURIComponent('${encodeURIComponent(String(d.name||'')).replace(/'/g,'%27')}'))"><div class="avatar">${escapeHtml(initials)}</div><div class="driver-meta"><strong>${escapeHtml(d.name)}</strong><small>HLRN HOSTED • ${d.races} races • ${d.wins} wins • ${d.top5} T5 • ${d.top10} T10</small></div><div class="driver-chevron">›</div></button>`;
+
+  const names=new Set();
+  (state.drivers||[]).forEach(d=>{if(d?.name)names.add(prettyName(String(d.name).trim()));});
+  (state.hostedDrivers||[]).forEach(d=>{if(d?.name)names.add(prettyName(String(d.name).trim()));});
+  ['Sunday','Monday'].forEach(league=>(state.standings[league]||[]).forEach(d=>{if(d?.name)names.add(prettyName(String(d.name).trim()));}));
+
+  const source=[...names].map(name=>{
+    const rows=driverProfileRows(name);
+    const stats=profileStats(rows);
+    const leagues=[];
+    if(rows.some(r=>r.source==='Sunday'))leagues.push('Sunday');
+    if(rows.some(r=>r.source==='Monday'))leagues.push('Monday');
+    if(rows.some(r=>r.source==='Hosted'))leagues.push('Hosted');
+
+    // If result rows are still loading, preserve summary stats from existing sources.
+    const hosted=(state.hostedDrivers||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
+    const standingS=(state.standings.Sunday||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
+    const standingM=(state.standings.Monday||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
+
+    return {
+      name,
+      races:stats.starts || Number(hosted?.races||0) || Number(standingS?.races||0)+Number(standingM?.races||0),
+      wins:stats.wins || Number(hosted?.wins||0) || Number(standingS?.wins||0)+Number(standingM?.wins||0),
+      top5:stats.top5 || Number(hosted?.top5||0) || Number(standingS?.top5||0)+Number(standingM?.top5||0),
+      top10:stats.top10 || Number(hosted?.top10||0) || Number(standingS?.top10||0)+Number(standingM?.top10||0),
+      leagues:leagues.length?leagues.join(' • '):((standingS?'Sunday ':'')+(standingM?'Monday ':'')+(hosted?'Hosted':'')).trim()
+    };
+  }).filter(d=>d.name).sort((a,b)=>a.name.localeCompare(b.name));
+
+  const filtered=source.filter(d=>d.name.toLowerCase().includes(f));
+  const rows=filtered.map(d=>{
+    const initialsText=d.name.split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
+    const encoded=encodeURIComponent(d.name).replace(/'/g,'%27');
+    return `<button class="driver-row driver-click" onclick="openHLRNDriverProfile(decodeURIComponent('${encoded}'))">
+      <div class="avatar">${escapeHtml(initialsText)}</div>
+      <div class="driver-meta">
+        <strong>${escapeHtml(d.name)}</strong>
+        <small>${escapeHtml(d.leagues||'HLRN')} • ${d.races} starts • ${d.wins} wins • ${d.top5} T5 • ${d.top10} T10</small>
+      </div>
+      <div class="driver-chevron">›</div>
+    </button>`;
   }).join('');
-  const status=state.hostedDataStatus==='LIVE'?'ALL HOSTED RACES':escapeHtml(state.hostedDataStatus);
+
   const mostWins=[...source].sort((a,b)=>(b.wins||0)-(a.wins||0))[0];
   const mostStarts=[...source].sort((a,b)=>(b.races||0)-(a.races||0))[0];
-  app.innerHTML=`${networkBar()}<div class="page-title-row premium-page-head"><div><span class="page-kicker hosted-kicker">HOSTED DRIVER DATABASE</span><h2 class="page-title">Drivers</h2><p class="page-sub">Career stats from every HLRN hosted race</p></div><div class="sync-badge ${state.hostedDataStatus==='LIVE'?'live':''}"><i></i>${status}</div></div><section class="driver-database-banner"><div><small>DRIVER DATABASE</small><strong>${source.length}</strong><span>career profiles</span></div><div><small>RACE RECORDS</small><strong>${state.hostedRaceRows.length}</strong><span>imported starts</span></div></section>
-    <section class="driver-leaderboard-mini">
-      <div><small>MOST WINS</small><strong>${escapeHtml(mostWins?.name||'--')}</strong><span>${mostWins?.wins||0} wins</span></div>
-      <div><small>MOST STARTS</small><strong>${escapeHtml(mostStarts?.name||'--')}</strong><span>${mostStarts?.races||0} starts</span></div>
+  const live=source.length>0;
+
+  app.innerHTML=`${networkBar()}
+    <div class="page-title-row premium-page-head">
+      <div><span class="page-kicker hosted-kicker">HLRN DRIVER DATABASE</span><h2 class="page-title">Drivers</h2><p class="page-sub">Sunday • Monday • Hosted career profiles</p></div>
+      <div class="sync-badge ${live?'live':''}"><i></i>${live?'LIVE':'LOADING'}</div>
+    </div>
+    <section class="driver-database-banner">
+      <div><small>DRIVER DATABASE</small><strong>${source.length}</strong><span>career profiles</span></div>
+      <div><small>RACE RECORDS</small><strong>${(state.hostedRaceRows||[]).length+(state.results.Sunday||[]).length+(state.results.Monday||[]).length}</strong><span>loaded starts</span></div>
     </section>
-    <div class="search-wrap"><span>⌕</span><input class="search" id="driverSearch" placeholder="Search every hosted driver..." value="${escapeHtml(filter)}" /></div><section class="card driver-list-card">${rows||`<div class="empty">${state.hostedDataStatus==='Connecting…'?'Loading hosted driver database…':'No drivers found'}</div>`}</section>`;
-  const input=document.querySelector('#driverSearch'); input.addEventListener('input',e=>renderDrivers(e.target.value));
-  if(filter){ input.focus(); input.setSelectionRange(filter.length,filter.length); }
+    <section class="driver-leaderboard-mini">
+      <div><small>MOST WINS</small>${mostWins?driverLink(mostWins.name):'<strong>--</strong>'}<span>${mostWins?.wins||0} wins</span></div>
+      <div><small>MOST STARTS</small>${mostStarts?driverLink(mostStarts.name):'<strong>--</strong>'}<span>${mostStarts?.races||0} starts</span></div>
+    </section>
+    <div class="search-wrap"><span>⌕</span><input class="search" id="driverSearch" placeholder="Search every HLRN driver..." value="${escapeHtml(filter)}" /></div>
+    <section class="card driver-list-card">${rows||`<div class="empty">${live?'No drivers match your search.':'Loading HLRN driver database…'}</div>`}</section>`;
+
+  const input=document.querySelector('#driverSearch');
+  if(input){
+    input.addEventListener('input',e=>renderDrivers(e.target.value));
+    if(filter){input.focus();input.setSelectionRange(filter.length,filter.length);}
+  }
 }
 
-async 
 function driverLink(name,label='',cls=''){
-  const safe=escapeHtml(String(name||''));
-  const text=escapeHtml(label||name||'Unknown Driver');
-  return `<button class="hlrn-driver-link ${cls}" data-driver="${safe}" onclick="event.stopPropagation();openHLRNDriverProfile(this.dataset.driver)">${text}</button>`;
+  const raw=prettyName(String(name||'').trim());
+  const safe=escapeHtml(raw);
+  const encoded=encodeURIComponent(raw).replace(/'/g,'%27');
+  const text=escapeHtml(label||raw||'Unknown Driver');
+  return `<button type="button" class="hlrn-driver-link ${cls}" onclick="event.stopPropagation();openHLRNDriverProfile(decodeURIComponent('${encoded}'))">${text}</button>`;
 }
 
 function leagueRowsForDriver(league,name){
@@ -717,6 +770,7 @@ function driverIntelligenceSummary(rows,name){
 }
 
 function openHLRNDriverProfile(name){
+  try{name=decodeURIComponent(String(name||''));}catch(e){name=String(name||'');}
   name=prettyName(String(name||'').trim());
   const rows=driverProfileRows(name);
   if(!rows.length){

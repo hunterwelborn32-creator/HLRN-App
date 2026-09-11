@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-driver-cards-smart-notifications';
+const CACHE = 'hlrn-v11-0-1-standings-driver-db-hotfix';
 const APP_SHELL = [
   './',
   './index.html',
