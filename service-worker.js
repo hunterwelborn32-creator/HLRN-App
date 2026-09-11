@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-2-9-fast-drivers-tab';
+const CACHE = 'hlrn-v11-3-0-alltime-power-rankings';
 const APP_SHELL = [
   './',
   './index.html',

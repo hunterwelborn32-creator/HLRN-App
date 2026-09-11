@@ -90,7 +90,7 @@ const state = {
   hostedDataStatus: 'Connecting…',
   hostedCachePartial: false,
   links: {},
-  appVersion: '11.2.9',
+  appVersion: '11.3.0',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -1741,12 +1741,18 @@ function recentRowsFor(name,n=5){
   return state.hostedRaceRows.filter(r=>prettyName(String(r.Driver||''))===name).sort((a,b)=>String(b['Race Date']||'').localeCompare(String(a['Race Date']||''))).slice(0,n);
 }
 function powerScoreDetails(d){
-  const rr=recentRowsFor(d.name,10);
-  const finishes=rr.map(r=>num(r['Finish Position'])).filter(Boolean);
-  if(!rr.length)return {score:0,races:0,avgFinish:0,wins:0,top5:0,top10:0,avgInc:0,totalInc:0,highInc:0};
+  // ALL-TIME HOSTED POWER RANKING
+  // Uses every Hosted race on record for the driver, not only the last 10.
+  const rr=(state.hostedRaceRows||[])
+    .filter(r=>prettyName(String(r.Driver||'').trim())===d.name);
+
+  const finishes=rr.map(r=>num(r['Finish Position'])).filter(f=>f>0);
+  if(!rr.length || !finishes.length){
+    return {score:0,races:0,avgFinish:0,wins:0,top5:0,top10:0,avgInc:0,totalInc:0,highInc:0,winRate:0,top5Rate:0,top10Rate:0};
+  }
 
   const races=rr.length;
-  const avgFinish=finishes.length?finishes.reduce((a,b)=>a+b,0)/finishes.length:40;
+  const avgFinish=finishes.reduce((a,b)=>a+b,0)/finishes.length;
   const wins=rr.filter(r=>num(r['Finish Position'])===1).length;
   const top5=rr.filter(r=>{const f=num(r['Finish Position']);return f>0&&f<=5}).length;
   const top10=rr.filter(r=>{const f=num(r['Finish Position']);return f>0&&f<=10}).length;
@@ -1754,50 +1760,70 @@ function powerScoreDetails(d){
   const avgInc=totalInc/races;
   const highInc=rr.filter(r=>num(r.Incidents)>=8).length;
 
-  // Recent speed matters, but incidents now carry a real penalty.
-  // A driver cannot stay near the top simply by finishing well while piling up incidents.
+  const winRate=wins/races*100;
+  const top5Rate=top5/races*100;
+  const top10Rate=top10/races*100;
+
+  /*
+    Career Power Score:
+    - Average finish is the strongest performance factor.
+    - Win / Top-5 / Top-10 rates reward sustained career performance.
+    - Raw career wins add a small longevity bonus.
+    - Incidents carry a heavy penalty.
+    - 8x+ incident races receive an extra penalty.
+    - Poor career results cannot be rescued by simply having many starts.
+  */
   const raw=
-    100
-    - avgFinish*1.55
-    + wins*12
-    + top5*3.5
-    + top10*1.25
-    - avgInc*4.25
-    - highInc*3;
+      115
+    - avgFinish*2.35
+    + winRate*0.70
+    + top5Rate*0.32
+    + top10Rate*0.12
+    + Math.min(wins,20)*0.75
+    - avgInc*5.25
+    - (highInc/races*100)*0.15;
 
   return {
     score:Math.max(0,Math.round(raw)),
-    races,avgFinish,wins,top5,top10,avgInc,totalInc,highInc
+    races,avgFinish,wins,top5,top10,avgInc,totalInc,highInc,
+    winRate,top5Rate,top10Rate
   };
 }
 function powerScore(d){ return powerScoreDetails(d).score; }
 
 function renderPowerRankings(){
   ensureHostedData();
+
   if(state.hostedDataStatus!=='LIVE' && !(state.hostedRaceRows||[]).length){
     const body=`<section class="coming-live"><span>⚡</span><h3>Loading Hosted race data…</h3><p>Power Rankings will appear automatically as soon as the Hosted database finishes loading.</p><div class="auto-sync-note"><i></i>CONNECTING</div></section>`;
-    featureShell('Driver Power Rankings','Who is hottest — and cleanest — over the last 10 Hosted races?',body,'power-page');
+    featureShell('Driver Power Rankings','All-time Hosted performance ranking.',body,'power-page');
     return;
   }
+
   const ranked=hostedDriverStats()
     .filter(d=>d.races>=10)
     .map(d=>({...d,powerData:powerScoreDetails(d)}))
-    .filter(d=>d.powerData.races>=1)
+    .filter(d=>d.powerData.races>=10)
     .map(d=>({...d,power:d.powerData.score}))
-    .sort((a,b)=>b.power-a.power || a.powerData.avgInc-b.powerData.avgInc || a.powerData.avgFinish-b.powerData.avgFinish)
+    .sort((a,b)=>
+      b.power-a.power ||
+      a.powerData.avgFinish-b.powerData.avgFinish ||
+      a.powerData.avgInc-b.powerData.avgInc ||
+      b.powerData.wins-a.powerData.wins
+    )
     .slice(0,20);
 
-  const body=`<p class="feature-note"><strong>LAST 10 RACES.</strong> Minimum 10 Hosted starts. Power Rankings now use each driver's latest 10 Hosted races. Finishes, wins, Top 5s and Top 10s help the score, while incidents have a much stronger negative effect. High-incident races (8x+) receive an extra penalty.</p>
+  const body=`<p class="feature-note"><strong>ALL-TIME HOSTED RACES.</strong> Minimum 10 Hosted starts. Rankings now use a driver's entire Hosted career. Average finish, win rate, Top-5 rate and Top-10 rate raise the score. Incidents carry a heavy penalty, including an extra penalty for 8x+ races.</p>
   <div class="power-list">${ranked.map((d,i)=>`<button onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')" class="power-row upgraded-power">
     <b>${i+1}</b>
     <div>
       <strong>${escapeHtml(d.name)}</strong>
-      <span>Last 10: ${d.powerData.wins} W • ${d.powerData.top5} T5 • ${d.powerData.top10} T10 • Avg Fin ${d.powerData.avgFinish.toFixed(1)}</span>
-      <small>${d.powerData.avgInc.toFixed(1)} avg incidents • ${d.powerData.totalInc} total incidents${d.powerData.highInc?` • ${d.powerData.highInc} high-incident race${d.powerData.highInc===1?'':'s'}`:''}</small>
+      <span>${d.powerData.races} starts • ${d.powerData.wins} W • ${d.powerData.top5} T5 • ${d.powerData.top10} T10 • Avg Fin ${d.powerData.avgFinish.toFixed(1)}</span>
+      <small>${d.powerData.avgInc.toFixed(1)} avg incidents • ${d.powerData.totalInc} career incidents • ${d.powerData.winRate.toFixed(1)}% win rate</small>
     </div>
     <em>${d.power}</em>
   </button>`).join('')}</div>`;
-  featureShell('Driver Power Rankings','Who is hottest — and cleanest — over the last 10 Hosted races?',body,'power-page');
+  featureShell('Driver Power Rankings','Best all-time Hosted performers — speed, consistency and cleanliness all matter.',body,'power-page');
 }
 
 function trackStats(){
