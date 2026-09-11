@@ -870,6 +870,100 @@ body{
   .league-btn{transform:none}
 }
 
+
+/* =========================================================
+   HLRN 10.2 — BROADCAST NOTES / ON-AIR TOOLKIT
+   ========================================================= */
+.broadcast-section{
+  margin:22px 0 24px;
+  border:1px solid rgba(255,255,255,.085);
+  border-radius:22px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 86% 0%,rgba(239,35,60,.13),transparent 28%),
+    linear-gradient(150deg,#151a21,#090c11 72%);
+  box-shadow:0 22px 52px rgba(0,0,0,.28);
+}
+.broadcast-head{
+  display:flex;justify-content:space-between;align-items:center;gap:14px;
+  padding:17px 18px 13px;border-bottom:1px solid rgba(255,255,255,.065)
+}
+.broadcast-kicker{
+  color:#ef233c;font-size:7px;font-weight:1000;letter-spacing:.17em
+}
+.broadcast-title{
+  margin-top:3px;color:#fff;font-size:21px;font-weight:1000;letter-spacing:-.035em
+}
+.broadcast-sub{
+  margin-top:4px;color:#737d89;font-size:8px;font-weight:800
+}
+.copy-notes-btn{
+  appearance:none;border:1px solid rgba(255,212,0,.25);border-radius:11px;
+  padding:9px 11px;background:rgba(255,212,0,.08);color:#ffd400;
+  font-size:7px;font-weight:1000;letter-spacing:.09em;cursor:pointer;
+  transition:.18s ease
+}
+.copy-notes-btn:active{transform:scale(.96)}
+.copy-notes-btn.copied{
+  color:#35d07f;border-color:rgba(53,208,127,.3);background:rgba(53,208,127,.09)
+}
+.broadcast-hero{
+  display:flex;gap:11px;align-items:center;padding:13px 18px;
+  background:linear-gradient(90deg,rgba(239,35,60,.08),transparent)
+}
+.broadcast-live-dot{
+  width:9px;height:9px;border-radius:50%;background:#ef233c;
+  box-shadow:0 0 0 5px rgba(239,35,60,.08),0 0 20px rgba(239,35,60,.45);
+  animation:broadcastPulse 1.8s ease-in-out infinite
+}
+@keyframes broadcastPulse{
+  50%{box-shadow:0 0 0 8px rgba(239,35,60,0),0 0 25px rgba(239,35,60,.72)}
+}
+.broadcast-hero small{
+  display:block;color:#ef233c;font-size:6px;font-weight:1000;letter-spacing:.13em
+}
+.broadcast-hero strong{
+  display:block;margin-top:3px;color:#fff;font-size:11px;line-height:1.35
+}
+.broadcast-notes{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;
+  background:rgba(255,255,255,.055)
+}
+.broadcast-note{
+  min-height:100px;padding:14px 15px;background:#0e1218;position:relative
+}
+.broadcast-note:before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--note-accent,#ef233c)
+}
+.broadcast-note-top{
+  display:flex;justify-content:space-between;gap:10px;align-items:center
+}
+.broadcast-note-label{
+  color:var(--note-accent,#ef233c);font-size:6px;font-weight:1000;letter-spacing:.14em
+}
+.broadcast-note-stat{
+  color:#6f7885;font-size:6px;font-weight:900;text-align:right
+}
+.broadcast-note-text{
+  margin-top:8px;color:#f4f6f8;font-size:10px;font-weight:800;line-height:1.48
+}
+.broadcast-note-read{
+  margin-top:7px;color:#818a96;font-size:7px;line-height:1.42
+}
+.broadcast-footer{
+  display:flex;justify-content:space-between;gap:10px;padding:10px 17px;
+  color:#59626e;font-size:6px;font-weight:800;border-top:1px solid rgba(255,255,255,.055)
+}
+@media(max-width:640px){
+  .broadcast-notes{grid-template-columns:1fr}
+  .broadcast-head{align-items:flex-start}
+  .copy-notes-btn{flex:0 0 auto}
+  .broadcast-title{font-size:18px}
+}
+@media(prefers-reduced-motion:reduce){
+  .broadcast-live-dot{animation:none!important}
+}
+
 </style>
 
 <style id="hlrn-live-enhancements">
@@ -1347,6 +1441,32 @@ body{background:#020202!important;overflow-x:hidden}
     <div class="story-grid" id="storyGrid"></div>
   </section>
 
+  <section class="broadcast-section" id="broadcastSection">
+    <div class="broadcast-head">
+      <div>
+        <div class="broadcast-kicker">ON-AIR TOOLKIT</div>
+        <div class="broadcast-title">Broadcast Notes</div>
+        <div class="broadcast-sub" id="broadcastLeagueLabel">Sunday League • Ready for the booth</div>
+      </div>
+      <button class="copy-notes-btn" id="copyNotesBtn" type="button" onclick="copyBroadcastNotes()">COPY NOTES</button>
+    </div>
+
+    <div class="broadcast-hero">
+      <div class="broadcast-live-dot"></div>
+      <div>
+        <small>HOST READOUT</small>
+        <strong id="broadcastLead">Live HLRN talking points will appear here.</strong>
+      </div>
+    </div>
+
+    <div class="broadcast-notes" id="broadcastNotes"></div>
+
+    <div class="broadcast-footer">
+      <span>Auto-generated from live Race Intelligence</span>
+      <span id="broadcastUpdated">Updates with each race</span>
+    </div>
+  </section>
+
   <section class="detail-wrap" id="detailWrap" style="display:none">
     <div class="detail-head">
       <div>
@@ -1411,16 +1531,16 @@ function isExcludedDriverName(name){
 }
 
 const categoryConfig = [
-  {key:"favorite", title:"Favorite", icon:"★", tag:"Overall Pick", accent:"rgba(239,37,37,.24)"},
-  {key:"hot", title:"Hot Driver", icon:"🔥", tag:"Momentum", accent:"rgba(255,122,39,.24)"},
-  {key:"sleeper", title:"Sleeper", icon:"🌙", tag:"Under The Radar", accent:"rgba(86,164,255,.20)"},
-  {key:"consistent", title:"Most Consistent", icon:"◎", tag:"Steady Hand", accent:"rgba(56,212,123,.20)"},
-  {key:"mover", title:"Biggest Mover", icon:"↗", tag:"Racecraft", accent:"rgba(56,212,123,.20)"},
-  {key:"recentWinner", title:"Most Recent Winner", icon:"🏁", tag:"Latest Winner", accent:"rgba(241,200,75,.23)"},
-  {key:"trouble", title:"Trouble Watch", icon:"⚠", tag:"Risk Signal", accent:"rgba(239,37,37,.21)"},
-  {key:"bounce", title:"Needs A Bounce Back", icon:"↻", tag:"Recovery Watch", accent:"rgba(162,119,255,.20)"},
+  {key:"favorite", title:"Championship Favorite", icon:"★", tag:"Best Complete Profile", accent:"rgba(239,37,37,.24)"},
+  {key:"hot", title:"Hot Driver", icon:"🔥", tag:"Recent Results", accent:"rgba(255,122,39,.24)"},
+  {key:"sleeper", title:"Sleeper Pick", icon:"🌙", tag:"Under The Radar", accent:"rgba(86,164,255,.20)"},
+  {key:"consistent", title:"Most Consistent", icon:"◎", tag:"Week-To-Week", accent:"rgba(56,212,123,.20)"},
+  {key:"mover", title:"Hard Charger", icon:"↗", tag:"Position Gain", accent:"rgba(56,212,123,.20)"},
+  {key:"recentWinner", title:"Most Recent Winner", icon:"🏁", tag:"Fresh Victory", accent:"rgba(241,200,75,.23)"},
+  {key:"trouble", title:"Trouble Watch", icon:"⚠", tag:"Negative Trend", accent:"rgba(239,37,37,.21)"},
+  {key:"bounce", title:"Bounce-Back Candidate", icon:"↻", tag:"Recovery Story", accent:"rgba(162,119,255,.20)"},
   {key:"darkHorse", title:"Dark Horse", icon:"♞", tag:"Upset Potential", accent:"rgba(162,119,255,.20)"},
-  {key:"watch", title:"Driver To Watch", icon:"👁", tag:"Trending", accent:"rgba(86,164,255,.20)"}
+  {key:"watch", title:"Driver To Watch", icon:"👁", tag:"Next-Race Signal", accent:"rgba(86,164,255,.20)"}
 ];
 
 function number(v){
@@ -1549,6 +1669,7 @@ async function loadLeague(league){
     chooseCategories();
     renderBoard();
     renderStorylines();
+    renderBroadcastNotes();
 
     const maxRace = results.reduce((m,r)=>Math.max(m,number(r.raceNumber)),0);
     document.getElementById("raceBadge").textContent =
@@ -1607,6 +1728,15 @@ function buildAnalytics(){
     const recent = completed.slice(-3);
     const lastFive = completed.slice(-5);
     const latest = completed[completed.length-1] || null;
+    const lastThree = completed.slice(-3);
+    const winStreak = trailingStreak(completed,r=>r.finish===1);
+    const top5Streak = trailingStreak(completed,r=>r.finish>0 && r.finish<=5);
+    const top10Streak = trailingStreak(completed,r=>r.finish>0 && r.finish<=10);
+    const winsLast3 = lastThree.filter(r=>r.finish===1).length;
+    const winsLast5 = lastFive.filter(r=>r.finish===1).length;
+    const top5Last5 = lastFive.filter(r=>r.finish>0 && r.finish<=5).length;
+    const top10Last5 = lastFive.filter(r=>r.finish>0 && r.finish<=10).length;
+    const last5AvgFinish = lastFive.length ? avg(lastFive.map(r=>r.finish)) : 0;
 
     const finishes = completed.map(r=>r.finish);
     const seasonAvgFinish =
@@ -1678,6 +1808,15 @@ function buildAnalytics(){
       improvement,
       overall,
       trendScore,
+      winStreak,
+      top5Streak,
+      top10Streak,
+      winsLast3,
+      winsLast5,
+      top5Last5,
+      top10Last5,
+      last5AvgFinish,
+      recentForm:formString(completed,5),
       top5Rate:pct(top5,Math.max(1,starts)),
       top10Rate:pct(top10,Math.max(1,starts)),
       winRate:pct(wins,Math.max(1,starts))
@@ -1700,44 +1839,153 @@ function minBy(list,fn){
   return list.reduce((best,x)=>!best || fn(x)<fn(best) ? x : best,null);
 }
 
+
+function trailingStreak(list,predicate){
+  let count=0;
+  for(let i=list.length-1;i>=0;i--){
+    if(predicate(list[i])) count++;
+    else break;
+  }
+  return count;
+}
+
+function formString(races,count=5){
+  return races.slice(-count).map(r=>"P"+r.finish).join(" • ");
+}
+
+function hotFormReason(d){
+  if(!d) return "Strong recent form.";
+  if(d.winStreak>=2){
+    return `Won ${d.winStreak} races in a row${d.starts===d.winStreak ? " and is still undefeated" : ""}.`;
+  }
+  if(d.winsLast5>=3){
+    return `${d.winsLast5} wins in the last ${Math.min(5,d.races.length)} races.`;
+  }
+  if(d.winsLast3>=2){
+    return `${d.winsLast3} wins in the last ${Math.min(3,d.races.length)} races.`;
+  }
+  if(d.top5Streak>=3){
+    return `${d.top5Streak} straight Top 5 finishes.`;
+  }
+  if(d.top5Last5>=4){
+    return `${d.top5Last5} Top 5 finishes in the last ${Math.min(5,d.races.length)} races.`;
+  }
+  if(d.improvement>0){
+    return `Recent finishes are ${round(d.improvement,1)} spots better than the season average.`;
+  }
+  return "One of the strongest recent performers in the field.";
+}
+
+function broadcastStat(d){
+  if(!d) return "—";
+  if(d.winStreak>=2) return `${d.winStreak} STRAIGHT WINS`;
+  if(d.winsLast5>=2) return `${d.winsLast5} WINS / LAST ${Math.min(5,d.races.length)}`;
+  if(d.top5Streak>=3) return `${d.top5Streak} STRAIGHT TOP 5s`;
+  return "RECENT AVG " + formatFinish(d.recentAvgFinish);
+}
+
+function scorePick(list,scoreFn,excludedIds=new Set()){
+  if(!list?.length) return null;
+  const available=list.filter(d=>!excludedIds.has(d.id));
+  return maxBy(available.length ? available : list,scoreFn);
+}
+
+function establishedPool(list,minStarts=3){
+  const established=list.filter(d=>d.races.length>=minStarts);
+  return established.length ? established : list;
+}
+
+function troubleReason(d){
+  if(!d) return "Recent performance is moving the wrong direction.";
+  const finishDrop=d.recentAvgFinish-d.seasonAvgFinish;
+  const incJump=d.recentInc-d.avgInc;
+  if(finishDrop>=3 && incJump>=2) return `Recent average finish is ${round(finishDrop,1)} spots worse and incidents are up ${round(incJump,1)} per race.`;
+  if(finishDrop>=3) return `Recent average finish has fallen ${round(finishDrop,1)} spots below the season baseline.`;
+  if(incJump>=2) return `Recent incidents are up ${round(incJump,1)} per race from the season average.`;
+  return "Recent incidents and results create the clearest risk signal in the field.";
+}
+
+function bounceReason(d){
+  if(!d?.latest) return "A strong season profile is coming off a difficult result.";
+  const gap=d.latest.finish-d.seasonAvgFinish;
+  return `Latest finish was P${d.latest.finish}, ${round(Math.max(0,gap),1)} spots worse than the season average of ${formatFinish(d.seasonAvgFinish)}.`;
+}
+
+function darkHorseReason(d){
+  if(!d) return "Upset potential from outside the obvious favorites.";
+  if(d.races.length<=3 && d.winRate>=30) return `${d.wins} win${d.wins===1?"":"s"} in only ${d.races.length} starts gives this limited-sample driver real upset potential.`;
+  if(d.top5Rate>=60) return `${round(d.top5Rate,0)}% Top-5 rate despite sitting outside the leading favorite group.`;
+  return `Strong ${round(d.top10Rate,0)}% Top-10 rate plus positive racecraft from outside the obvious favorite group.`;
+}
+
 function chooseCategories(){
   const all = validDrivers(1);
-  const experienced = validDrivers(3);
   const multiRace = validDrivers(2);
+  const experienced = establishedPool(all,3);
 
   if(!all.length){
     categories = [];
     return;
   }
 
-  const favorite = maxBy(all,d=>d.overall);
-
-  const hotPool = multiRace.length ? multiRace : all;
-  const hot = maxBy(hotPool,d=>
-    d.trendScore +
-    Math.max(0,15-d.recentAvgFinish)*3 +
-    d.winRate*.35
+  // 1) CHAMPIONSHIP FAVORITE:
+  // The best complete season profile, not simply whoever won most recently.
+  const favorite = maxBy(experienced,d=>
+    d.overall*1.25 +
+    Math.max(0,18-d.seasonAvgFinish)*3 +
+    d.top5Rate*.28 +
+    d.winRate*.22 +
+    d.consistency*.18
   );
 
-  let sleeperPool = all.filter(d=>d.rank>=6 && d.races.length>=2);
-  if(!sleeperPool.length) sleeperPool = all.filter(d=>d.rank>=4);
-  if(!sleeperPool.length) sleeperPool = all;
-  const sleeper = maxBy(sleeperPool,d=>
-    d.improvement*12 +
-    d.recentGain*5 +
-    d.top10Rate*.35 +
-    Math.max(0,18-d.recentAvgFinish)*2
-  );
+  const used = new Set(favorite ? [favorite.id] : []);
 
-  const consistent = maxBy(experienced.length ? experienced : multiRace,d=>
-    d.consistency +
-    Math.max(0,18-d.seasonAvgFinish)*2
-  );
+  // 2) HOT DRIVER:
+  // Purely recent form — wins, streaks and last-five performance matter most.
+  const hot = scorePick(multiRace,d=>
+    d.winStreak*42 +
+    d.winsLast3*26 +
+    d.winsLast5*20 +
+    d.top5Streak*8 +
+    d.top5Last5*6 +
+    Math.max(0,12-d.recentAvgFinish)*4 +
+    Math.max(0,d.improvement)*8
+  ,used);
+  if(hot) used.add(hot.id);
 
-  const mover = maxBy(multiRace,d=>
-    d.recentGain*7 + d.avgGain*4 + d.top10Rate*.15
-  );
+  // 3) SLEEPER:
+  // Lower championship position, but clear recent improvement.
+  let sleeperPool=all.filter(d=>d.rank>=6 && d.races.length>=2);
+  if(!sleeperPool.length) sleeperPool=all.filter(d=>d.rank>=4 && d.races.length>=2);
+  if(!sleeperPool.length) sleeperPool=multiRace;
+  const sleeper=scorePick(sleeperPool,d=>
+    Math.max(0,d.improvement)*18 +
+    Math.max(0,d.recentGain)*6 +
+    d.top10Rate*.32 +
+    Math.max(0,16-d.recentAvgFinish)*3
+  ,used);
+  if(sleeper) used.add(sleeper.id);
 
+  // 4) CONSISTENCY:
+  // Low week-to-week variation. Wins and momentum are intentionally secondary.
+  const consistent=scorePick(experienced,d=>
+    d.consistency*1.4 +
+    d.top10Rate*.25 +
+    Math.max(0,20-d.seasonAvgFinish)
+  ,used);
+  if(consistent) used.add(consistent.id);
+
+  // 5) HARD CHARGER:
+  // Position gain only — who consistently moves forward from start to finish.
+  const mover=scorePick(multiRace,d=>
+    Math.max(0,d.recentGain)*12 +
+    Math.max(0,d.avgGain)*8 +
+    Math.max(0,d.top10Rate)*.08
+  ,used);
+  if(mover) used.add(mover.id);
+
+  // 6) RECENT WINNER:
+  // This card is factual and can intentionally duplicate another category.
   const latestRaceNo = results.reduce((m,r)=>Math.max(m,number(r.raceNumber)),0);
   const latestRaceResults = results.filter(r=>number(r.raceNumber)===latestRaceNo && number(r.finish)>0);
   const latestWinnerResult =
@@ -1749,74 +1997,101 @@ function chooseCategories(){
       ? analytics.find(d=>d.id===String(latestWinnerResult.driverId)) || favorite
       : favorite;
 
-  const trouble = maxBy(multiRace,d=>
-    d.recentInc*8 +
-    d.avgInc*4 +
-    Math.max(0,d.recentAvgFinish-d.seasonAvgFinish)*3
+  // 7) TROUBLE WATCH:
+  // Requires deterioration: recent finish drop and/or incident increase.
+  const troublePool=multiRace.filter(d=>
+    (d.recentAvgFinish-d.seasonAvgFinish)>=1.5 ||
+    (d.recentInc-d.avgInc)>=1.5
+  );
+  const trouble=scorePick(troublePool.length?troublePool:multiRace,d=>
+    Math.max(0,d.recentAvgFinish-d.seasonAvgFinish)*12 +
+    Math.max(0,d.recentInc-d.avgInc)*10 +
+    d.recentInc*2
+  ,new Set([favorite?.id,hot?.id].filter(Boolean)));
+
+  // 8) BOUNCE-BACK:
+  // Stronger established driver whose latest result was a clear outlier to the bad side.
+  const bouncePool=experienced.filter(d=>
+    d.latest &&
+    d.latest.finish>0 &&
+    d.latest.finish-d.seasonAvgFinish>=3
+  );
+  const bounce=scorePick(bouncePool.length?bouncePool:experienced,d=>
+    Math.max(0,(d.latest?.finish||0)-d.seasonAvgFinish)*12 +
+    d.overall*.22 +
+    d.top10Rate*.15 -
+    Math.max(0,d.recentInc-d.avgInc)*2
+  ,new Set([trouble?.id].filter(Boolean)));
+
+  // 9) DARK HORSE:
+  // Not a top favorite; rewards exceptional conversion or limited-start success.
+  let darkPool=all.filter(d=>
+    d.id!==favorite?.id &&
+    d.id!==hot?.id &&
+    ((d.rank>=6 && d.races.length>=2) || (d.races.length<=3 && d.wins>=1))
+  );
+  if(!darkPool.length) darkPool=all.filter(d=>d.id!==favorite?.id && d.rank>=4);
+  if(!darkPool.length) darkPool=multiRace;
+  const darkHorse=maxBy(darkPool,d=>
+    d.winRate*.48 +
+    d.top5Rate*.38 +
+    Math.max(0,d.avgGain)*5 +
+    d.consistency*.16 +
+    Math.max(0,14-d.recentAvgFinish)*2 +
+    (d.races.length<=3 && d.wins>=1 ? 30 : 0)
   );
 
-  let bouncePool = all.filter(d=>d.latest && d.latest.finish>0);
-  const bounce = maxBy(bouncePool,d=>
-    (d.latest.finish-d.seasonAvgFinish)*6 +
-    Math.max(0,d.latest.incidents-4)*2 -
-    d.overall*.08
-  );
-
-  let darkPool = all.filter(d=>d.rank>=6 && d.races.length>=2);
-  if(!darkPool.length) darkPool = all.filter(d=>d.rank>=4);
-  if(!darkPool.length) darkPool = all;
-  const darkHorse = maxBy(darkPool,d=>
-    d.top10Rate*.42 +
-    d.avgGain*5 +
-    d.consistency*.25 +
-    Math.max(0,15-d.recentAvgFinish)*2
-  );
-
-  const watchPool = all.filter(d=>!hot || d.id!==hot.id);
-  const watch = maxBy(watchPool.length ? watchPool : all,d=>
-    d.trendScore*1.4 +
-    d.recentGain*5 +
-    d.consistency*.25 +
-    d.overall*.25
-  );
+  // 10) DRIVER TO WATCH:
+  // The best next-race blend after removing the obvious headline picks.
+  const watchExcluded=new Set([
+    favorite?.id,hot?.id,sleeper?.id,darkHorse?.id,recentWinner?.id
+  ].filter(Boolean));
+  const watch=scorePick(all,d=>
+    Math.max(0,d.trendScore)*1.25 +
+    Math.max(0,d.recentGain)*6 +
+    d.consistency*.22 +
+    d.top5Last5*5 +
+    d.winsLast5*9 +
+    Math.max(0,14-d.recentAvgFinish)*3
+  ,watchExcluded);
 
   categories = [
     makeCategory("favorite",favorite,
-      "Best overall blend of points position, finishing speed, recent form and racecraft.",
+      "Best complete season profile: finishing speed, points strength, Top-5 conversion and consistency.",
       "Rating " + Math.round(favorite?.overall || 0)),
     makeCategory("hot",hot,
-      hot?.improvement>0
-        ? "Recent finishes are " + round(hot.improvement,1) + " spots better than the season average."
-        : "One of the strongest recent performers in the field.",
-      "Recent Avg " + formatFinish(hot?.recentAvgFinish)),
+      hotFormReason(hot),
+      broadcastStat(hot)),
     makeCategory("sleeper",sleeper,
-      "Running better than the championship position suggests and showing upside in recent races.",
-      "Rank #" + (sleeper?.rank || "—")),
+      sleeper?.improvement>0
+        ? `Sitting #${sleeper.rank||"—"} in points but recent finishes are ${round(sleeper.improvement,1)} spots better than the season average.`
+        : "Lower in the standings than the recent performance suggests.",
+      "UNDER THE RADAR"),
     makeCategory("consistent",consistent,
-      "The tightest finish spread among established drivers, with reliable week-to-week results.",
-      "Consistency " + Math.round(consistent?.consistency || 0)),
+      `Reliable every week: ${round(consistent?.top10Rate,0)}% Top-10 rate with one of the tightest finish spreads in the field.`,
+      "CONSISTENCY " + Math.round(consistent?.consistency || 0)),
     makeCategory("mover",mover,
-      "Best average forward progress from starting position to finishing position.",
-      signed(mover?.recentGain ?? mover?.avgGain) + " spots"),
+      `Gaining ${signed(mover?.recentGain ?? mover?.avgGain)} positions per race recently — the strongest forward-progress signal in the field.`,
+      "HARD CHARGER"),
     makeCategory("recentWinner",recentWinner,
       latestWinnerResult && number(latestWinnerResult.finish)===1
-        ? "Winner of the most recently completed HLRN race."
-        : "No winner was found in the latest data, so this shows the best latest finisher.",
-      latestWinnerResult ? "Race " + number(latestWinnerResult.raceNumber) : "Latest Result"),
+        ? "Winner of the most recently completed HLRN race. This card tracks the freshest victory, even if that driver appears elsewhere."
+        : "Best finisher from the most recently completed HLRN race.",
+      latestWinnerResult ? "RACE " + number(latestWinnerResult.raceNumber) + " WINNER" : "LATEST RESULT"),
     makeCategory("trouble",trouble,
-      "Recent incidents and finishing drop-off put this driver on the risk radar.",
-      round(trouble?.recentInc,1) + " avg inc"),
+      troubleReason(trouble),
+      trouble ? "RISK ↑" : "RISK WATCH"),
     makeCategory("bounce",bounce,
-      bounce?.latest
-        ? "Last result was " + round(Math.max(0,bounce.latest.finish-bounce.seasonAvgFinish),1) + " spots worse than the season average."
-        : "Recent results suggest a rebound opportunity.",
-      bounce?.latest ? "Last: P" + bounce.latest.finish : "Bounce Watch"),
+      bounceReason(bounce),
+      bounce?.latest ? "LAST P" + bounce.latest.finish : "RECOVERY WATCH"),
     makeCategory("darkHorse",darkHorse,
-      "Outside the obvious favorites but combines top-10 ability, racecraft and consistency.",
-      round(darkHorse?.top10Rate,0) + "% Top 10"),
+      darkHorseReason(darkHorse),
+      darkHorse?.races.length<=3 ? `${darkHorse.wins} WINS / ${darkHorse.races.length} STARTS` : round(darkHorse?.top5Rate,0) + "% TOP 5"),
     makeCategory("watch",watch,
-      "Momentum, position gain and consistency make this driver one to monitor next race.",
-      "Trend " + trendLabel(watch))
+      watch?.winsLast5>=2
+        ? `${watch.winsLast5} wins in the last ${Math.min(5,watch.races.length)} plus supporting momentum make this the strongest next-race watch signal.`
+        : `Recent form, racecraft and consistency are all pointing upward without already being one of the obvious headline picks.`,
+      watch?.recentForm ? watch.recentForm : "NEXT-RACE WATCH")
   ].filter(c=>c.driver);
 }
 
@@ -1887,6 +2162,213 @@ function renderBoard(){
 }
 
 
+
+function broadcastNote(label,text,stat="",read="",accent="#ef233c"){
+  return {label,text,stat,read,accent};
+}
+
+function buildBroadcastNotes(){
+  const all=validDrivers(1);
+  if(!all.length) return [];
+
+  const sortedRank=all.slice().filter(d=>d.rank>0).sort((a,b)=>a.rank-b.rank);
+  const leader=sortedRank[0]||maxBy(all,d=>d.points);
+  const second=sortedRank[1]||null;
+
+  const get=key=>categories.find(c=>c.key===key)?.driver||null;
+  const favorite=get("favorite");
+  const hot=get("hot");
+  const recentWinner=get("recentWinner");
+  const mover=get("mover");
+  const darkHorse=get("darkHorse");
+  const watch=get("watch");
+  const trouble=get("trouble");
+  const bounce=get("bounce");
+
+  const notes=[];
+
+  if(leader){
+    const gap=second ? Math.abs(number(leader.points)-number(second.points)) : null;
+    notes.push(broadcastNote(
+      "CHAMPIONSHIP",
+      second && gap!==null
+        ? `${leader.name} leads ${second.name} by ${round(gap,0)} points entering the next round.`
+        : `${leader.name} currently sets the championship benchmark.`,
+      leader.rank ? `P${leader.rank} • ${leader.points} PTS` : `${leader.points} PTS`,
+      gap!==null && gap<=20
+        ? "ON AIR: The championship battle is tight enough that one bad race could completely reshape the top of the standings."
+        : "ON AIR: Keep an eye on whether the points leader can protect the current advantage.",
+      "#ef233c"
+    ));
+  }
+
+  if(hot){
+    let text=hotFormReason(hot);
+    if(hot.winStreak>=2){
+      text=`${hot.name} has won ${hot.winStreak} straight race${hot.winStreak===1?"":"s"}${hot.starts===hot.winStreak ? ` and is undefeated through ${hot.starts} starts` : ""}.`;
+    }else if(hot.winsLast5>=2){
+      text=`${hot.name} has won ${hot.winsLast5} of the last ${Math.min(5,hot.races.length)} races.`;
+    }
+    notes.push(broadcastNote(
+      "HOT DRIVER",
+      text,
+      broadcastStat(hot),
+      `ON AIR: ${hot.name} is the driver everybody has to measure themselves against based on recent form.`,
+      "#ff7a27"
+    ));
+  }
+
+  if(recentWinner){
+    const last=recentWinner.latest;
+    notes.push(broadcastNote(
+      "LAST-RACE WINNER",
+      `${recentWinner.name} enters the next round with the freshest victory in the field.`,
+      last ? `LAST: P${last.finish}` : `${recentWinner.wins} WINS`,
+      `ON AIR: The question now is whether ${recentWinner.name} can turn the latest win into a multi-race run.`,
+      "#f1c84b"
+    ));
+  }
+
+  if(watch){
+    notes.push(broadcastNote(
+      "DRIVER TO WATCH",
+      watch.winsLast5>=2
+        ? `${watch.name} has ${watch.winsLast5} wins in the last ${Math.min(5,watch.races.length)} and still grades as a strong next-race watch.`
+        : `${watch.name} is showing the best blend of recent form, racecraft and consistency among the less-obvious headline picks.`,
+      watch.recentForm || trendLabel(watch),
+      `ON AIR: Watch where ${watch.name} qualifies and whether that recent pace converts into another front-running finish.`,
+      "#56a4ff"
+    ));
+  }
+
+  if(mover){
+    notes.push(broadcastNote(
+      "HARD CHARGER",
+      `${mover.name} is gaining ${signed(mover.recentGain || mover.avgGain)} positions per race recently.`,
+      `AVG GAIN ${signed(mover.avgGain)}`,
+      `ON AIR: Even if ${mover.name} starts deeper in the field, the numbers say this car tends to move forward.`,
+      "#38d47b"
+    ));
+  }
+
+  if(darkHorse){
+    notes.push(broadcastNote(
+      "DARK HORSE",
+      darkHorseReason(darkHorse),
+      darkHorse.races.length<=3 ? `${darkHorse.wins} W / ${darkHorse.races.length} STARTS` : `${round(darkHorse.top5Rate,0)}% TOP 5`,
+      `ON AIR: ${darkHorse.name} may not be the obvious pick, but the conversion numbers say an upset would be believable.`,
+      "#a277ff"
+    ));
+  }
+
+  const streakCandidates=all
+    .filter(d=>d.winStreak>=2 || d.winsLast5>=2 || d.top5Streak>=3)
+    .sort((a,b)=>(b.winStreak*50+b.winsLast5*20+b.top5Streak*6)-(a.winStreak*50+a.winsLast5*20+a.top5Streak*6));
+  const streak=streakCandidates[0];
+  if(streak){
+    let text;
+    if(streak.winStreak>=2) text=`${streak.name} has won ${streak.winStreak} races in a row.`;
+    else if(streak.winsLast5>=2) text=`${streak.name} owns ${streak.winsLast5} wins in the last ${Math.min(5,streak.races.length)} races.`;
+    else text=`${streak.name} has finished Top 5 in ${streak.top5Streak} straight races.`;
+    notes.push(broadcastNote(
+      "EYE-POPPING STAT",
+      text,
+      streak.recentForm || broadcastStat(streak),
+      "ON AIR: This is the quick-hit stat worth putting on screen or using as a segment transition.",
+      "#ffd400"
+    ));
+  }
+
+  const risk = trouble && (
+    trouble.recentAvgFinish-trouble.seasonAvgFinish>=1.5 ||
+    trouble.recentInc-trouble.avgInc>=1.5
+  ) ? trouble : null;
+
+  if(risk){
+    notes.push(broadcastNote(
+      "TROUBLE WATCH",
+      troubleReason(risk),
+      `FORM ${risk.recentForm || "—"}`,
+      `ON AIR: ${risk.name} needs a clean rebound race to stop the recent slide.`,
+      "#ff5368"
+    ));
+  }else if(bounce){
+    notes.push(broadcastNote(
+      "BOUNCE-BACK",
+      bounceReason(bounce),
+      bounce.latest ? `LAST P${bounce.latest.finish}` : "RECOVERY",
+      `ON AIR: ${bounce.name}'s season baseline says the last result may be more outlier than new normal.`,
+      "#a277ff"
+    ));
+  }
+
+  return notes.slice(0,8);
+}
+
+function renderBroadcastNotes(){
+  const container=document.getElementById("broadcastNotes");
+  const label=document.getElementById("broadcastLeagueLabel");
+  const lead=document.getElementById("broadcastLead");
+  if(!container || !label || !lead) return;
+
+  const leagueName=currentLeague==="monday"?"Monday League":"Sunday League";
+  label.textContent=leagueName+" • Ready for the booth";
+
+  const notes=buildBroadcastNotes();
+  window.HLRN_BROADCAST_NOTES=notes;
+
+  if(!notes.length){
+    lead.textContent="Broadcast notes will populate when completed race data is available.";
+    container.innerHTML='<div class="loading show" style="grid-column:1/-1">Waiting for enough race data to build on-air talking points.</div>';
+    return;
+  }
+
+  const hot=categories.find(c=>c.key==="hot")?.driver;
+  lead.textContent=hot
+    ? `${hot.name}: ${hotFormReason(hot)}`
+    : notes[0].text;
+
+  container.innerHTML=notes.map((n,i)=>`
+    <article class="broadcast-note" style="--note-accent:${n.accent}">
+      <div class="broadcast-note-top">
+        <span class="broadcast-note-label">${String(i+1).padStart(2,"0")} • ${esc(n.label)}</span>
+        <span class="broadcast-note-stat">${esc(n.stat||"")}</span>
+      </div>
+      <div class="broadcast-note-text">${esc(n.text)}</div>
+      <div class="broadcast-note-read">${esc(n.read||"")}</div>
+    </article>
+  `).join("");
+
+  const maxRace=results.reduce((m,r)=>Math.max(m,number(r.raceNumber)),0);
+  const updated=document.getElementById("broadcastUpdated");
+  if(updated) updated.textContent=maxRace ? `Through Race ${maxRace}` : "Live analysis";
+}
+
+async function copyBroadcastNotes(){
+  const notes=window.HLRN_BROADCAST_NOTES||[];
+  if(!notes.length) return;
+  const league=currentLeague==="monday"?"MONDAY LEAGUE":"SUNDAY LEAGUE";
+  const text=[
+    `HLRN ${league} — BROADCAST NOTES`,
+    "",
+    ...notes.map((n,i)=>`${i+1}. ${n.label}: ${n.text}${n.stat ? ` [${n.stat}]` : ""}`)
+  ].join("\n");
+
+  const btn=document.getElementById("copyNotesBtn");
+  try{
+    await navigator.clipboard.writeText(text);
+    if(btn){
+      const old=btn.textContent;
+      btn.textContent="COPIED ✓";
+      btn.classList.add("copied");
+      setTimeout(()=>{btn.textContent=old;btn.classList.remove("copied")},1600);
+    }
+  }catch(e){
+    if(btn) btn.textContent="COPY FAILED";
+  }
+}
+
+
 function renderStorylines(){
   const grid = document.getElementById("storyGrid");
   const label = document.getElementById("storyLeagueLabel");
@@ -1936,13 +2418,44 @@ function renderStorylines(){
   }
 
   if(hot){
+    let hotTitle = hot.name + " is heating up";
+    let hotBody = hotFormReason(hot);
+    let hotStat = broadcastStat(hot);
+
+    if(hot.winStreak>=2){
+      hotTitle = hot.name + " has won " + hot.winStreak + " straight";
+      hotBody = hot.starts===hot.winStreak
+        ? `${hot.name} is undefeated through ${hot.starts} starts — ${hot.starts} races, ${hot.wins} wins.`
+        : `${hot.name} enters the next race on a ${hot.winStreak}-race winning streak.`;
+    }else if(hot.winsLast5>=3){
+      hotTitle = hot.name + " is on a tear";
+      hotBody = `${hot.name} has won ${hot.winsLast5} of the last ${Math.min(5,hot.races.length)} races.`;
+    }
+
     stories.push({
-      kicker:"Momentum",
-      title:hot.name + " is heating up",
-      body: hot.improvement > 0
-        ? "Recent finishes are "+round(hot.improvement,1)+" spots better than the season average."
-        : "Recent form has this driver trending toward the front.",
-      stat:"Recent Avg "+formatFinish(hot.recentAvgFinish)
+      kicker:"Hot Driver",
+      title:hotTitle,
+      body:hotBody,
+      stat:hotStat
+    });
+  }
+
+  const streakCandidates = all
+    .filter(d=>!hot || d.id!==hot.id)
+    .filter(d=>d.winStreak>=2 || d.winsLast5>=2 || d.top5Streak>=3)
+    .sort((a,b)=>(b.winStreak*40+b.winsLast5*20+b.top5Streak*5)-(a.winStreak*40+a.winsLast5*20+a.top5Streak*5));
+  const streakDriver = streakCandidates[0] || null;
+
+  if(streakDriver){
+    stories.push({
+      kicker:"Eye-Popping Stat",
+      title:streakDriver.winStreak>=2
+        ? `${streakDriver.name}: ${streakDriver.winStreak} wins in a row`
+        : `${streakDriver.name}: ${streakDriver.winsLast5} wins in the last ${Math.min(5,streakDriver.races.length)}`,
+      body:streakDriver.winStreak>=2
+        ? `${streakDriver.name} has finished P1 in each of the last ${streakDriver.winStreak} starts.`
+        : `${streakDriver.name} has turned recent form into ${streakDriver.winsLast5} victories over the last ${Math.min(5,streakDriver.races.length)} races.`,
+      stat:streakDriver.recentForm || broadcastStat(streakDriver)
     });
   }
 
@@ -2046,19 +2559,26 @@ function showCategoryDeepDive(category){
       break;
 
     case "hot":
-      summary = d.name + " is here because the recent three-race window is outperforming the driver's normal season baseline.";
+      summary = d.winStreak>=2
+        ? `${d.name} owns the strongest active winning streak in this league with ${d.winStreak} straight victories.`
+        : d.winsLast5>=2
+          ? `${d.name} is the hot driver because ${d.winsLast5} wins have come in the last ${Math.min(5,d.races.length)} races.`
+          : d.name + " is here because the recent form window is outperforming the driver's normal season baseline.";
       reasons = [
-        ["good","Recent three-race average: "+formatFinish(d.recentAvgFinish)+"."],
-        [d.improvement>0?"good":"warn","Recent form is "+Math.abs(round(d.improvement,1))+" spots "+(d.improvement>0?"better":"worse")+" than the season average."],
-        ["good","Recent average position gain: "+signed(d.recentGain)+"."],
-        ["","Current trend model: "+trendLabel(d)+"."]
+        [d.winStreak>=2?"good":"","Active win streak: "+d.winStreak+" race"+(d.winStreak===1?"":"s")+"."],
+        [d.winsLast5>=2?"good":"","Wins in last "+Math.min(5,d.races.length)+": "+d.winsLast5+"."],
+        [d.top5Streak>=3?"good":"","Top-5 streak: "+d.top5Streak+" straight races."],
+        ["good","Recent form: "+(d.recentForm||"—")+"."],
+        [d.improvement>0?"good":"warn","Recent average is "+formatFinish(d.recentAvgFinish)+" vs season average "+formatFinish(d.seasonAvgFinish)+"."]
       ];
-      action = "What confirms the hot streak: another finish near or better than the recent average without a major incident spike.";
+      action = d.winStreak>=2
+        ? "Broadcast watch: can the winning streak continue next race, or does someone finally stop the run?"
+        : "What confirms the hot streak: another top-five or win that keeps the recent form above the season baseline.";
       metrics = [
-        ["Recent Avg",formatFinish(d.recentAvgFinish)],
-        ["Season Avg",formatFinish(d.seasonAvgFinish)],
-        ["Improvement",signed(d.improvement)],
-        ["Recent Gain",signed(d.recentGain)]
+        ["Win Streak",d.winStreak],
+        ["Wins L5",d.winsLast5],
+        ["Top 5 L5",d.top5Last5],
+        ["Recent Avg",formatFinish(d.recentAvgFinish)]
       ];
       break;
 
@@ -2080,7 +2600,7 @@ function showCategoryDeepDive(category){
       break;
 
     case "consistent":
-      summary = d.name + " has the smallest week-to-week finish spread among the established drivers considered by the model.";
+      summary = d.name + " is the steady-hand pick: the model is rewarding repeatable finishes and low week-to-week variation, not momentum or raw win totals.";
       reasons = [
         ["good","Consistency rating: "+Math.round(d.consistency)+" / 100."],
         ["","Season average finish: "+formatFinish(d.seasonAvgFinish)+"."],
@@ -2114,7 +2634,7 @@ function showCategoryDeepDive(category){
       break;
 
     case "recentWinner":
-      summary = d.name + " owns the freshest victory in the selected league and carries the most immediate winner momentum into the next event.";
+      summary = d.name + " is here for one simple factual reason: this driver won the most recently completed race. This card intentionally does not try to predict the next event.";
       reasons = [
         ["good","Most recent completed race finish: "+(latest?"P"+latest.finish:"—")+"."],
         ["good","Season wins: "+d.wins+"."],
@@ -2131,19 +2651,19 @@ function showCategoryDeepDive(category){
       break;
 
     case "trouble":
-      summary = d.name + " is on Trouble Watch because recent incidents and/or recent finishes are moving in the wrong direction compared with the driver's normal baseline.";
+      summary = d.name + " is on Trouble Watch because the recent trend is measurably worse than the driver's own season baseline — this is a decline signal, not simply a high-incident ranking.";
       reasons = [
-        [d.recentInc>d.avgInc?"warn":"","Recent incident average: "+round(d.recentInc,1)+" vs season "+round(d.avgInc,1)+"."],
-        [d.recentAvgFinish>d.seasonAvgFinish?"warn":"","Recent average finish: "+formatFinish(d.recentAvgFinish)+" vs season "+formatFinish(d.seasonAvgFinish)+"."],
+        [d.recentInc-d.avgInc>=1.5?"warn":"","Incident change: "+signed(d.recentInc-d.avgInc)+" per race vs season baseline."],
+        [d.recentAvgFinish-d.seasonAvgFinish>=1.5?"warn":"","Finish change: "+round(d.recentAvgFinish-d.seasonAvgFinish,1)+" spots worse recently."],
         ["","Latest finish: "+(latest?"P"+latest.finish:"—")+" with "+(latest?latest.incidents:"—")+" incidents."],
-        ["","Consistency score: "+Math.round(d.consistency)+" / 100."]
+        ["","Recent form: "+(d.recentForm||"—")+"."]
       ];
-      action = "What clears the warning: a clean race with incidents below the recent average and a finish back near the season baseline.";
+      action = "What clears the warning: reverse the decline with a clean race and a finish back at or better than the season average.";
       metrics = [
-        ["Recent Inc",round(d.recentInc,1)],
-        ["Season Inc",round(d.avgInc,1)],
+        ["Finish Drop",signed(d.recentAvgFinish-d.seasonAvgFinish)],
+        ["Inc Change",signed(d.recentInc-d.avgInc)],
         ["Recent Avg",formatFinish(d.recentAvgFinish)],
-        ["Latest",latest?"P"+latest.finish:"—"]
+        ["Season Avg",formatFinish(d.seasonAvgFinish)]
       ];
       break;
 
@@ -2165,36 +2685,38 @@ function showCategoryDeepDive(category){
       break;
 
     case "darkHorse":
-      summary = d.name + " sits outside the obvious favorite group but combines enough top-10 conversion, position gain and consistency to threaten a surprise result.";
+      summary = d.races.length<=3 && d.wins>=1
+        ? `${d.name} has a small sample but a huge result rate — ${d.wins} win${d.wins===1?"":"s"} in only ${d.races.length} starts.`
+        : d.name + " sits outside the obvious favorite group but owns enough finishing conversion and racecraft to steal a major result.";
       reasons = [
-        ["good","Top-10 rate: "+round(d.top10Rate,0)+"%."],
+        [d.winRate>=25?"good":"","Win rate: "+round(d.winRate,0)+"%."],
+        ["good","Top-5 rate: "+round(d.top5Rate,0)+"%."],
         ["","Championship rank: #"+(d.rank||"—")+"."],
-        [d.avgGain>0?"good":"","Average position gain: "+signed(d.avgGain)+"."],
-        ["","Consistency score: "+Math.round(d.consistency)+" / 100."]
+        [d.avgGain>0?"good":"","Average position gain: "+signed(d.avgGain)+"."]
       ];
-      action = "Upset signal: strong qualifying or early-race track position paired with the driver's existing top-10 conversion rate.";
+      action = "Broadcast angle: this is the driver casual viewers may overlook, but the underlying results say an upset would not be a fluke.";
       metrics = [
-        ["Rank","#"+(d.rank||"—")],
-        ["Top 10",round(d.top10Rate,0)+"%"],
-        ["Avg Gain",signed(d.avgGain)],
-        ["Consistency",Math.round(d.consistency)]
+        ["Starts",d.races.length],
+        ["Wins",d.wins],
+        ["Top 5",round(d.top5Rate,0)+"%"],
+        ["Win Rate",round(d.winRate,0)+"%"]
       ];
       break;
 
     case "watch":
-      summary = d.name + " is the general Driver To Watch because multiple secondary signals — momentum, racecraft and consistency — are pointing upward together.";
+      summary = d.name + " is the next-race Driver To Watch because several positive signals are lining up without this driver already being the obvious Favorite, Hot Driver or Dark Horse headline.";
       reasons = [
-        ["good","Trend status: "+trendLabel(d)+"."],
-        [d.recentGain>0?"good":"","Recent gain: "+signed(d.recentGain)+" spots."],
+        ["good","Recent form: "+(d.recentForm||"—")+"."],
+        [d.recentGain>0?"good":"","Recent position gain: "+signed(d.recentGain)+" spots per race."],
         ["","Recent average finish: "+formatFinish(d.recentAvgFinish)+"."],
-        ["","Consistency: "+Math.round(d.consistency)+" / 100."]
+        ["","Top-5s in the last "+Math.min(5,d.races.length)+": "+d.top5Last5+"."]
       ];
-      action = "Next-race watch: see whether the underlying positive signals translate into a top-five or podium-level result.";
+      action = "Broadcast angle: this is the driver whose supporting numbers say a breakout or front-running result could be coming next.";
       metrics = [
-        ["Trend",trendLabel(d)],
+        ["Form",d.recentForm||"—"],
+        ["Top 5 L5",d.top5Last5],
         ["Recent Gain",signed(d.recentGain)],
-        ["Recent Avg",formatFinish(d.recentAvgFinish)],
-        ["Consistency",Math.round(d.consistency)]
+        ["Recent Avg",formatFinish(d.recentAvgFinish)]
       ];
       break;
   }
