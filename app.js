@@ -79,7 +79,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '10.3',
+  appVersion: '10.4',
   featureView: 'records',
   favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
   teamStandings: {Sunday: [], Monday: []},
@@ -1103,7 +1103,7 @@ function renderHeadToHead(){
   }
 }
 function renderRaceStats(){
-  const body=`<div class="intelligence-launch"><div><small>HLRN ANALYTICS ENGINE</small><strong>Sunday + Monday Race Intelligence</strong><p>Full live intelligence dashboard with league switching, command-center metrics, stories and deeper race analysis.</p></div><button onclick="document.getElementById('raceIntelFrame')?.contentWindow?.location.reload()">↻ REFRESH</button></div><iframe id="raceIntelFrame" class="race-intelligence-frame" src="race-intelligence.html?v=10.3" title="HLRN Race Intelligence"></iframe>`;
+  const body=`<div class="intelligence-launch"><div><small>HLRN ANALYTICS ENGINE</small><strong>Sunday + Monday Race Intelligence</strong><p>Full live intelligence dashboard with league switching, command-center metrics, stories and deeper race analysis.</p></div><button onclick="document.getElementById('raceIntelFrame')?.contentWindow?.location.reload()">↻ REFRESH</button></div><iframe id="raceIntelFrame" class="race-intelligence-frame" src="race-intelligence.html?v=10.4&app=1" title="HLRN Race Intelligence"></iframe>`;
   featureShell('Race Intelligence','Full HLRN Sunday and Monday analytics dashboard.',body,'race-intelligence-page');
 }
 function recentRowsFor(name,n=5){

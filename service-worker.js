@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v10-3-phone-full-content';
+const CACHE = 'hlrn-v10-4-app-native-ri';
 const APP_SHELL = [
   './',
   './index.html',

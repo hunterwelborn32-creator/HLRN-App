@@ -1406,6 +1406,282 @@ body{background:#020202!important;overflow-x:hidden}
   .race{grid-template-columns:30px minmax(0,1fr) 36px 36px 27px!important}
 }
 </style>
+<style id='hlrn-app-native-ri'>
+/* =========================================================
+   HLRN 10.4 — APP-NATIVE RACE INTELLIGENCE
+   Makes Race Intelligence feel like a native app screen rather than the website.
+   ========================================================= */
+body.app-native{
+  background:#080b10!important;
+  color:#fff!important;
+  font-family:Arial,Helvetica,sans-serif!important;
+}
+body.app-native .shell{
+  width:100%!important;
+  max-width:100%!important;
+  margin:0!important;
+  padding:0 0 26px!important;
+  background:#080b10!important;
+}
+body.app-native .shell:before,
+body.app-native .shell:after,
+body.app-native .nascar-ticker,
+body.app-native .live-control-strip,
+body.app-native .cc-command-deck,
+body.app-native .cc-meter-band,
+body.app-native .cc-cursor,
+body.app-native .footer{
+  display:none!important;
+}
+body.app-native .header{
+  min-height:0!important;
+  padding:12px 14px!important;
+  border:0!important;
+  border-bottom:1px solid rgba(255,255,255,.07)!important;
+  background:rgba(8,11,16,.96)!important;
+  box-shadow:none!important;
+  position:sticky!important;
+  top:0!important;
+  z-index:40!important;
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  flex-direction:row!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+}
+body.app-native .brand{
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:9px!important;
+}
+body.app-native .logo{
+  width:32px!important;
+  min-width:32px!important;
+  height:32px!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:10px!important;
+  background:linear-gradient(145deg,#1b2028,#0c1016)!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)!important;
+}
+body.app-native .logo:before{
+  content:"HL"!important;
+  font-family:Arial,Helvetica,sans-serif!important;
+  font-size:12px!important;
+  font-weight:1000!important;
+  letter-spacing:-.04em!important;
+  text-shadow:none!important;
+  color:#ffd400!important;
+}
+body.app-native .logo:after{display:none!important}
+body.app-native .brand-title{
+  font-family:Arial,Helvetica,sans-serif!important;
+  font-size:13px!important;
+  font-style:normal!important;
+  font-weight:1000!important;
+  letter-spacing:-.02em!important;
+  color:#fff!important;
+}
+body.app-native .brand-sub{
+  margin-top:2px!important;
+  font-size:7px!important;
+  font-weight:800!important;
+  letter-spacing:.08em!important;
+  color:#697381!important;
+  text-transform:uppercase!important;
+}
+body.app-native .league-tabs{
+  width:auto!important;
+  gap:4px!important;
+  padding:3px!important;
+  border-radius:999px!important;
+  background:#0f141b!important;
+  transform:none!important;
+}
+body.app-native .league-btn{
+  min-width:0!important;
+  padding:7px 11px!important;
+  border:0!important;
+  border-radius:999px!important;
+  transform:none!important;
+  background:transparent!important;
+  color:#717b88!important;
+  font-size:7px!important;
+  font-weight:1000!important;
+  letter-spacing:.04em!important;
+}
+body.app-native .league-btn.active{
+  background:#202630!important;
+  color:#fff!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)!important;
+}
+body.app-native .hero{
+  min-height:0!important;
+  margin:0!important;
+  border:0!important;
+  background:#080b10!important;
+  overflow:visible!important;
+}
+body.app-native .hero:before,
+body.app-native .hero:after{display:none!important}
+body.app-native .hero-inner{
+  padding:18px 14px 10px!important;
+  display:block!important;
+}
+body.app-native .hero-kicker{
+  font-size:7px!important;
+  color:#ffd400!important;
+  letter-spacing:.15em!important;
+}
+body.app-native .hero h1{
+  margin:4px 0 4px!important;
+  font-family:Arial,Helvetica,sans-serif!important;
+  font-size:30px!important;
+  line-height:1!important;
+  font-style:normal!important;
+  letter-spacing:-.05em!important;
+  text-transform:none!important;
+}
+body.app-native .hero p{
+  max-width:none!important;
+  color:#77818d!important;
+  font-size:9px!important;
+  line-height:1.45!important;
+}
+body.app-native .hero-badge,
+body.app-native .toolbar{
+  margin:8px 14px!important;
+}
+body.app-native .toolbar{
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+}
+body.app-native .toolbar:before{display:none!important}
+body.app-native .badge{
+  border-radius:999px!important;
+  background:#111720!important;
+  border:1px solid rgba(255,255,255,.06)!important;
+  color:#98a2ae!important;
+}
+body.app-native .intel-grid{
+  grid-template-columns:1fr!important;
+  gap:9px!important;
+  margin:10px 12px!important;
+}
+body.app-native .intel-card{
+  min-height:0!important;
+  padding:14px!important;
+  border:1px solid rgba(255,255,255,.065)!important;
+  border-radius:17px!important;
+  background:linear-gradient(145deg,#141922,#0b0f15)!important;
+  box-shadow:none!important;
+}
+body.app-native .intel-card:before{display:none!important}
+body.app-native .card-icon{
+  width:31px!important;height:31px!important;border-radius:10px!important;
+  background:#202630!important;
+}
+body.app-native .card-tag{
+  font-size:5px!important;color:#68727f!important;
+}
+body.app-native .card-title{
+  margin-top:10px!important;
+  color:#ffd400!important;
+  font-size:6px!important;
+  font-weight:1000!important;
+  letter-spacing:.12em!important;
+  text-transform:uppercase!important;
+}
+body.app-native .card-driver{
+  margin-top:4px!important;
+  font-family:Arial,Helvetica,sans-serif!important;
+  font-size:22px!important;
+  font-style:normal!important;
+  letter-spacing:-.04em!important;
+}
+body.app-native .card-reason{
+  margin-top:7px!important;color:#a2abb6!important;font-size:9px!important;line-height:1.45!important;
+}
+body.app-native .card-stat{
+  margin-top:10px!important;
+  display:inline-flex!important;
+  padding:6px 8px!important;
+  border-radius:8px!important;
+  background:#0f141b!important;
+  color:#d6dbe0!important;
+  font-size:6px!important;
+  letter-spacing:.04em!important;
+}
+body.app-native .category-deep,
+body.app-native .story-section,
+body.app-native .detail-wrap,
+body.app-native .broadcast-section{
+  margin:12px!important;
+  border:1px solid rgba(255,255,255,.065)!important;
+  border-radius:18px!important;
+  background:linear-gradient(145deg,#141922,#0b0f15)!important;
+  box-shadow:none!important;
+}
+body.app-native .deep-label,
+body.app-native .story-title,
+body.app-native .broadcast-kicker,
+body.app-native .detail-eyebrow{
+  color:#ffd400!important;
+}
+body.app-native .deep-title,
+body.app-native .detail-name,
+body.app-native .broadcast-title{
+  font-family:Arial,Helvetica,sans-serif!important;
+  font-style:normal!important;
+  letter-spacing:-.035em!important;
+}
+body.app-native .story-grid,
+body.app-native .broadcast-notes{
+  grid-template-columns:1fr!important;
+}
+body.app-native .story-card,
+body.app-native .broadcast-note{
+  background:#0f141b!important;
+  border-color:rgba(255,255,255,.055)!important;
+}
+body.app-native .deep-box,
+body.app-native .detail-box{
+  background:#0f141b!important;
+  border-color:rgba(255,255,255,.055)!important;
+}
+body.app-native .deep-metric,
+body.app-native .stat{
+  background:#0f141b!important;
+  border-color:rgba(255,255,255,.055)!important;
+}
+body.app-native .race,
+body.app-native .deep-race,
+body.app-native .trend-row{
+  background:#0d1218!important;
+  border-color:rgba(255,255,255,.05)!important;
+}
+body.app-native .copy-notes-btn{
+  border:0!important;
+  background:#202630!important;
+  color:#ffd400!important;
+  border-radius:10px!important;
+}
+body.app-native .broadcast-live-dot{
+  background:#ffd400!important;
+  box-shadow:0 0 0 5px rgba(255,212,0,.06),0 0 15px rgba(255,212,0,.3)!important;
+}
+@media(max-width:700px){
+  body.app-native .header{padding-top:max(12px,env(safe-area-inset-top))!important}
+  body.app-native .hero-inner{padding-left:12px!important;padding-right:12px!important}
+  body.app-native .intel-grid,
+  body.app-native .category-deep,
+  body.app-native .story-section,
+  body.app-native .detail-wrap,
+  body.app-native .broadcast-section{margin-left:10px!important;margin-right:10px!important}
+}
+</style>
 </head>
 
 <body>
@@ -3121,6 +3397,20 @@ loadLeague("sunday");
   const cur=q('ccCursor');
   if(cur&&matchMedia('(pointer:fine)').matches){document.addEventListener('mousemove',e=>{cur.style.left=e.clientX+'px';cur.style.top=e.clientY+'px';},{passive:true});}
   document.addEventListener('mousemove',function(e){const c=e.target.closest('.intel-card,.story-card,.deep-box,.detail-box');if(!c)return;const r=c.getBoundingClientRect();c.style.setProperty('--mx',(e.clientX-r.left)+'px');c.style.setProperty('--my',(e.clientY-r.top)+'px');},{passive:true});
+})();
+</script>
+
+
+<script>
+(function(){
+  try{
+    const params=new URLSearchParams(location.search);
+    if(params.get("app")==="1" || window.self!==window.top){
+      document.body.classList.add("app-native");
+    }
+  }catch(e){
+    document.body.classList.add("app-native");
+  }
 })();
 </script>
 
