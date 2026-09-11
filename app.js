@@ -89,7 +89,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.1.9',
+  appVersion: '11.2.0',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -294,16 +294,7 @@ function seasonCompleted(league){
   const now=new Date(); now.setHours(0,0,0,0);
   return rows.filter(r=>new Date(`${r.date}T12:00:00`)<now).length;
 }
-function networkBar(){
-  return `<section class="network-bar">
-    <div><small>NETWORK</small><strong class="${state.liveStatus==='LIVE'?'ok':''}">${state.liveStatus==='LIVE'?'ONLINE':'SYNCING'}</strong></div>
-    <div><small>SUNDAY</small><strong>W${seasonWeek('Sunday')}</strong></div>
-    <div><small>MONDAY</small><strong>W${seasonWeek('Monday')}</strong></div>
-    <div><small>HOSTED</small><strong>${state.hostedDrivers.length||'--'} DRV</strong></div>
-    <div class="network-auto-sync" title="HLRN refreshes automatically"><i></i><span>AUTO</span></div>
-    <div class="network-trackline" aria-hidden="true"><span></span></div>
-  </section>`;
-}
+function networkBar(){ return ''; }
 
 
 function rerenderCurrent(){

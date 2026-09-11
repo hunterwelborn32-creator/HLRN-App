@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-1-9-auto-refresh';
+const CACHE = 'hlrn-v11-2-0-no-network-bar';
 const APP_SHELL = [
   './',
   './index.html',

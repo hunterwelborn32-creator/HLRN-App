@@ -1809,3 +1809,6 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important}
   color:#7f8994;font-size:6px;font-weight:1000;letter-spacing:.08em
 }
 .auto-sync-note.compact{margin-top:0;padding:6px 8px}
+
+/* HLRN 11.2.0 — network status bar removed */
+.network-bar{display:none!important}
