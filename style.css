@@ -1830,3 +1830,59 @@ button,.nav-item,.quick-card,.feature-launchpad button,.driver-click,.social-car
 }
 .bottom-nav,.bottom-nav *{pointer-events:auto!important}
 #app{pointer-events:auto}
+
+
+/* HLRN 11.2.4 — DRIVER DIRECTORY PAGINATION */
+.driver-pagination{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  flex-wrap:wrap;
+  margin:12px 0 22px;
+}
+.driver-page-numbers{
+  display:flex;
+  gap:5px;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+.driver-pagination button{
+  min-width:34px;
+  height:34px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;
+  background:#11161d;
+  color:#8c96a2;
+  font-size:8px;
+  font-weight:1000;
+  touch-action:manipulation;
+}
+.driver-pagination button.active{
+  background:#ffd400;
+  border-color:#ffd400;
+  color:#0a0d11;
+}
+.driver-pagination button:disabled{
+  opacity:.28;
+}
+.driver-page-arrow{
+  font-size:16px!important;
+}
+.driver-page-count{
+  flex-basis:100%;
+  text-align:center;
+  margin-top:3px;
+  color:#69737f;
+  font-size:6px;
+  font-weight:800;
+}
+@media(max-width:430px){
+  .driver-pagination{
+    gap:5px;
+  }
+  .driver-pagination button{
+    min-width:31px;
+    height:31px;
+  }
+}

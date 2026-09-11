@@ -89,14 +89,15 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.2.3',
+  appVersion: '11.2.4',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
   announcementsStatus: 'Connecting…',
   rulesQuery: '',
   pushStatus: 'CHECKING',
-  driverProfileReturn: 'drivers'
+  driverProfileReturn: 'drivers',
+  driverPage: 1
 };
 
 const fallback = {
@@ -709,6 +710,55 @@ function ensureHostedData(){
   });
 }
 
+function driverDirectoryRowsHtml(list){
+  return list.map(d=>{
+    const initialsText=d.name.split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
+    const encoded=encodeURIComponent(d.name).replace(/'/g,'%27');
+    return `<button class="driver-row driver-click" data-search-name="${escapeHtml(d.name.toLowerCase())}" onclick="openHLRNDriverProfile(decodeURIComponent('${encoded}'))">
+      <div class="avatar">${escapeHtml(initialsText)}</div>
+      <div class="driver-meta">
+        <strong>${escapeHtml(d.name)}</strong>
+        <small>${escapeHtml(d.leagues||'HLRN')} • ${d.races} starts • ${d.wins} wins • ${d.top5} T5 • ${d.top10} T10</small>
+      </div>
+      <div class="driver-chevron">›</div>
+    </button>`;
+  }).join('');
+}
+
+function updateDriverDirectoryPage(page=1,query=''){
+  const source=window.HLRN_DRIVER_DIRECTORY||[];
+  const q=String(query||'').trim().toLowerCase();
+  const filtered=q?source.filter(d=>d.name.toLowerCase().includes(q)):source;
+  const perPage=20;
+  const totalPages=Math.max(1,Math.ceil(filtered.length/perPage));
+  const safePage=Math.min(Math.max(1,Number(page)||1),totalPages);
+  state.driverPage=safePage;
+
+  const start=(safePage-1)*perPage;
+  const pageRows=filtered.slice(start,start+perPage);
+
+  const list=document.querySelector('.driver-list-card');
+  if(list){
+    list.innerHTML=pageRows.length
+      ? driverDirectoryRowsHtml(pageRows)
+      : `<div class="empty">${q?`No drivers match "${escapeHtml(query)}".`:'No drivers loaded.'}</div>`;
+  }
+
+  const pager=document.querySelector('.driver-pagination');
+  if(pager){
+    const pageButtons=Array.from({length:totalPages},(_,i)=>i+1)
+      .map(n=>`<button type="button" class="${n===safePage?'active':''}" onclick="updateDriverDirectoryPage(${n},document.querySelector('#driverSearch')?.value||'')">${n}</button>`)
+      .join('');
+
+    pager.innerHTML=filtered.length?`
+      <button type="button" class="driver-page-arrow" ${safePage===1?'disabled':''} onclick="updateDriverDirectoryPage(${safePage-1},document.querySelector('#driverSearch')?.value||'')">‹</button>
+      <div class="driver-page-numbers">${pageButtons}</div>
+      <button type="button" class="driver-page-arrow" ${safePage===totalPages?'disabled':''} onclick="updateDriverDirectoryPage(${safePage+1},document.querySelector('#driverSearch')?.value||'')">›</button>
+      <span class="driver-page-count">${filtered.length} drivers • Page ${safePage} of ${totalPages}</span>
+    `:'';
+  }
+}
+
 function renderDrivers(filter=''){
   state.currentView='drivers';
   ensureHostedData();
@@ -727,7 +777,6 @@ function renderDrivers(filter=''){
     if(rows.some(r=>r.source==='Monday'))leagues.push('Monday');
     if(rows.some(r=>r.source==='Hosted'))leagues.push('Hosted');
 
-    // If result rows are still loading, preserve summary stats from existing sources.
     const hosted=(state.hostedDrivers||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
     const standingS=(state.standings.Sunday||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
     const standingM=(state.standings.Monday||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
@@ -742,19 +791,7 @@ function renderDrivers(filter=''){
     };
   }).filter(d=>d.name).sort((a,b)=>a.name.localeCompare(b.name));
 
-  const filtered=source.filter(d=>d.name.toLowerCase().includes(f));
-  const rows=filtered.map(d=>{
-    const initialsText=d.name.split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
-    const encoded=encodeURIComponent(d.name).replace(/'/g,'%27');
-    return `<button class="driver-row driver-click" data-search-name="${escapeHtml(d.name.toLowerCase())}" onclick="openHLRNDriverProfile(decodeURIComponent('${encoded}'))">
-      <div class="avatar">${escapeHtml(initialsText)}</div>
-      <div class="driver-meta">
-        <strong>${escapeHtml(d.name)}</strong>
-        <small>${escapeHtml(d.leagues||'HLRN')} • ${d.races} starts • ${d.wins} wins • ${d.top5} T5 • ${d.top10} T10</small>
-      </div>
-      <div class="driver-chevron">›</div>
-    </button>`;
-  }).join('');
+  window.HLRN_DRIVER_DIRECTORY=source;
 
   const mostWins=[...source].sort((a,b)=>(b.wins||0)-(a.wins||0))[0];
   const mostStarts=[...source].sort((a,b)=>(b.races||0)-(a.races||0))[0];
@@ -774,37 +811,20 @@ function renderDrivers(filter=''){
       <div><small>MOST STARTS</small>${mostStarts?driverLink(mostStarts.name):'<strong>--</strong>'}<span>${mostStarts?.races||0} starts</span></div>
     </section>
     <div class="search-wrap"><span>⌕</span><input class="search" id="driverSearch" placeholder="Search every HLRN driver..." value="${escapeHtml(filter)}" /></div>
-    <section class="card driver-list-card">${rows||`<div class="empty">${live?'No drivers match your search.':'Loading HLRN driver database…'}</div>`}</section>`;
+    <section class="card driver-list-card"></section>
+    <nav class="driver-pagination" aria-label="Driver pages"></nav>`;
+
+  updateDriverDirectoryPage(filter?1:(state.driverPage||1),filter);
 
   const input=document.querySelector('#driverSearch');
   if(input){
     input.addEventListener('input',e=>{
-      const q=String(e.target.value||'').trim().toLowerCase();
-      const cards=[...document.querySelectorAll('.driver-list-card .driver-row')];
-      let visible=0;
-      cards.forEach(card=>{
-        const name=String(card.dataset.searchName||card.querySelector('.driver-meta strong')?.textContent||'').toLowerCase();
-        const match=!q || name.includes(q);
-        card.style.display=match?'flex':'none';
-        if(match)visible++;
-      });
-
-      let empty=document.querySelector('.driver-search-empty');
-      if(!visible && q){
-        if(!empty){
-          empty=document.createElement('div');
-          empty.className='empty driver-search-empty';
-          document.querySelector('.driver-list-card')?.appendChild(empty);
-        }
-        empty.textContent='No drivers match "'+e.target.value+'".';
-      }else if(empty){
-        empty.remove();
-      }
+      state.driverPage=1;
+      updateDriverDirectoryPage(1,e.target.value);
     });
     if(filter){
       input.focus();
       input.setSelectionRange(filter.length,filter.length);
-      input.dispatchEvent(new Event('input'));
     }
   }
 }
