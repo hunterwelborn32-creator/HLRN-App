@@ -1762,3 +1762,32 @@ main{
   .dc-stat-grid{grid-template-columns:1fr 1fr}.dc-league-grid{grid-template-columns:1fr}.dc-track-grid{grid-template-columns:1fr}
   .dc-history-row{grid-template-columns:minmax(0,1fr) repeat(4,34px)}.dc-history-row b{font-size:7px}
 }
+
+
+/* HLRN 11.1.2 — EMERGENCY iPHONE NAV + STARTUP STABILITY */
+.bottom-nav{
+  z-index:2147483000!important;
+  pointer-events:auto!important;
+  bottom:calc(10px + env(safe-area-inset-bottom,0px))!important;
+  padding:7px 8px!important;
+  overflow:visible!important;
+  touch-action:manipulation!important;
+}
+.bottom-nav .nav-item{
+  position:relative!important;
+  z-index:2!important;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+  -webkit-tap-highlight-color:transparent;
+  min-height:54px!important;
+}
+.bottom-nav .nav-glow{pointer-events:none!important;z-index:0!important}
+main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important}
+.hlrn-start-overlay.launch{pointer-events:none!important}
+@media(max-width:430px){
+  .bottom-nav{
+    width:calc(100% - 14px)!important;
+    bottom:calc(8px + env(safe-area-inset-bottom,0px))!important;
+  }
+  .bottom-nav .nav-item{min-height:58px!important}
+}

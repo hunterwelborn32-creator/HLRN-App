@@ -55,6 +55,16 @@ const FULL_SCHEDULE = {
   ]
 };
 
+function safeStoredArray(key){
+  try{
+    const v=JSON.parse(localStorage.getItem(key)||'[]');
+    return Array.isArray(v)?v:[];
+  }catch(e){
+    try{localStorage.removeItem(key);}catch(_){}
+    return [];
+  }
+}
+
 const state = {
   league: 'Sunday',
   homeLeague: 'Sunday',
@@ -79,9 +89,9 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.1.1',
+  appVersion: '11.1.3',
   featureView: 'records',
-  favorites: JSON.parse(localStorage.getItem('hlrn-favorites') || '[]'),
+  favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
   announcementsStatus: 'Connecting…',
   rulesQuery: '',
@@ -103,7 +113,10 @@ const fallback = {
   announcements: [{tag:'APP',title:'HLRN mobile app is live',text:'Live HLRN data is being connected to the app.',time:'New'}]
 };
 
-state.standings = JSON.parse(JSON.stringify(fallback.standings));
+state.standings = {
+  Sunday: fallback.standings.Sunday.map((x,i)=>({name:x[0],rank:i+1,points:x[1],races:0,wins:0,top5:0,top10:0,avgFinish:0,driverId:''})),
+  Monday: fallback.standings.Monday.map((x,i)=>({name:x[0],rank:i+1,points:x[1],races:0,wins:0,top5:0,top10:0,avgFinish:0,driverId:''}))
+};
 state.schedule = JSON.parse(JSON.stringify(fallback.schedule));
 state.announcements = JSON.parse(JSON.stringify(fallback.announcements));
 
@@ -114,21 +127,26 @@ let countdownTimer;
 function setView(view){
   clearInterval(countdownTimer);
   document.body.dataset.view=view;
-  state.currentView = view;
+  state.currentView=view;
   nav.forEach(n=>n.classList.toggle('active',n.dataset.view===view));
-  if(view==='home') renderHome();
-  if(view==='standings') renderStandings();
-  if(view==='schedule') renderSchedule();
-  if(view==='drivers') renderDrivers();
-  if(view==='socials' || view==='more') renderSocials();
-  addPageMotion();
-  window.scrollTo({top:0,behavior:'smooth'});
+  try{
+    if(view==='home') renderHome();
+    else if(view==='standings') renderStandings();
+    else if(view==='schedule') renderSchedule();
+    else if(view==='drivers') renderDrivers();
+    else if(view==='socials' || view==='more') renderSocials();
+    else renderHome();
+    addPageMotion();
+  }catch(err){
+    console.error('HLRN view failed:',view,err);
+    app.innerHTML=`${networkBar()}<section class="coming-live"><span>⚠️</span><h3>${escapeHtml(view)} screen hit an error</h3><p>The app is still running. Tap retry while live data finishes loading.</p><button class="btn primary" onclick="setView('${String(view).replace(/'/g,'')}')">RETRY</button><button class="btn" onclick="setView('home')">HOME</button></section>`;
+  }
+  window.scrollTo({top:0,behavior:'auto'});
 }
-nav.forEach(n=>n.addEventListener('click',()=>{
-  if(navigator.vibrate) navigator.vibrate(12);
-  racePulse();
-  setView(n.dataset.view);
-}));
+window.hlrnNav=function(view){
+  try{if(navigator.vibrate)navigator.vibrate(8);}catch(e){}
+  setView(view);
+};
 
 function addPageMotion(){
   attachHLRNEasterEgg();
@@ -414,6 +432,7 @@ function showStartingLights(){
 
   setTimeout(()=>overlay.classList.add('launch'),1980);
   setTimeout(()=>overlay.remove(),2550);
+  setTimeout(()=>document.querySelectorAll('.hlrn-start-overlay').forEach(x=>x.remove()),4000);
 }
 
 function escapeHtml(value=''){
@@ -578,6 +597,7 @@ function scheduleDateLabel(date){
 function renderSchedule(){
   state.currentView='schedule';
   const tab=state.scheduleLeague||'Sunday';
+  if(tab==='Hosted') ensureHostedData();
   const done=tab==='Hosted'?hostedRaceGroups().length:seasonCompleted(tab);
   const nextWeek=tab==='Hosted'?'OPEN':seasonWeek(tab);
   let content='';
@@ -593,8 +613,19 @@ function renderSchedule(){
 }
 function switchScheduleLeague(name){state.scheduleLeague=name;renderSchedule();}
 
+let hostedLazyLoading=false;
+function ensureHostedData(){
+  if(state.hostedDataStatus==='LIVE' || hostedLazyLoading) return;
+  hostedLazyLoading=true;
+  refreshHostedData(false).catch(()=>{}).finally(()=>{
+    hostedLazyLoading=false;
+    if(state.currentView==='drivers') renderDrivers(document.querySelector('#driverSearch')?.value||'');
+  });
+}
+
 function renderDrivers(filter=''){
   state.currentView='drivers';
+  ensureHostedData();
   const f=filter.trim().toLowerCase();
 
   const names=new Set();
@@ -661,8 +692,19 @@ function renderDrivers(filter=''){
 
   const input=document.querySelector('#driverSearch');
   if(input){
-    input.addEventListener('input',e=>renderDrivers(e.target.value));
-    if(filter){input.focus();input.setSelectionRange(filter.length,filter.length);}
+    input.addEventListener('input',e=>{
+      const q=String(e.target.value||'').trim().toLowerCase();
+      const cards=[...document.querySelectorAll('.driver-list-card .driver-row')];
+      cards.forEach(card=>{
+        const name=String(card.querySelector('.driver-meta strong')?.textContent||'').toLowerCase();
+        card.hidden=!!q && !name.includes(q);
+      });
+    });
+    if(filter){
+      input.focus();
+      input.setSelectionRange(filter.length,filter.length);
+      input.dispatchEvent(new Event('input'));
+    }
   }
 }
 
@@ -1292,6 +1334,16 @@ function h2hMetricsHtml(a,b){
     metric('AVG INCIDENTS',a.avgInc,b.avgInc,v=>v.toFixed(1),true),
     metric('CLEAN RATE',a.cleanRate,b.cleanRate,v=>v.toFixed(1)+'%')
   ].join('');
+}
+
+function filterH2HList(input,side){
+  const q=String(input?.value||'').trim().toLowerCase();
+  const root=input?.closest('.h2h-driver-section');
+  if(!root)return;
+  root.querySelectorAll('[data-driver-name]').forEach(el=>{
+    const name=String(el.dataset.driverName||'').toLowerCase();
+    el.hidden=!!q && !name.includes(q);
+  });
 }
 
 function renderHeadToHead(){
@@ -2129,7 +2181,7 @@ async function refreshDiscordAnnouncements(){
 }
 
 async function refreshLiveData(){
-  state.liveStatus='Connecting…'; rerenderCurrent();
+  state.liveStatus='Connecting…';
   try{
     const [sunT,monT,sunRT,monRT,newsT,scheduleT,configT,linksT]=await Promise.all([
       loadGviz(LIVE.standingsSheet,'Sunday Drivers','A1:J250'), loadGviz(LIVE.standingsSheet,'Monday Drivers','A1:J250'),
@@ -2153,11 +2205,7 @@ async function refreshLiveData(){
     console.warn('HLRN live data connection failed:',err);
     state.liveStatus='OFFLINE DATA';
     // Keep the built-in fallback so the app remains usable.
-    if(!state.drivers.length){
-      state.standings.Sunday=state.standings.Sunday.map((x,i)=>Array.isArray(x)?{name:x[0],rank:i+1,points:x[1],wins:0,top5:0,top10:0}:x);
-      state.standings.Monday=state.standings.Monday.map((x,i)=>Array.isArray(x)?{name:x[0],rank:i+1,points:x[1],wins:0,top5:0,top10:0}:x);
-      buildDrivers();
-    }
+    buildDrivers();
   }
   await Promise.allSettled([refreshDiscordAnnouncements(),refreshTeamStandings()]);
   rerenderCurrent();
@@ -2174,10 +2222,13 @@ if('serviceWorker' in navigator){
       const registration=await navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'}); await registration.update();
       if(registration.waiting) registration.waiting.postMessage({type:'SKIP_WAITING'});
       registration.addEventListener('updatefound',()=>{const worker=registration.installing;if(!worker)return;worker.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller)worker.postMessage({type:'SKIP_WAITING'});});});
-      document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){registration.update().catch(()=>{});refreshLiveData();
-updateSoundButton();
-attachHLRNEasterEgg();
-setTimeout(showStartingLights,120);}});
+      document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'){
+    registration.update().catch(()=>{});
+    refreshLiveData();
+    updateSoundButton();
+  }
+});
     }catch(err){console.warn('HLRN update check failed:',err);}
   });
 }
@@ -2186,6 +2237,7 @@ const startParams=new URLSearchParams(location.search);
 if(startParams.get('view')==='notifications') openFeature('notifications');
 else renderHome();
 refreshPushStatus().catch(()=>{});
+buildDrivers();
 refreshLiveData();
-refreshHostedData();
+// Hosted database loads only when a Hosted/Drivers screen is opened.
 

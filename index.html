@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="HLRN" />
-  <link rel="stylesheet" href="style.css?v=11.1.1" />
+  <link rel="stylesheet" href="style.css?v=11.1.3" />
   <title>HLRN</title>
 </head>
 <body><div class="ambient-checkers" aria-hidden="true"></div>
@@ -23,15 +23,15 @@
     <main id="app"></main>
 
     <nav class="bottom-nav" aria-label="Primary"><div class="nav-glow" aria-hidden="true"></div>
-      <button class="nav-item active" data-view="home"><span class="nav-icon">⌂</span><small>Home</small></button>
-      <button class="nav-item" data-view="standings"><span class="nav-icon">🏆</span><small>Standings</small></button>
-      <button class="nav-item" data-view="schedule"><span class="nav-icon">🏁</span><small>Schedule</small></button>
-      <button class="nav-item" data-view="drivers"><span class="nav-icon">👤</span><small>Drivers</small></button>
-      <button class="nav-item" data-view="socials"><span class="nav-icon">🔗</span><small>Socials</small></button>
+      <button type="button" class="nav-item active" data-view="home" onclick="hlrnNav('home')"><span class="nav-icon">⌂</span><small>Home</small></button>
+      <button type="button" class="nav-item" data-view="standings" onclick="hlrnNav('standings')"><span class="nav-icon">🏆</span><small>Standings</small></button>
+      <button type="button" class="nav-item" data-view="schedule" onclick="hlrnNav('schedule')"><span class="nav-icon">🏁</span><small>Schedule</small></button>
+      <button type="button" class="nav-item" data-view="drivers" onclick="hlrnNav('drivers')"><span class="nav-icon">👤</span><small>Drivers</small></button>
+      <button type="button" class="nav-item" data-view="socials" onclick="hlrnNav('socials')"><span class="nav-icon">🔗</span><small>Socials</small></button>
     </nav>
   </div>
 
-  <script src="rules-data.js?v=11.1.1"></script>
-<script src="app.js?v=11.1.1"></script>
+  <script src="rules-data.js?v=11.1.3"></script>
+<script src="app.js?v=11.1.3"></script>
 </body>
 </html>
