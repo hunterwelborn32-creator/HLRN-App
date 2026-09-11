@@ -89,7 +89,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.2.0',
+  appVersion: '11.2.1',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -1474,19 +1474,58 @@ function renderRaceStats(){
 function recentRowsFor(name,n=5){
   return state.hostedRaceRows.filter(r=>prettyName(String(r.Driver||''))===name).sort((a,b)=>String(b['Race Date']||'').localeCompare(String(a['Race Date']||''))).slice(0,n);
 }
-function powerScore(d){
-  const rr=recentRowsFor(d.name,5), finishes=rr.map(r=>num(r['Finish Position'])).filter(Boolean);
-  if(!rr.length)return 0;
-  const avg=finishes.length?finishes.reduce((a,b)=>a+b,0)/finishes.length:40;
-  const wins=rr.filter(r=>num(r['Finish Position'])===1).length, top5=rr.filter(r=>{const f=num(r['Finish Position']);return f>0&&f<=5}).length;
-  const inc=rr.reduce((a,r)=>a+num(r.Incidents),0)/rr.length;
-  return Math.max(0,Math.round(100 - avg*1.4 + wins*14 + top5*4 - inc*1.2));
+function powerScoreDetails(d){
+  const rr=recentRowsFor(d.name,10);
+  const finishes=rr.map(r=>num(r['Finish Position'])).filter(Boolean);
+  if(!rr.length)return {score:0,races:0,avgFinish:0,wins:0,top5:0,top10:0,avgInc:0,totalInc:0,highInc:0};
+
+  const races=rr.length;
+  const avgFinish=finishes.length?finishes.reduce((a,b)=>a+b,0)/finishes.length:40;
+  const wins=rr.filter(r=>num(r['Finish Position'])===1).length;
+  const top5=rr.filter(r=>{const f=num(r['Finish Position']);return f>0&&f<=5}).length;
+  const top10=rr.filter(r=>{const f=num(r['Finish Position']);return f>0&&f<=10}).length;
+  const totalInc=rr.reduce((a,r)=>a+num(r.Incidents),0);
+  const avgInc=totalInc/races;
+  const highInc=rr.filter(r=>num(r.Incidents)>=8).length;
+
+  // Recent speed matters, but incidents now carry a real penalty.
+  // A driver cannot stay near the top simply by finishing well while piling up incidents.
+  const raw=
+    100
+    - avgFinish*1.55
+    + wins*12
+    + top5*3.5
+    + top10*1.25
+    - avgInc*4.25
+    - highInc*3;
+
+  return {
+    score:Math.max(0,Math.round(raw)),
+    races,avgFinish,wins,top5,top10,avgInc,totalInc,highInc
+  };
 }
+function powerScore(d){ return powerScoreDetails(d).score; }
+
 function renderPowerRankings(){
-  const ranked=hostedDriverStats().filter(d=>d.races>=10).map(d=>({...d,power:powerScore(d)})).filter(d=>recentRowsFor(d.name,5).length).sort((a,b)=>b.power-a.power).slice(0,20);
-  const body=`<p class="feature-note">Minimum 10 Hosted starts. HLRN Power Score uses each eligible driver's latest five Hosted races: finishes, wins, Top 5s and incidents.</p>
-  <div class="power-list">${ranked.map((d,i)=>`<button onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')" class="power-row"><b>${i+1}</b><div><strong>${escapeHtml(d.name)}</strong><span>${d.wins} career wins • Avg ${d.avgFinish.toFixed(1)}</span></div><em>${d.power}</em></button>`).join('')}</div>`;
-  featureShell('Driver Power Rankings','Who is hottest right now in HLRN Hosted Racing?',body,'power-page');
+  const ranked=hostedDriverStats()
+    .filter(d=>d.races>=10)
+    .map(d=>({...d,powerData:powerScoreDetails(d)}))
+    .filter(d=>d.powerData.races>=1)
+    .map(d=>({...d,power:d.powerData.score}))
+    .sort((a,b)=>b.power-a.power || a.powerData.avgInc-b.powerData.avgInc || a.powerData.avgFinish-b.powerData.avgFinish)
+    .slice(0,20);
+
+  const body=`<p class="feature-note"><strong>LAST 10 RACES.</strong> Minimum 10 Hosted starts. Power Rankings now use each driver's latest 10 Hosted races. Finishes, wins, Top 5s and Top 10s help the score, while incidents have a much stronger negative effect. High-incident races (8x+) receive an extra penalty.</p>
+  <div class="power-list">${ranked.map((d,i)=>`<button onclick="openHostedDriverProfile('${encodeURIComponent(d.name)}')" class="power-row upgraded-power">
+    <b>${i+1}</b>
+    <div>
+      <strong>${escapeHtml(d.name)}</strong>
+      <span>Last 10: ${d.powerData.wins} W • ${d.powerData.top5} T5 • ${d.powerData.top10} T10 • Avg Fin ${d.powerData.avgFinish.toFixed(1)}</span>
+      <small>${d.powerData.avgInc.toFixed(1)} avg incidents • ${d.powerData.totalInc} total incidents${d.powerData.highInc?` • ${d.powerData.highInc} high-incident race${d.powerData.highInc===1?'':'s'}`:''}</small>
+    </div>
+    <em>${d.power}</em>
+  </button>`).join('')}</div>`;
+  featureShell('Driver Power Rankings','Who is hottest — and cleanest — over the last 10 Hosted races?',body,'power-page');
 }
 
 function trackStats(){

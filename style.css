@@ -1812,3 +1812,12 @@ main{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important}
 
 /* HLRN 11.2.0 — network status bar removed */
 .network-bar{display:none!important}
+
+
+/* HLRN 11.2.1 — LAST-10 POWER RANKINGS */
+.power-row.upgraded-power div small{
+  display:block;margin-top:4px;color:#ff8c8c;font-size:5.5px;font-weight:800
+}
+.power-row.upgraded-power em{
+  min-width:46px;text-align:center
+}

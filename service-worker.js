@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-2-0-no-network-bar';
+const CACHE = 'hlrn-v11-2-1-power-last10-incidents';
 const APP_SHELL = [
   './',
   './index.html',
