@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-1-4-driver-filter-fix';
+const CACHE = 'hlrn-v11-1-5-navigation-history';
 const APP_SHELL = [
   './',
   './index.html',

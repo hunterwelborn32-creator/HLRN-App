@@ -89,7 +89,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.1.4',
+  appVersion: '11.1.5',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -124,7 +124,54 @@ const app = document.querySelector('#app');
 const nav = [...document.querySelectorAll('.nav-item')];
 let countdownTimer;
 
-function setView(view){
+const HLRN_HISTORY={restoring:false,ready:false};
+
+function hlrnRouteState(route,replace=false){
+  if(HLRN_HISTORY.restoring) return;
+  const payload={hlrn:true,route,scrollY:0};
+  try{
+    if(replace) history.replaceState(payload,'',location.href);
+    else history.pushState(payload,'',location.href);
+    HLRN_HISTORY.ready=true;
+  }catch(e){}
+}
+
+function hlrnBack(fallback='home'){
+  try{
+    if(history.state?.hlrn){
+      history.back();
+      return;
+    }
+  }catch(e){}
+  setView(fallback,{history:false});
+}
+
+function restoreHLRNRoute(route){
+  if(!route){ setView('home',{history:false}); return; }
+  HLRN_HISTORY.restoring=true;
+  try{
+    if(route.kind==='feature'){
+      openFeature(route.name,false);
+    }else if(route.kind==='results'){
+      state.resultsLeague=route.league||state.resultsLeague||'Sunday';
+      state.selectedRaceKey=route.key||'';
+      renderResults(false);
+    }else if(route.kind==='driver'){
+      openHLRNDriverProfile(route.name,false);
+    }else{
+      setView(route.view||'home',{history:false});
+    }
+  }finally{
+    HLRN_HISTORY.restoring=false;
+  }
+}
+
+window.addEventListener('popstate',e=>{
+  const route=e.state?.hlrn?e.state.route:null;
+  restoreHLRNRoute(route);
+});
+
+function setView(view,opts={}){
   clearInterval(countdownTimer);
   document.body.dataset.view=view;
   state.currentView=view;
@@ -137,12 +184,14 @@ function setView(view){
     else if(view==='socials' || view==='more') renderSocials();
     else renderHome();
     addPageMotion();
+    if(opts.history!==false) hlrnRouteState({kind:'view',view});
   }catch(err){
     console.error('HLRN view failed:',view,err);
-    app.innerHTML=`${networkBar()}<section class="coming-live"><span>⚠️</span><h3>${escapeHtml(view)} screen hit an error</h3><p>The app is still running. Tap retry while live data finishes loading.</p><button class="btn primary" onclick="setView('${String(view).replace(/'/g,'')}')">RETRY</button><button class="btn" onclick="setView('home')">HOME</button></section>`;
+    app.innerHTML=`${networkBar()}<section class="coming-live"><span>⚠️</span><h3>${escapeHtml(view)} screen hit an error</h3><p>The app is still running. Tap retry while live data finishes loading.</p><button class="btn primary" onclick="setView('${String(view).replace(/'/g,'')}')">RETRY</button><button class="btn" onclick="hlrnBack('home')">HOME</button></section>`;
   }
   window.scrollTo({top:0,behavior:'auto'});
 }
+
 window.hlrnNav=function(view){
   try{if(navigator.vibrate)navigator.vibrate(8);}catch(e){}
   setView(view);
@@ -258,9 +307,9 @@ function networkBar(){
 
 
 function rerenderCurrent(){
-  if(state.currentView==='results') renderResults();
+  if(state.currentView==='results') renderResults(false);
   else if(state.currentView==='feature') renderFeature(state.featureView);
-  else setView(state.currentView);
+  else setView(state.currentView,{history:false});
 }
 
 
@@ -826,7 +875,7 @@ function driverIntelligenceSummary(rows,name){
   return `${name}'s last ${last5.length} finishes: ${last5.map(r=>'P'+r.finish).join(' • ')}. Recent average finish: ${avg5.toFixed(1)}.`;
 }
 
-function openHLRNDriverProfile(name){
+function openHLRNDriverProfile(name,addHistory=true){
   try{name=decodeURIComponent(String(name||''));}catch(e){name=String(name||'');}
   name=prettyName(String(name||'').trim());
   const rows=driverProfileRows(name);
@@ -834,7 +883,7 @@ function openHLRNDriverProfile(name){
     // If only Hosted summary is loaded, fall back to the legacy Hosted profile.
     const hosted=(state.hostedDrivers||[]).find(d=>String(d.name||'').toLowerCase()===name.toLowerCase());
     if(hosted){ openHostedDriverProfile(name); return; }
-    app.innerHTML=`${networkBar()}<button class="profile-back" onclick="setView('drivers')">← Drivers</button>
+    app.innerHTML=`${networkBar()}<button class="profile-back" onclick="hlrnBack('drivers')">← Drivers</button>
       <section class="coming-live"><span>👤</span><h3>Driver data is still loading</h3><p>We found ${escapeHtml(name)}, but the race history has not finished syncing yet.</p><button class="btn primary" onclick="refreshNow()">REFRESH DATA</button></section>`;
     return;
   }
@@ -842,6 +891,7 @@ function openHLRNDriverProfile(name){
   clearInterval(countdownTimer);
   state.currentView='driver-profile';
   nav.forEach(n=>n.classList.remove('active'));
+  if(addHistory) hlrnRouteState({kind:'driver',name});
 
   const stats=profileStats(rows);
   const sunday=profileStats(rows.filter(r=>r.source==='Sunday'));
@@ -878,7 +928,7 @@ function openHLRNDriverProfile(name){
   </article>`;
 
   app.innerHTML=`${networkBar()}
-    <button class="profile-back" onclick="setView('drivers')">← Drivers</button>
+    <button class="profile-back" onclick="hlrnBack('drivers')">← Drivers</button>
     <section class="driver-card-hero">
       <div class="driver-card-number">#${escapeHtml(carNumber)}</div>
       <div class="driver-card-avatar">${escapeHtml(initials(name))}</div>
@@ -951,7 +1001,7 @@ function openHostedDriverProfile(encodedName){
     // If data is still loading, show a proper loading state instead of "unable to load".
     if(!careerRows.length && !summary){
       app.innerHTML=`${networkBar()}
-        <button class="profile-back" onclick="setView('drivers')">← Drivers</button>
+        <button class="profile-back" onclick="hlrnBack('drivers')">← Drivers</button>
         <section class="coming-live"><span>👤</span><h3>Hosted profile is loading</h3><p>We found the driver name, but the Hosted race database has not finished loading yet.</p><button class="btn primary" onclick="refreshHostedData().then(()=>openHostedDriverProfile('${encodeURIComponent(name)}'))">REFRESH HOSTED DATA</button></section>`;
       return;
     }
@@ -1002,7 +1052,7 @@ function openHostedDriverProfile(encodedName){
     </article>`).join('') : `<div class="empty">Track-by-track detail will appear when the full Hosted race feed is loaded.</div>`;
 
     app.innerHTML=`${networkBar()}
-      <button class="profile-back" onclick="setView('drivers')">← Drivers</button>
+      <button class="profile-back" onclick="hlrnBack('drivers')">← Drivers</button>
       <section class="driver-profile-hero">
         <div class="driver-profile-avatar">${escapeHtml(initials(name))}</div>
         <div><small>HLRN HOSTED DRIVER</small><h2>${escapeHtml(name)}</h2><p>${races} career starts • ${wins} wins</p></div>
@@ -1029,7 +1079,7 @@ function openHostedDriverProfile(encodedName){
   }catch(err){
     console.error('Hosted profile error',err);
     app.innerHTML=`${networkBar()}
-      <button class="profile-back" onclick="setView('drivers')">← Drivers</button>
+      <button class="profile-back" onclick="hlrnBack('drivers')">← Drivers</button>
       <section class="coming-live"><span>⚠️</span><h3>Hosted profile hit a loading error</h3><p>The driver profile data could not be built from the current live feed. Tap refresh to try again.</p><button class="btn primary" onclick="refreshHostedData().then(()=>setView('drivers'))">REFRESH DRIVER DATA</button></section>`;
   }
 }
@@ -1098,7 +1148,7 @@ function renderHostedDriverProfileFromRows(driver,rows){
   });
   const tracks=[...tm.values()].sort((a,b)=>b.races-a.races);
   const trackHtml=tracks.map(t=>`<div class="track-history-row"><div><strong>${escapeHtml(t.name)}</strong><small>${t.races} races • ${t.wins} wins • ${t.top5} Top 5s • ${t.top10} Top 10s • ${t.led} laps led</small></div><b>Avg ${t.finishCount?(t.finish/t.finishCount).toFixed(1):'--'}</b></div>`).join('');
-  app.innerHTML=`${networkBar()}<button class="profile-back" onclick="setView('drivers')">← Drivers</button><section class="driver-profile-hero"><div class="driver-profile-kicker">HLRN HOSTED CAREER • ALL IMPORTED RACES</div><h2>${escapeHtml(driver)}</h2><p>${races} races • ${wins} wins • ${top10Rate.toFixed(1)}% Top-10 rate${latestIR!=='--'?` • Latest iRating ${escapeHtml(latestIR)}`:''}</p></section><section class="career-stats-grid">${stat('RACES',races)}${stat('WINS',wins)}${stat('TOP 5',top5)}${stat('TOP 10',top10)}${stat('AVG START',fmt1(avgStart))}${stat('AVG FINISH',fmt1(avgFinish))}${stat('WIN RATE',winRate.toFixed(1)+'%')}${stat('TOP-5 RATE',top5Rate.toFixed(1)+'%')}${stat('LAPS LED',lapsLed)}${stat('INCIDENTS',incidents)}${stat('INC / RACE',fmt1(avgInc))}${stat('TOP-10 RATE',top10Rate.toFixed(1)+'%')}${stat('BEST FINISH',ordinal(bestFinish))}${stat('BEST START',ordinal(bestStart))}${stat('CLEAN RATE',cleanRate.toFixed(1)+'%')}</section><div class="profile-section-title"><h3>Career Badges</h3><span>Milestones</span></div><section class="badge-grid">${careerBadges(races,wins,top5,top10,lapsLed).map(b=>`<div class="career-badge ${b.earned?'earned':''}"><span>${b.icon}</span><strong>${b.label}</strong><small>${b.earned?'EARNED':b.need}</small></div>`).join('')}</section><div class="profile-section-title"><h3>Recent Hosted Races</h3><span>Latest 10</span></div><section class="card profile-races">${recentHtml}</section><div class="profile-section-title"><h3>Track History</h3><span>Career breakdown</span></div><section class="card">${trackHtml}</section>`;
+  app.innerHTML=`${networkBar()}<button class="profile-back" onclick="hlrnBack('drivers')">← Drivers</button><section class="driver-profile-hero"><div class="driver-profile-kicker">HLRN HOSTED CAREER • ALL IMPORTED RACES</div><h2>${escapeHtml(driver)}</h2><p>${races} races • ${wins} wins • ${top10Rate.toFixed(1)}% Top-10 rate${latestIR!=='--'?` • Latest iRating ${escapeHtml(latestIR)}`:''}</p></section><section class="career-stats-grid">${stat('RACES',races)}${stat('WINS',wins)}${stat('TOP 5',top5)}${stat('TOP 10',top10)}${stat('AVG START',fmt1(avgStart))}${stat('AVG FINISH',fmt1(avgFinish))}${stat('WIN RATE',winRate.toFixed(1)+'%')}${stat('TOP-5 RATE',top5Rate.toFixed(1)+'%')}${stat('LAPS LED',lapsLed)}${stat('INCIDENTS',incidents)}${stat('INC / RACE',fmt1(avgInc))}${stat('TOP-10 RATE',top10Rate.toFixed(1)+'%')}${stat('BEST FINISH',ordinal(bestFinish))}${stat('BEST START',ordinal(bestStart))}${stat('CLEAN RATE',cleanRate.toFixed(1)+'%')}</section><div class="profile-section-title"><h3>Career Badges</h3><span>Milestones</span></div><section class="badge-grid">${careerBadges(races,wins,top5,top10,lapsLed).map(b=>`<div class="career-badge ${b.earned?'earned':''}"><span>${b.icon}</span><strong>${b.label}</strong><small>${b.earned?'EARNED':b.need}</small></div>`).join('')}</section><div class="profile-section-title"><h3>Recent Hosted Races</h3><span>Latest 10</span></div><section class="card profile-races">${recentHtml}</section><div class="profile-section-title"><h3>Track History</h3><span>Career breakdown</span></div><section class="card">${trackHtml}</section>`;
 }
 
 async function refreshHostedData(rerender=true){
@@ -1162,11 +1212,12 @@ function hostedRaceGroups(){
   });
   return [...groups.entries()].map(([key,rows])=>({key,rows,track:String(rows[0]?.Track||''),date:String(rows[0]?.['Race Date']||'')})).sort((a,b)=>Date.parse(b.date||0)-Date.parse(a.date||0));
 }
-function switchResultsLeague(league){ state.resultsLeague=league; state.selectedRaceKey=''; renderResults(); }
-function selectRace(key){ state.selectedRaceKey=decodeURIComponent(key); renderResults(); }
-function renderResults(){
+function switchResultsLeague(league){ state.resultsLeague=league; state.selectedRaceKey=''; renderResults(false); hlrnRouteState({kind:'results',league:state.resultsLeague,key:state.selectedRaceKey},true); }
+function selectRace(key){ state.selectedRaceKey=decodeURIComponent(key); renderResults(false); hlrnRouteState({kind:'results',league:state.resultsLeague,key:state.selectedRaceKey},true); }
+function renderResults(addHistory=true){
   clearInterval(countdownTimer); state.currentView='results'; nav.forEach(n=>n.classList.remove('active'));
   const league=state.resultsLeague||'Sunday';
+  if(addHistory) hlrnRouteState({kind:'results',league,key:state.selectedRaceKey||''});
   const groups=league==='Hosted'?hostedRaceGroups():raceGroupsForLeague(league);
   const selected=groups.find(g=>g.key===state.selectedRaceKey)||groups[0];
   if(selected && !state.selectedRaceKey) state.selectedRaceKey=selected.key;
@@ -1192,7 +1243,7 @@ function renderResults(){
     <div class="archive-scroller">${selector||'<div class="empty">No races loaded yet.</div>'}</div>
     ${winnerSpotlight}
     <div class="section-head"><h3>${selected?escapeHtml(selected.track):'Race Results'}</h3><span>${escapeHtml(summary)}</span></div>
-    <section class="card archive-table">${rowsHtml||'<div class="empty">No race results loaded.</div>'}</section><button class="back-home" onclick="setView('home')">← Back Home</button>`;
+    <section class="card archive-table">${rowsHtml||'<div class="empty">No race results loaded.</div>'}</section><button class="back-home" onclick="hlrnBack('home')">← Back Home</button>`;
 }
 
 
@@ -1207,7 +1258,7 @@ function toggleFavorite(name){
   localStorage.setItem('hlrn-favorites',JSON.stringify(state.favorites));
 }
 
-function openFeature(name){
+function openFeature(name,addHistory=true){
   clearInterval(countdownTimer);
   document.body.dataset.view='feature';
   document.body.dataset.feature=name;
@@ -1221,9 +1272,10 @@ function openFeature(name){
     featureShell('HLRN Feature','The feature hit a loading error.',`<section class="coming-live"><span>⚠️</span><h3>Could not open this feature</h3><p>Tap Home and try again after the live data finishes loading.</p><button class="btn primary" onclick="setView('home')">BACK HOME</button></section>`,'feature-error-page');
   }
   addPageMotion();
+  if(addHistory) hlrnRouteState({kind:'feature',name});
   window.scrollTo({top:0,behavior:'smooth'});
 }
-function featureBack(){ document.body.removeAttribute('data-feature'); setView('home'); }
+function featureBack(){ document.body.removeAttribute('data-feature'); hlrnBack('home'); }
 
 function featureShell(title,subtitle,body,cls=''){
   app.innerHTML=`${networkBar()}
@@ -2249,8 +2301,21 @@ if('serviceWorker' in navigator){
 }
 
 const startParams=new URLSearchParams(location.search);
-if(startParams.get('view')==='notifications') openFeature('notifications');
-else renderHome();
+if(startParams.get('view')==='notifications'){
+  openFeature('notifications',false);
+  hlrnRouteState({kind:'feature',name:'notifications'},true);
+}else if(startParams.get('view')==='recap'){
+  state.recapLeague=startParams.get('league')||'Sunday';
+  openFeature('recap',false);
+  hlrnRouteState({kind:'feature',name:'recap'},true);
+}else if(startParams.get('view')==='results'){
+  state.resultsLeague=startParams.get('league')||'Sunday';
+  renderResults(false);
+  hlrnRouteState({kind:'results',league:state.resultsLeague,key:''},true);
+}else{
+  renderHome();
+  hlrnRouteState({kind:'view',view:'home'},true);
+}
 refreshPushStatus().catch(()=>{});
 buildDrivers();
 refreshLiveData();
