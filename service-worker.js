@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-0-1-standings-driver-db-hotfix';
+const CACHE = 'hlrn-v11-1-performance';
 const APP_SHELL = [
   './',
   './index.html',

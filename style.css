@@ -1762,3 +1762,26 @@ main{
   .dc-stat-grid{grid-template-columns:1fr 1fr}.dc-league-grid{grid-template-columns:1fr}.dc-track-grid{grid-template-columns:1fr}
   .dc-history-row{grid-template-columns:minmax(0,1fr) repeat(4,34px)}.dc-history-row b{font-size:7px}
 }
+
+
+/* HLRN 11.1 — PERFORMANCE MODE */
+@media(max-width:700px){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    scroll-behavior:auto!important
+  }
+  body,.shell,.card,.quick-card,.podium-card,.schedule-card,.driver-row,
+  .feature-page,.driver-card-hero,.broadcast-section,.recap-hero{
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important
+  }
+  .view-enter,.hlrn-reveal,.hlrn-scroll-reveal,.hlrn-inview{
+    opacity:1!important;transform:none!important;transition:none!important
+  }
+  .shell:before,.shell:after,.feature-speed-lines,.home-speed-lines,
+  .quick-card:before,.driver-card-hero:after{
+    animation:none!important
+  }
+  .driver-row{contain:layout paint}
+}
