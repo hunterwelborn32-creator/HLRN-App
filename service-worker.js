@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-2-2-android-tap-refresh-state';
+const CACHE = 'hlrn-v11-2-3-no-scroll-jump';
 const APP_SHELL = [
   './',
   './index.html',

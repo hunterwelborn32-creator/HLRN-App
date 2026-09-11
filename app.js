@@ -89,7 +89,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.2.2',
+  appVersion: '11.2.3',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -339,9 +339,11 @@ function networkBar(){ return ''; }
 
 
 function rerenderCurrent(){
+  const y=window.scrollY||0;
   if(state.currentView==='results') renderResults(false);
   else if(state.currentView==='feature') renderFeature(state.featureView);
   else setView(state.currentView,{history:false});
+  requestAnimationFrame(()=>window.scrollTo(0,y));
 }
 
 
@@ -698,9 +700,12 @@ let hostedLazyLoading=false;
 function ensureHostedData(){
   if(state.hostedDataStatus==='LIVE' || hostedLazyLoading) return;
   hostedLazyLoading=true;
-  refreshHostedData(false).then(()=>{HLRN_AUTO_REFRESH.lastHosted=Date.now();}).catch(()=>{}).finally(()=>{
+  refreshHostedData(false).then(()=>{
+    HLRN_AUTO_REFRESH.lastHosted=Date.now();
+  }).catch(()=>{}).finally(()=>{
     hostedLazyLoading=false;
-    if(state.currentView==='drivers') renderDrivers(document.querySelector('#driverSearch')?.value||'');
+    // Never rerender the current screen automatically while the user is reading/scrolling.
+    // Fresh Hosted data will be used the next time the screen is opened or explicitly changed.
   });
 }
 
@@ -2484,7 +2489,19 @@ if('serviceWorker' in navigator){
   if(refreshing)return;
   refreshing=true;
   persistCurrentHLRNRoute();
-  window.location.reload();
+
+  if(document.visibilityState==='hidden'){
+    window.location.reload();
+  }else{
+    // Do not kick an active user back to the top mid-scroll.
+    const reloadWhenHidden=()=>{
+      if(document.visibilityState==='hidden'){
+        document.removeEventListener('visibilitychange',reloadWhenHidden);
+        window.location.reload();
+      }
+    };
+    document.addEventListener('visibilitychange',reloadWhenHidden);
+  }
 });
   window.addEventListener('load',async()=>{
     try{
@@ -2492,6 +2509,10 @@ if('serviceWorker' in navigator){
       if(registration.waiting) registration.waiting.postMessage({type:'SKIP_WAITING'});
       registration.addEventListener('updatefound',()=>{const worker=registration.installing;if(!worker)return;worker.addEventListener('statechange',()=>{if(worker.state==='installed'&&navigator.serviceWorker.controller)worker.postMessage({type:'SKIP_WAITING'});});});
       document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'){
+    persistCurrentHLRNRoute();
+    return;
+  }
   if(document.visibilityState==='visible'){
     registration.update().catch(()=>{});
     autoRefreshLive(false);
@@ -2538,7 +2559,9 @@ if(forcedView==='notifications'){
 }
 refreshPushStatus().catch(()=>{});
 buildDrivers();
-refreshLiveData().finally(()=>{
+// The screen is already rendered above. Update data silently so a completed fetch
+// cannot redraw the page and jump the user back to the top while scrolling.
+refreshLiveData(false).finally(()=>{
   HLRN_AUTO_REFRESH.lastLive=Date.now();
   startHLRNAutoRefresh();
 });
