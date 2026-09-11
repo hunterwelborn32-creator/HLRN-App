@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v10-5-race-recap-center';
+const CACHE = 'hlrn-v11-driver-cards-smart-notifications';
 const APP_SHELL = [
   './',
   './index.html',

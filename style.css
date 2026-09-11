@@ -1714,3 +1714,51 @@ main{
   .recap-detail-grid.upgraded{grid-template-columns:1fr 1fr}
   .recap-actions{grid-template-columns:1fr}
 }
+
+
+/* HLRN 11.0 — NASCAR-STYLE DRIVER CARDS */
+.hlrn-driver-link{
+  appearance:none;border:0;background:transparent;color:inherit;padding:0;margin:0;
+  font:inherit;font-weight:inherit;text-align:left;cursor:pointer
+}
+.hlrn-driver-link:hover{text-decoration:underline;text-decoration-color:#ffd400;text-underline-offset:3px}
+.podium-driver-link{display:block;text-align:center;width:100%}
+.driver-card-hero{
+  position:relative;display:grid;grid-template-columns:78px 74px 1fr auto;gap:14px;align-items:center;
+  padding:18px;margin:8px 0 12px;border-radius:21px;border:1px solid rgba(255,255,255,.075);
+  background:radial-gradient(circle at 90% 10%,rgba(255,212,0,.13),transparent 26%),linear-gradient(145deg,#171c24,#090d13);
+  overflow:hidden
+}
+.driver-card-hero:after{content:"";position:absolute;right:-30px;bottom:-45px;width:180px;height:90px;border:12px solid rgba(255,255,255,.018);transform:rotate(-18deg)}
+.driver-card-number{font-size:30px;font-weight:1000;color:#ffd400;text-align:center}
+.driver-card-avatar{width:64px;height:64px;border-radius:18px;display:grid;place-items:center;background:#242b35;font-size:21px;font-weight:1000}
+.driver-card-identity small{display:block;color:#ffd400;font-size:6px;font-weight:1000;letter-spacing:.14em}
+.driver-card-identity h2{margin:4px 0 3px;font-size:28px;letter-spacing:-.045em}
+.driver-card-identity p{margin:0;color:#78828e;font-size:8px}
+.driver-card-rating{text-align:right}
+.driver-card-rating small{display:block;color:#737d89;font-size:5px;font-weight:1000}
+.driver-card-rating strong{display:block;margin-top:5px;font-size:10px;white-space:nowrap}
+.dc-intelligence{display:flex;gap:11px;align-items:center;padding:13px 14px;margin-bottom:12px;border:1px solid rgba(255,122,39,.17);border-radius:16px;background:rgba(255,122,39,.055)}
+.dc-intelligence>span{font-size:22px}.dc-intelligence small{display:block;color:#ff7a27;font-size:5px;font-weight:1000;letter-spacing:.13em}.dc-intelligence strong{display:block;margin-top:4px;font-size:9px;line-height:1.45}
+.dc-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.dc-stat{padding:11px 10px;border:1px solid rgba(255,255,255,.06);border-radius:14px;background:#10151c;min-width:0}
+.dc-stat small{display:block;color:#707a86;font-size:5px;font-weight:1000}.dc-stat strong{display:block;margin-top:5px;font-size:15px;overflow-wrap:anywhere}.dc-stat span{display:block;margin-top:3px;color:#69737f;font-size:5px}
+.dc-league-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.dc-league-card{padding:13px;border-radius:15px;background:#10151c;border:1px solid rgba(255,255,255,.06)}
+.dc-league-card.sun{border-color:rgba(239,35,60,.18)}.dc-league-card.mon{border-color:rgba(53,208,127,.18)}.dc-league-card.hosted{border-color:rgba(255,212,0,.18)}
+.dc-league-card small{color:#727c88;font-size:5px;font-weight:1000}.dc-league-card>strong{display:block;margin-top:5px;font-size:10px}.dc-league-card div{display:flex;gap:8px;margin-top:8px}.dc-league-card div span{font-size:6px;color:#9ca5af}
+.dc-recent-list,.dc-history{border:1px solid rgba(255,255,255,.06);border-radius:16px;overflow:hidden;background:#0d1218}
+.dc-race-row{width:100%;display:grid;grid-template-columns:48px 1fr 42px;gap:10px;align-items:center;padding:10px 11px;border:0;border-bottom:1px solid rgba(255,255,255,.05);background:transparent;color:#fff;text-align:left}
+.dc-race-row:last-child{border-bottom:0}.dc-finish{font-size:12px;font-weight:1000}.dc-finish.win{color:#ffd400}.dc-race-row strong{display:block;font-size:8px}.dc-race-row span{display:block;margin-top:3px;color:#707a86;font-size:5.5px}.dc-race-row>b{text-align:right;font-size:8px}
+.dc-track-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.dc-track-grid article{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 11px;border-radius:13px;background:#10151c;border:1px solid rgba(255,255,255,.055)}
+.dc-track-grid strong{display:block;font-size:8px}.dc-track-grid span{display:block;margin-top:3px;color:#737d89;font-size:5.5px}.dc-track-grid b{font-size:13px;text-align:right}.dc-track-grid b small{display:block;color:#69737f;font-size:4.5px}
+.dc-history-row{display:grid;grid-template-columns:minmax(0,1fr) repeat(4,48px);gap:5px;align-items:center;padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.05)}
+.dc-history-row:last-child{border-bottom:0}.dc-history-row>div:first-child small{color:#ffd400;font-size:4.5px;font-weight:1000}.dc-history-row>div:first-child strong{display:block;margin-top:2px;font-size:7.5px}.dc-history-row>div:first-child span{display:block;margin-top:2px;color:#6d7783;font-size:5px}.dc-history-row>div:not(:first-child){text-align:center}.dc-history-row b{display:block;font-size:9px}.dc-history-row div>small{color:#626c78;font-size:4px}
+@media(max-width:650px){
+  .driver-card-hero{grid-template-columns:52px 52px 1fr;padding:14px 11px;gap:9px}
+  .driver-card-number{font-size:20px}.driver-card-avatar{width:48px;height:48px;border-radius:14px;font-size:15px}
+  .driver-card-identity h2{font-size:21px}.driver-card-rating{grid-column:1/-1;text-align:left;padding-top:8px;border-top:1px solid rgba(255,255,255,.05)}
+  .dc-stat-grid{grid-template-columns:1fr 1fr}.dc-league-grid{grid-template-columns:1fr}.dc-track-grid{grid-template-columns:1fr}
+  .dc-history-row{grid-template-columns:minmax(0,1fr) repeat(4,34px)}.dc-history-row b{font-size:7px}
+}
