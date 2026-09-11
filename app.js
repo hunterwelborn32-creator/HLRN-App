@@ -89,7 +89,7 @@ const state = {
   hostedLatest: null,
   hostedDataStatus: 'Connecting…',
   links: {},
-  appVersion: '11.1.7',
+  appVersion: '11.1.8',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -606,7 +606,7 @@ function switchHomeLeague(name){ state.homeLeague=name; renderHome(); }
 
 function openBroadcast(league){
   const url = state.links[`${league} Broadcast`];
-  if(url) window.open(url,'_blank');
+  if(url) openSocial(url);
   else alert(`${league} broadcast link is not filled in yet. Add it to the HLRN App Live Config sheet.`);
 }
 
@@ -2161,8 +2161,20 @@ function renderSocials(){
     <div class="socials-footer-line"><span></span>RACING BRINGS US TOGETHER<span></span></div>`;
 }
 
-function openSocial(url){ if(url) window.open(url,'_blank','noopener,noreferrer'); }
-function openLink(name){ const url=state.links[name]; if(url) window.open(url,'_blank'); }
+function openSocial(url){
+  if(!url)return;
+  try{
+    // Same-context navigation avoids iOS's blank external-browser sheet.
+    // Browser history keeps HLRN directly behind the external page.
+    window.location.assign(url);
+  }catch(e){
+    window.location.href=url;
+  }
+}
+function openLink(name){
+  const url=state.links[name];
+  if(url) openSocial(url);
+}
 
 // Google Visualization JSONP loader: works without exposing any API keys.
 function loadGviz(sheetId, sheetName, range){

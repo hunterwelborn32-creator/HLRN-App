@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-1-7-rule-section-toggle';
+const CACHE = 'hlrn-v11-1-8-ios-external-links';
 const APP_SHELL = [
   './',
   './index.html',
