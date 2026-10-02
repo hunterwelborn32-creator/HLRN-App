@@ -99,7 +99,7 @@ const state = {
   hostedDataStatus: 'Connecting…',
   hostedCachePartial: false,
   links: {},
-  appVersion: '11.4.2',
+  appVersion: '11.4.3',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -1226,9 +1226,9 @@ function openHLRNDriverProfile(name,addHistory=true){
 
   app.innerHTML=`${networkBar()}
     <button class="profile-back" onclick="hlrnBack('drivers')">← Drivers</button>
-    <section class="driver-card-hero">
+    <section class="driver-card-hero driver-card-has-photo">
       <div class="driver-card-number">#${escapeHtml(carNumber)}</div>
-      <div class="driver-card-avatar">${escapeHtml(initials(name))}</div>
+      ${driverPhotoMarkup(name,'driver-card-photo','driver-card-photo-fallback')}
       <div class="driver-card-identity"><small>HLRN DRIVER CARD</small><h2>${escapeHtml(name)}</h2><p>${escapeHtml(team)}</p></div>
       <div class="driver-card-rating"><small>RECENT FORM</small><strong>${escapeHtml(recentForm)}</strong></div>
     </section>
