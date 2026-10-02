@@ -47,6 +47,11 @@ function safeText(value){
     .replace(/'/g,"&#039;");
 }
 
+window.hLrnDriverPhotoUrl=function(name){
+  const file=MAP[keyFor(name)];
+  return file ? BASE+file : '';
+};
+
 window.hLrnNameWithPhoto=function(name){
   const display=String(name||"").trim();
   const file=MAP[keyFor(display)];
