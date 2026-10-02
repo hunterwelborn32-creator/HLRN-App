@@ -1,10 +1,10 @@
 {
-  "name": "HLRN RaceOS",
+  "name": "HLRN HyperGrid",
   "short_name": "HLRN",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#030406",
-  "theme_color": "#030406",
+  "background_color": "#010205",
+  "theme_color": "#010205",
   "description": "HLRN standings, schedule, hosted stats, rules, announcements and push notifications.",
   "icons": [
     {
