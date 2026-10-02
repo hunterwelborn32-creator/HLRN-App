@@ -10,16 +10,17 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="HLRN" />
-  <link rel="stylesheet" href="style.css?v=11.4.3" />
+  <link rel="stylesheet" href="style.css?v=12.0.0" />
   <title>HLRN</title>
 </head>
 <body><div class="ambient-checkers" aria-hidden="true"></div>
   <div class="app-shell">
     <header class="topbar"><div class="topbar-glow" aria-hidden="true"></div>
       <div class="top-brand"><img src="hlrn-logo-4k.png" alt="HLRN"><div><div class="eyebrow">HIGH LINE RACING NETWORK</div><h1>HLRN</h1></div></div>
-      <div class="top-actions"><div class="top-network-pill"><span class="top-live-dot" aria-hidden="true"></span><b>LIVE NETWORK</b></div><button class="icon-btn sound-toggle" id="soundToggleBtn" onclick="toggleHLRNSound()" aria-label="Turn sound effects off">🔊</button><button class="icon-btn" id="installBtn" hidden aria-label="Install app">＋</button></div>
+      <div class="top-actions"><div class="top-network-pill"><span class="top-live-dot" aria-hidden="true"></span><b>NETWORK READY</b></div><button class="icon-btn notification-quick" id="notificationQuickBtn" onclick="openFeature('notifications')" aria-label="Open notifications">🔔<i id="notificationQuickBadge" hidden></i></button><button class="icon-btn sound-toggle" id="soundToggleBtn" onclick="toggleHLRNSound()" aria-label="Turn sound effects off">🔊</button><button class="icon-btn" id="installBtn" hidden aria-label="Install app">＋</button></div>
     </header>
 
+    <div id="pullRefreshIndicator" class="pull-refresh-indicator"><b>↻</b><span>Pull to refresh</span></div>
     <main id="app"></main>
 
     <nav class="bottom-nav" aria-label="Primary"><div class="nav-glow" aria-hidden="true"></div>
@@ -31,8 +32,8 @@
     </nav>
   </div>
 
-  <script src="rules-data.js?v=11.4.3"></script>
-<script src="standings-driver-photos.js?v=11.4.3"></script>
-<script src="app.js?v=11.4.3"></script>
+  <script src="rules-data.js?v=12.0.0"></script>
+<script src="standings-driver-photos.js?v=12.0.0"></script>
+<script src="app.js?v=12.0.0"></script>
 </body>
 </html>
