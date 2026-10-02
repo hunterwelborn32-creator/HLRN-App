@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-4-3-driver-card-photos';
+const CACHE = 'hlrn-v12-command-center';
 const APP_SHELL = [
   './',
   './index.html',
@@ -33,20 +33,45 @@ self.addEventListener('message', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
-  // Always try the network first so newly deployed GitHub Pages files win.
+  const request=event.request;
+  const url=new URL(request.url);
+  const isImage=request.destination==='image';
+  const isDriverPhoto=url.pathname.includes('/driver-photos/');
+  const isStaticAsset=['style','script','font'].includes(request.destination);
+
+  // Images/static assets use cache-first after first view for instant app-like navigation.
+  if(isImage || isDriverPhoto || isStaticAsset){
+    event.respondWith((async()=>{
+      const cached=await caches.match(request);
+      if(cached)return cached;
+      try{
+        const response=await fetch(request);
+        if(response && (response.ok || response.type==='opaque')){
+          const copy=response.clone();
+          caches.open(CACHE).then(cache=>cache.put(request,copy)).catch(()=>{});
+        }
+        return response;
+      }catch(e){
+        return Response.error();
+      }
+    })());
+    return;
+  }
+
+  // Data/navigation stays network-first, with the last good response available offline.
   event.respondWith(
-    fetch(event.request, { cache: 'no-store' })
-      .then(response => {
-        if (response && response.ok) {
-          const copy = response.clone();
-          caches.open(CACHE).then(cache => cache.put(event.request, copy));
+    fetch(request,{cache:'no-store'})
+      .then(response=>{
+        if(response && (response.ok || response.type==='opaque')){
+          const copy=response.clone();
+          caches.open(CACHE).then(cache=>cache.put(request,copy)).catch(()=>{});
         }
         return response;
       })
-      .catch(async () => {
-        const cached = await caches.match(event.request);
-        if (cached) return cached;
-        if (event.request.mode === 'navigate') return caches.match('./index.html');
+      .catch(async()=>{
+        const cached=await caches.match(request);
+        if(cached)return cached;
+        if(request.mode==='navigate')return caches.match('./index.html');
         return Response.error();
       })
   );
