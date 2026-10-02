@@ -366,6 +366,12 @@
     state.teamGarage={league:league,name:name};
     openFeature('teamgarage');
   };
+  window.shareTeamGarage=function(league,encoded){
+    const name=decodeSafe(encoded);
+    const team=teamByName(league,name);
+    if(!team)return;
+    shareHLRNItem('HLRN '+team.name,team.points+' points • '+(team.wins||0)+' wins • '+league+' League',HLRN_SITE_DATA.website);
+  };
   window.renderTeamGarage=function(){
     const g=state.teamGarage||{league:'Sunday',name:''};
     const team=teamByName(g.league,g.name);
@@ -619,14 +625,18 @@
   function rememberAlert(key){
     liveAlertSeen.add(key);while(liveAlertSeen.size>MAX_ALERTS)liveAlertSeen.delete(liveAlertSeen.values().next().value);writeJSON(ALERT_KEY,Array.from(liveAlertSeen));
   }
-  async function favoriteLiveAlert(title,body,key){
-    if(liveAlertSeen.has(key)||driverOSProfile().favoriteAlerts===false)return;
+  async function osLocalAlert(title,body,key,url){
+    if(liveAlertSeen.has(key))return;
     rememberAlert(key);toast(title+' — '+body,'live');vibrate([18,20,18]);
     if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){
       try{
-        const reg=await navigator.serviceWorker.ready;reg.showNotification(title,{body:body,icon:'./icon-192.png',badge:'./icon-192.png',tag:key,data:{url:'./?view=live'}});
+        const reg=await navigator.serviceWorker.ready;reg.showNotification(title,{body:body,icon:'./icon-192.png',badge:'./icon-192.png',tag:key,data:{url:url||'./?view=notifications'}});
       }catch(e){}
     }
+  }
+  async function favoriteLiveAlert(title,body,key){
+    if(driverOSProfile().favoriteAlerts===false)return;
+    return osLocalAlert(title,body,key,'./?view=live');
   }
   function processFavoriteLiveAlerts(feed){
     if(!feed||String(feed.phase||'').toLowerCase()!=='race')return;
@@ -670,8 +680,9 @@
   }
   function restoreOfflineSnapshot(){
     const snap=readJSON(SNAPSHOT_KEY,null);if(!snap)return false;
-    if((!state.standings.Sunday||!state.standings.Sunday.length)&&snap.standings)state.standings=snap.standings;
-    if((!state.results.Sunday||!state.results.Sunday.length)&&snap.results)state.results=snap.results;
+    const shouldHydrate=!state.lastUpdated||!navigator.onLine;
+    if(shouldHydrate&&snap.standings)state.standings=snap.standings;
+    if(shouldHydrate&&snap.results)state.results=snap.results;
     if(snap.latestResults)state.latestResults=snap.latestResults;
     if(snap.nextRaces)state.nextRaces=snap.nextRaces;
     if(snap.teamStandings)state.teamStandings=snap.teamStandings;
@@ -727,6 +738,37 @@
     setTimeout(function(){appendDriverOSInsights(decoded);},0);
   };
 
+  function hostedMeetingRows(a,b){
+    const races=new Map();
+    (state.hostedRaceRows||[]).forEach(function(r){
+      const name=prettyName(String(r.Driver||''));
+      if(name!==a&&name!==b)return;
+      const key=String(r['Race ID']||r['Subsession ID']||r['Race Date']||'')+'|'+String(r.Track||'');
+      if(!races.has(key))races.set(key,{});
+      races.get(key)[name]=Number(r['Finish Position']||0);
+    });
+    return Array.from(races.values()).filter(function(x){return x[a]>0&&x[b]>0;});
+  }
+  function appendHeadToHeadOS(){
+    if(document.querySelector('.os-h2h-2'))return;
+    const a=state.h2hA||'',b=state.h2hB||'';
+    if(!a||!b||a===b)return;
+    const aRows=resultRowsForName(a),bRows=resultRowsForName(b);
+    const meetings=hostedMeetingRows(a,b);
+    const aWins=meetings.filter(function(m){return m[a]<m[b];}).length;
+    const bWins=meetings.filter(function(m){return m[b]<m[a];}).length;
+    const aRecent=aRows.slice(-8).map(function(r){return Number(r.finish||0);}).filter(function(v){return v>0;});
+    const bRecent=bRows.slice(-8).map(function(r){return Number(r.finish||0);}).filter(function(v){return v>0;});
+    const html='<section class="os-h2h-2"><div class="section-head"><h3>Driver OS Comparison</h3><span>DIRECT + RECENT FORM</span></div><div class="os-h2h-cards">'+
+      '<article>'+driverPhotoMarkup(a,'os-h2h-photo','os-h2h-fallback')+'<div><small>DRIVER A</small><strong>'+escapeHtml(a)+'</strong><span>'+aRows.length+' starts loaded</span>'+sparklineSVG(aRecent,true)+'</div></article>'+
+      '<div class="os-h2h-meet"><small>HOSTED MEETINGS</small><strong>'+aWins+' – '+bWins+'</strong><span>'+meetings.length+' races together</span></div>'+
+      '<article>'+driverPhotoMarkup(b,'os-h2h-photo','os-h2h-fallback')+'<div><small>DRIVER B</small><strong>'+escapeHtml(b)+'</strong><span>'+bRows.length+' starts loaded</span>'+sparklineSVG(bRecent,true)+'</div></article>'+
+      '</div><p class="feature-note">Direct record counts only Hosted races where both drivers have a recorded finishing position. Recent-form charts use each driver’s latest loaded HLRN finishes.</p></section>';
+    app.insertAdjacentHTML('beforeend',html);
+  }
+  const renderHeadToHeadV12=renderHeadToHead;
+  renderHeadToHead=function(){renderHeadToHeadV12();setTimeout(appendHeadToHeadOS,0);};
+
   function featureDispatch(name){
     if(name==='myhlrn')return renderMyHLRN();
     if(name==='simulator')return renderChampionshipSimulator();
@@ -757,7 +799,7 @@
       const mins=Math.round((new Date(race.iso).getTime()-now)/60000);
       if(mins!==30)return;
       const key='reminder30|'+league+'|'+race.iso;if(liveAlertSeen.has(key))return;
-      favoriteLiveAlert('HLRN • '+league+' race in 30 minutes',race.track+' • '+race.time,key);
+      osLocalAlert('HLRN • '+league+' race in 30 minutes',race.track+' • '+race.time,key,'./?view=schedule');
     });
   }
   setInterval(raceReminderTick,60000);setTimeout(raceReminderTick,2500);
