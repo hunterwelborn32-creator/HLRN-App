@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v14-race-night-pro';
+const CACHE = 'hlrn-v14-0-1-race-night-pro';
 const APP_SHELL = [
   './',
   './index.html',
