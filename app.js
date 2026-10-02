@@ -15,7 +15,9 @@ const HLRN_PUSH = {
 
 const HLRN_ENDPOINTS = {
   leagueApi: 'https://script.google.com/macros/s/AKfycbwo4C9RyV-H-F4ekKFcgmrYVpyOUsh9dmFf2jVhJwvieCTKpKzAR_k6lNcppBuehj58/exec',
-  announcements: 'https://hlrn-discord.hunterwelborn32.workers.dev/api/announcements'
+  announcements: 'https://hlrn-discord.hunterwelborn32.workers.dev/api/announcements',
+  liveFeed: 'wss://hlrn-live-feed.onrender.com/ws?role=viewer',
+  livePage: 'https://highlineracingnetwork.com/live/'
 };
 
 const LIVE = {
@@ -82,6 +84,21 @@ const state = {
   selectedRaceKey: '',
   liveStatus: 'Connecting…',
   lastUpdated: null,
+  isOnline: navigator.onLine,
+  liveRace: {
+    connected:false,
+    phase:'standby',
+    flag:'OFF AIR',
+    lap:0,
+    totalLaps:0,
+    driverCount:0,
+    track:'',
+    series:'',
+    sessionName:'',
+    leader:'',
+    leaderNumber:'',
+    updatedAt:0
+  },
   nextRaces: {
     Sunday: {date:'OCT 4', dateKey:'2026-10-04', iso:'2026-10-04T20:30:00-04:00', track:'iRacing Superspeedway', series:'Sunday League', time:'8:30 PM ET', broadcast:''},
     Monday: {date:'OCT 5', dateKey:'2026-10-05', iso:'2026-10-05T20:30:00-04:00', track:'Auto Club', series:'Monday League', time:'8:30 PM ET', broadcast:''}
@@ -99,7 +116,7 @@ const state = {
   hostedDataStatus: 'Connecting…',
   hostedCachePartial: false,
   links: {},
-  appVersion: '11.4.3',
+  appVersion: '12.0.0',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -331,9 +348,21 @@ function racePulse(){
 }function refreshNow(){
   const btn=document.querySelector('#refreshDataBtn');
   if(btn) btn.classList.add('spinning');
-  Promise.allSettled([refreshLiveData(),refreshHostedData(false),refreshTeamStandings(),refreshDiscordAnnouncements()]).finally(()=>{
-    setTimeout(()=>{btn?.classList.remove('spinning'); playHLRNSound('refresh');},500);
+  const task=Promise.allSettled([
+    refreshLiveData(false),
+    refreshHostedData(false),
+    refreshTeamStandings(),
+    refreshDiscordAnnouncements()
+  ]).then(()=>{
+    HLRN_AUTO_REFRESH.lastLive=Date.now();
+    HLRN_AUTO_REFRESH.lastHosted=Date.now();
+    updateAppBadge();
+    updateTopNetworkPill();
+    if(!inputIsActive())rerenderCurrent();
+  }).finally(()=>{
+    setTimeout(()=>{btn?.classList.remove('spinning');playHLRNSound('refresh');},350);
   });
+  return task;
 }
 function seasonWeek(league){
   const rows=FULL_SCHEDULE[league]||[];
@@ -546,6 +575,126 @@ function liveBadge(){
   return `<div class="sync-badge ${ok||hasUsableHosted?'live':''}"><i></i>${escapeHtml(label)}</div>`;
 }
 
+function announcementSignature(a){
+  if(!a)return '';
+  return [a.jumpUrl||'',a.time||'',a.title||'',a.text||''].join('|');
+}
+
+function unreadAnnouncementCount(){
+  if(!state.announcements.length)return 0;
+  let seen='';
+  try{seen=localStorage.getItem('hlrn-announcement-seen')||'';}catch(e){}
+  if(!seen)return Math.min(9,state.announcements.length);
+  let count=0;
+  for(const a of state.announcements){
+    if(announcementSignature(a)===seen)break;
+    count++;
+  }
+  return Math.min(9,count);
+}
+
+function updateAppBadge(){
+  const count=unreadAnnouncementCount();
+  const badge=document.getElementById('notificationQuickBadge');
+  if(badge){
+    badge.textContent=count>0?String(count):'';
+    badge.hidden=count<=0;
+  }
+  try{
+    if(count>0 && navigator.setAppBadge)navigator.setAppBadge(count).catch(()=>{});
+    else if(navigator.clearAppBadge)navigator.clearAppBadge().catch(()=>{});
+  }catch(e){}
+}
+
+function markAnnouncementsRead(){
+  const latest=state.announcements[0];
+  if(latest){
+    try{localStorage.setItem('hlrn-announcement-seen',announcementSignature(latest));}catch(e){}
+  }
+  updateAppBadge();
+}
+
+function updateTopNetworkPill(){
+  const pill=document.querySelector('.top-network-pill');
+  if(!pill)return;
+  const b=pill.querySelector('b');
+  const dot=pill.querySelector('.top-live-dot');
+  const raceLive=state.liveRace.connected && state.liveRace.driverCount>0;
+  const online=state.isOnline;
+  pill.classList.toggle('race-live',raceLive);
+  pill.classList.toggle('offline',!online);
+  if(b)b.textContent=!online?'OFFLINE':raceLive?'RACE LIVE':'NETWORK READY';
+  if(dot)dot.setAttribute('aria-label',!online?'Offline':raceLive?'Race live':'Network online');
+}
+
+async function shareHLRNItem(title,text,url=''){
+  const shareUrl=url||HLRN_SITE_DATA.website;
+  try{
+    if(navigator.share){
+      await navigator.share({title,text,url:shareUrl});
+      return;
+    }
+    const copy=[title,text,shareUrl].filter(Boolean).join('\n');
+    if(navigator.clipboard){
+      await navigator.clipboard.writeText(copy);
+      alert('HLRN share text copied.');
+    }
+  }catch(e){}
+}
+
+function shareRaceResult(league,winner,track,date=''){
+  shareHLRNItem(
+    'HLRN '+league+' Result',
+    [winner+' wins at '+track,date].filter(Boolean).join(' • '),
+    'https://highlineracingnetwork.com/results/'
+  );
+}
+
+function shareStandings(league){
+  const rows=(state.standings[league]||[]).slice(0,5);
+  const text=rows.length
+    ? rows.map((d,i)=>`${i+1}. ${d.name} — ${d.points} pts`).join('\n')
+    : 'Standings are syncing.';
+  shareHLRNItem('HLRN '+league+' Standings',text,'https://highlineracingnetwork.com/standings/');
+}
+
+function shareDriverProfile(name){
+  const rows=driverProfileRows(name);
+  const stats=profileStats(rows);
+  const line=rows.length
+    ? `${stats.starts} starts • ${stats.wins} wins • ${stats.top5} Top 5s • ${stats.top10} Top 10s`
+    : 'HLRN driver profile';
+  shareHLRNItem('HLRN Driver — '+name,line,HLRN_SITE_DATA.website+'drivers/');
+}
+
+function favoritePreviewNames(){
+  return (state.favorites||[]).slice(0,4);
+}
+
+function commandWinnerCard(label,winner,track,league,cls=''){
+  const name=prettyName(String(winner||''));
+  if(!name)return '';
+  const encoded=encodeURIComponent(name).replace(/'/g,'%27');
+  return `<article class="cc-winner-card ${cls}">
+    <button class="cc-winner-main" onclick="openHLRNDriverProfile(decodeURIComponent('${encoded}'))">
+      ${driverPhotoMarkup(name,'cc-winner-photo','cc-winner-fallback')}
+      <div><small>${escapeHtml(label)}</small><strong>${escapeHtml(name)}</strong><span>${escapeHtml(track||'Latest HLRN result')}</span></div>
+    </button>
+    <button class="cc-icon-action" aria-label="Share result" onclick="shareRaceResult('${escapeHtml(league)}',decodeURIComponent('${encoded}'),'${escapeHtml(String(track||'').replace(/'/g,'&#039;'))}')">↗</button>
+  </article>`;
+}
+
+function liveRaceLeader(){
+  return state.liveRace.leader||'Waiting for live timing';
+}
+
+function liveRaceStatusLabel(){
+  if(!state.isOnline)return 'OFFLINE';
+  if(!state.liveRace.connected)return 'STANDBY';
+  const phase=String(state.liveRace.phase||state.liveRace.sessionName||'LIVE').toUpperCase();
+  return phase||'LIVE';
+}
+
 function countdownMarkup(){
   return `<div class="countdown" aria-label="Countdown to race">
     <div><strong id="cdDays">--</strong><small>DAYS</small></div><span>:</span>
@@ -574,80 +723,271 @@ function startCountdown(iso){
   update(); countdownTimer=setInterval(update,1000);
 }
 
+let HLRN_LIVE_SOCKET=null;
+let HLRN_LIVE_RETRY=1200;
+
+function applyLiveRaceState(feed){
+  const drivers=Array.isArray(feed?.drivers)?feed.drivers:[];
+  const leader=drivers.find(d=>Number(d.position)===1)||drivers[0]||null;
+  state.liveRace={
+    connected:true,
+    phase:String(feed?.phase||feed?.sessionName||'live').toLowerCase(),
+    flag:String(feed?.flag||'GREEN').toUpperCase(),
+    lap:Number(feed?.lap)||Number(feed?.currentLap)||0,
+    totalLaps:Number(feed?.totalLaps)||0,
+    driverCount:Number(feed?.driverCount)||drivers.length,
+    track:String(feed?.track||''),
+    series:String(feed?.series||''),
+    sessionName:String(feed?.sessionName||''),
+    leader:prettyName(String(leader?.name||leader?.driver||'')),
+    leaderNumber:String(leader?.number||leader?.carNumber||''),
+    updatedAt:Date.now()
+  };
+  updateTopNetworkPill();
+
+  if(state.currentView==='home' && !inputIsActive()){
+    const y=window.scrollY||0;
+    renderHome();
+    requestAnimationFrame(()=>window.scrollTo(0,y));
+  }
+}
+
+function connectHLRNLiveFeed(){
+  if(!('WebSocket' in window))return;
+  try{
+    if(HLRN_LIVE_SOCKET && [WebSocket.OPEN,WebSocket.CONNECTING].includes(HLRN_LIVE_SOCKET.readyState))return;
+    HLRN_LIVE_SOCKET=new WebSocket(HLRN_ENDPOINTS.liveFeed);
+
+    HLRN_LIVE_SOCKET.onopen=()=>{
+      state.liveRace.connected=true;
+      HLRN_LIVE_RETRY=1200;
+      updateTopNetworkPill();
+    };
+
+    HLRN_LIVE_SOCKET.onmessage=event=>{
+      try{
+        const msg=JSON.parse(event.data);
+        if(msg?.type==='state' && msg.data)applyLiveRaceState(msg.data);
+      }catch(e){}
+    };
+
+    HLRN_LIVE_SOCKET.onclose=()=>{
+      state.liveRace.connected=false;
+      state.liveRace.driverCount=0;
+      updateTopNetworkPill();
+      setTimeout(connectHLRNLiveFeed,HLRN_LIVE_RETRY);
+      HLRN_LIVE_RETRY=Math.min(15000,Math.round(HLRN_LIVE_RETRY*1.6));
+    };
+
+    HLRN_LIVE_SOCKET.onerror=()=>{};
+  }catch(e){
+    state.liveRace.connected=false;
+    setTimeout(connectHLRNLiveFeed,HLRN_LIVE_RETRY);
+  }
+}
+
+function openLiveRaceCenter(){
+  openSocial(HLRN_ENDPOINTS.livePage);
+}
+
 function renderHome(){
   state.currentView='home';
-  const race = state.nextRaces[state.homeLeague];
-  const scheduleRace = FULL_SCHEDULE[state.homeLeague].find(r=>r.date===(race.dateKey||race.iso?.slice(0,10))) || FULL_SCHEDULE[state.homeLeague].find(r=>r.track===race.track) || {};
-  const sundayLeader = state.standings.Sunday?.[0];
-  const mondayLeader = state.standings.Monday?.[0];
+  updateTopNetworkPill();
+  updateAppBadge();
+
+  const race=state.nextRaces[state.homeLeague]||{};
+  const scheduleRace=(FULL_SCHEDULE[state.homeLeague]||[]).find(r=>r.date===(race.dateKey||race.iso?.slice(0,10)))
+    ||(FULL_SCHEDULE[state.homeLeague]||[]).find(r=>r.track===race.track)||{};
+
+  const sundayLeader=state.standings.Sunday?.[0];
+  const sundaySecond=state.standings.Sunday?.[1];
+  const mondayLeader=state.standings.Monday?.[0];
+  const mondaySecond=state.standings.Monday?.[1];
+  const sundayGap=sundayLeader&&sundaySecond?Math.max(0,(sundayLeader.points||0)-(sundaySecond.points||0)):0;
+  const mondayGap=mondayLeader&&mondaySecond?Math.max(0,(mondayLeader.points||0)-(mondaySecond.points||0)):0;
+
   const sundayDone=seasonCompleted('Sunday');
   const mondayDone=seasonCompleted('Monday');
   const hostedRaces=state.hostedSessionCount||hostedRaceGroups().length;
-  const totalHostedDrivers=state.hostedDrivers.length;
-  const announcementHtml = state.announcements.slice(0,4).map(a=>`
-    <article class="announcement-card"><div class="announcement-top"><span class="mini-tag">${escapeHtml(a.tag||'NEWS')}</span><time>${escapeHtml(a.time||'')}</time></div>
-    <h4>${escapeHtml(a.title)}</h4><p>${escapeHtml(a.text)}</p></article>`).join('');
-  const leagueResultsHtml = state.latestResults.map((r)=>{
-    const league = String(r.league||'').toLowerCase();
-    const isSunday = league === 'sunday';
-    const badge = isSunday ? 'S' : 'M';
-    const cardClass = isSunday ? 'sunday-home-result' : 'monday-home-result';
-    const badgeClass = isSunday ? 'sunday-result-badge' : 'monday-result-badge';
-    return `
-    <button class="result-card ${cardClass}" onclick="renderResults()"><div class="result-position ${badgeClass}">${badge}</div><div><small>${escapeHtml(r.league.toUpperCase())} LEAGUE</small><strong>${escapeHtml(r.track)}</strong><span>Winner: ${escapeHtml(r.winner)}</span></div><b>›</b></button>`;
-  }).join('');
-  const hostedResultsHtml = state.hostedLatest ? `
-    <button class="result-card hosted-home-result" onclick="openHostedDriverProfile(decodeURIComponent('${encodeURIComponent(String(state.hostedLatest.winner||'')).replace(/'/g,'%27')}'))"><div class="result-position hosted-result-badge">H</div><div><small>HOSTED • LAST RACE</small><strong>${escapeHtml(state.hostedLatest.track||'HLRN Hosted Race')}</strong><span>Winner: ${escapeHtml(state.hostedLatest.winner||'')}</span>${state.hostedLatest.date?`<em>${escapeHtml(state.hostedLatest.date)}</em>`:''}</div><b>›</b></button>` : '';
-  const resultsHtml = (leagueResultsHtml || hostedResultsHtml) ? leagueResultsHtml + hostedResultsHtml :
-    `<div class="empty">Race results will appear here when live data finishes loading.</div>`;
+  const totalHostedDrivers=state.hostedDrivers.length||hostedDriverDirectorySource().length;
+  const unread=unreadAnnouncementCount();
 
-  app.innerHTML = `
+  const latestByLeague={};
+  (state.latestResults||[]).forEach(r=>latestByLeague[String(r.league||'')]=r);
+  const sunResult=latestByLeague.Sunday||null;
+  const monResult=latestByLeague.Monday||null;
+
+  const favoriteNames=favoritePreviewNames();
+  const favoriteHtml=favoriteNames.length
+    ? favoriteNames.map(name=>{
+        const encoded=encodeURIComponent(name).replace(/'/g,'%27');
+        return `<button class="cc-favorite-driver" onclick="openHLRNDriverProfile(decodeURIComponent('${encoded}'))">
+          ${driverPhotoMarkup(name,'cc-favorite-photo','cc-favorite-fallback')}
+          <span>${escapeHtml(name)}</span>
+        </button>`;
+      }).join('')
+    : `<button class="cc-favorite-empty" onclick="setView('drivers')"><span>☆</span><strong>Choose favorite drivers</strong><small>Build your personal HLRN watch list</small></button>`;
+
+  const bulletin=state.announcements[0]||null;
+  const bulletinHtml=bulletin
+    ? `<button class="cc-bulletin" onclick="openFeature('notifications')">
+        <span class="cc-bulletin-mark">${unread>0?unread:'!'}</span>
+        <div><small>LATEST HLRN BULLETIN</small><strong>${escapeHtml(bulletin.title||'HLRN Update')}</strong><p>${escapeHtml(bulletin.text||'Open notifications for the latest HLRN update.')}</p><em>${escapeHtml(bulletin.time||'')}</em></div>
+        <b>›</b>
+      </button>`
+    : `<button class="cc-bulletin" onclick="openFeature('notifications')"><span class="cc-bulletin-mark">•</span><div><small>HLRN BULLETINS</small><strong>Connecting to announcements</strong><p>Official network updates will appear here.</p></div><b>›</b></button>`;
+
+  const liveNow=state.liveRace.connected&&state.liveRace.driverCount>0;
+  const liveLeader=liveRaceLeader();
+
+  const winnersHtml=[
+    sunResult?commandWinnerCard('LATEST SUNDAY WINNER',sunResult.winner,sunResult.track,'Sunday','sun'): '',
+    monResult?commandWinnerCard('LATEST MONDAY WINNER',monResult.winner,monResult.track,'Monday','mon'): '',
+    state.hostedLatest?commandWinnerCard('LATEST HOSTED WINNER',state.hostedLatest.winner,state.hostedLatest.track,'Hosted','hosted'): ''
+  ].filter(Boolean).join('');
+
+  app.innerHTML=`
     ${networkBar()}
-    <div class="home-league-switch" role="tablist"><button class="${state.homeLeague==='Sunday'?'active':''}" onclick="switchHomeLeague('Sunday')">SUNDAY</button><button class="${state.homeLeague==='Monday'?'active':''}" onclick="switchHomeLeague('Monday')">MONDAY</button></div>
-    <section class="race-hero"><div class="race-hero-top"><div><span class="overline">NEXT HLRN EVENT • WEEK ${scheduleRace.race||"--"}</span><h2>${escapeHtml(race.track)}</h2></div><div class="track-badge">🏁</div></div>
-      <p>${escapeHtml(race.series)} <span>•</span> ${escapeHtml(race.date)} <span>•</span> ${escapeHtml(race.time)}</p>
-      <div class="hero-race-meta"><span>${escapeHtml(scheduleRace.car||'Race Car')}</span><span>${scheduleRace.laps?`${scheduleRace.laps} LAPS`:'LIVE EVENT'}</span><span>${escapeHtml(scheduleRace.setup||'HLRN')}</span></div>
-      <div class="countdown-label">GREEN FLAG COUNTDOWN</div>${countdownMarkup()}
-      <div class="hero-actions"><button class="btn btn-light" onclick="setView('schedule')">Full Schedule</button><button class="btn btn-glass" onclick="openBroadcast('${state.homeLeague}')">📺 Watch Broadcast</button></div>
+
+    <section class="cc-topline">
+      <div><small>HLRN APP 12</small><strong>COMMAND CENTER</strong><span>Race day. Championship. Community. One screen.</span></div>
+      <div class="cc-topline-actions">
+        <button onclick="refreshNow()" aria-label="Refresh HLRN data">↻</button>
+        <button onclick="openFeature('notifications')" aria-label="Open notifications">🔔${unread?'<i>'+unread+'</i>':''}</button>
+      </div>
     </section>
+
+    <section class="cc-status-grid">
+      <button class="cc-status-card next" onclick="setView('schedule')">
+        <small>NEXT GREEN FLAG</small>
+        <strong>${escapeHtml(race.track||'Loading…')}</strong>
+        <span>${escapeHtml(race.date||'')} • ${escapeHtml(race.time||'')}</span>
+      </button>
+      <button class="cc-status-card live ${liveNow?'active':''}" onclick="openLiveRaceCenter()">
+        <small>${liveNow?'LIVE RACE CENTER':'LIVE TIMING'}</small>
+        <strong>${escapeHtml(liveRaceStatusLabel())}</strong>
+        <span>${liveNow?escapeHtml((state.liveRace.track||'HLRN Race')+' • Lap '+(state.liveRace.lap||'--')+(state.liveRace.totalLaps?'/'+state.liveRace.totalLaps:'')): 'Timing feed armed • Tap to open'}</span>
+      </button>
+      <button class="cc-status-card championship" onclick="setView('standings')">
+        <small>CHAMPIONSHIP</small>
+        <strong>S ${sundayGap} • M ${mondayGap}</strong>
+        <span>Points gaps to second place</span>
+      </button>
+      <button class="cc-status-card network ${state.isOnline?'online':'offline'}" onclick="refreshNow()">
+        <small>HLRN NETWORK</small>
+        <strong>${state.isOnline?'ONLINE':'OFFLINE'}</strong>
+        <span>${state.lastUpdated?'Data synced '+new Date(state.lastUpdated).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Checking data feeds'}</span>
+      </button>
+    </section>
+
+    <section class="cc-race-panel ${state.homeLeague.toLowerCase()}">
+      <div class="cc-race-panel-head">
+        <div><small>NEXT EVENT • WEEK ${scheduleRace.race||'--'}</small><h2>${escapeHtml(race.track||'HLRN')}</h2><p>${escapeHtml(race.series||state.homeLeague+' League')} • ${escapeHtml(race.date||'')} • ${escapeHtml(race.time||'')}</p></div>
+        <div class="home-league-switch" role="tablist"><button class="${state.homeLeague==='Sunday'?'active':''}" onclick="switchHomeLeague('Sunday')">SUNDAY</button><button class="${state.homeLeague==='Monday'?'active':''}" onclick="switchHomeLeague('Monday')">MONDAY</button></div>
+      </div>
+      <div class="cc-race-meta"><span>${escapeHtml(scheduleRace.car||'Race Car')}</span><span>${scheduleRace.laps?`${scheduleRace.laps} LAPS`:'LIVE EVENT'}</span><span>${escapeHtml(scheduleRace.setup||'HLRN')}</span></div>
+      <div class="countdown-label">GREEN FLAG COUNTDOWN</div>
+      ${countdownMarkup()}
+      <div class="cc-race-actions">
+        <button class="btn btn-light" onclick="setView('schedule')">Race Details</button>
+        <button class="btn btn-glass" onclick="openBroadcast('${state.homeLeague}')">Watch Broadcast</button>
+        <button class="btn btn-glass" onclick="openLiveRaceCenter()">Live Timing</button>
+      </div>
+    </section>
+
+    <div class="section-head"><h3>Live Network</h3><span>${liveNow?'RACE FEED CONNECTED':'STANDBY'}</span></div>
+    <section class="cc-live-race ${liveNow?'is-live':''}">
+      <div class="cc-live-flag ${String(state.liveRace.flag||'').toLowerCase()}"><i></i><small>FLAG</small><strong>${escapeHtml(state.liveRace.flag||'OFF AIR')}</strong></div>
+      <div class="cc-live-main">
+        <small>${escapeHtml((state.liveRace.sessionName||state.liveRace.phase||'HLRN LIVE').toUpperCase())}</small>
+        <strong>${escapeHtml(state.liveRace.track||'Race Center Ready')}</strong>
+        <span>${liveNow?`Leader: ${escapeHtml(liveLeader)}${state.liveRace.leaderNumber?' #'+escapeHtml(state.liveRace.leaderNumber):''}`:'The app is connected to the same live timing system as the website.'}</span>
+      </div>
+      <div class="cc-live-lap"><small>LAP</small><strong>${state.liveRace.lap||'--'}${state.liveRace.totalLaps?'<em>/'+state.liveRace.totalLaps+'</em>':''}</strong><span>${state.liveRace.driverCount||0} drivers</span></div>
+      <button onclick="openLiveRaceCenter()">OPEN ›</button>
+    </section>
+
+    <div class="section-head"><h3>Championship Battle</h3><button class="text-link" onclick="setView('standings')">Full Standings</button></div>
+    <section class="cc-championship-grid">
+      <button class="cc-championship-card sun" onclick="state.league='Sunday';setView('standings')">
+        ${sundayLeader?driverPhotoMarkup(sundayLeader.name,'cc-leader-photo','cc-leader-fallback'):''}
+        <div><small>SUNDAY LEADER</small><strong>${escapeHtml(sundayLeader?.name||'Loading…')}</strong><span>${sundayLeader?`${sundayLeader.points} PTS • +${sundayGap} to P2`:'Live standings syncing'}</span></div>
+      </button>
+      <button class="cc-championship-card mon" onclick="state.league='Monday';setView('standings')">
+        ${mondayLeader?driverPhotoMarkup(mondayLeader.name,'cc-leader-photo','cc-leader-fallback'):''}
+        <div><small>MONDAY LEADER</small><strong>${escapeHtml(mondayLeader?.name||'Loading…')}</strong><span>${mondayLeader?`${mondayLeader.points} PTS • +${mondayGap} to P2`:'Live standings syncing'}</span></div>
+      </button>
+    </section>
+
+    <div class="section-head"><h3>Latest Winners</h3><button class="text-link" onclick="renderResults()">Race Archive</button></div>
+    <section class="cc-winners">${winnersHtml||'<div class="empty">Latest winners are syncing…</div>'}</section>
+
+    <div class="section-head"><h3>My Drivers</h3><button class="text-link" onclick="openFeature('favorites')">Favorites</button></div>
+    <section class="cc-favorites">${favoriteHtml}</section>
+
+    <div class="section-head"><h3>Hosted Center</h3><button class="text-link" onclick="state.resultsLeague='Hosted';renderResults()">Hosted Results</button></div>
+    <section class="cc-hosted">
+      <div class="cc-hosted-winner">
+        ${state.hostedLatest?driverPhotoMarkup(state.hostedLatest.winner,'cc-hosted-photo','cc-hosted-fallback'):''}
+        <div><small>LAST HOSTED WINNER</small><strong>${escapeHtml(state.hostedLatest?.winner||'Syncing…')}</strong><span>${escapeHtml(state.hostedLatest?.track||'Latest Hosted race')}${state.hostedLatest?.date?' • '+escapeHtml(state.hostedLatest.date):''}</span></div>
+      </div>
+      <div class="cc-hosted-stat"><small>RACES</small><strong>${hostedRaces}</strong><span>Archived</span></div>
+      <div class="cc-hosted-stat"><small>DRIVERS</small><strong>${totalHostedDrivers||'--'}</strong><span>Profiles</span></div>
+      <div class="cc-hosted-actions"><button onclick="state.resultsLeague='Hosted';renderResults()">Results</button><button onclick="setView('drivers')">Drivers</button><button onclick="openFeature('records')">Records</button></div>
+    </section>
+
     <div class="section-head"><h3>Race Central</h3><span>Quick Access</span></div>
-    <section class="grid"><button class="quick-card" onclick="setView('standings')"><span class="ico">🏆</span><strong>Standings</strong><small>Live Sunday + Monday</small></button><button class="quick-card" onclick="setView('schedule')"><span class="ico">🗓️</span><strong>Schedule</strong><small>Upcoming races</small></button><button class="quick-card" onclick="setView('drivers')"><span class="ico">🏎️</span><strong>Drivers</strong><small>Live roster + stats</small></button><button class="quick-card" onclick="renderResults()"><span class="ico">📊</span><strong>Results</strong><small>Latest finishes</small></button></section>
-
-    <div class="section-head"><h3>HLRN Performance Center</h3><span>Explore the network</span></div>
-    <section class="feature-launchpad">
-      <button onclick="openFeature('records')"><span>🏆</span><strong>Records</strong><small>Wins • starts • laps led</small></button>
-      <button onclick="openFeature('headtohead')"><span>⚔️</span><strong>Head-to-Head</strong><small>Compare any two drivers</small></button>
-      <button onclick="openFeature('racestats')"><span>🧠</span><strong>Race Intelligence</strong><small>Full Sunday + Monday analytics</small></button>
-      <button onclick="openFeature('power')"><span>⚡</span><strong>Power Rankings</strong><small>Recent hosted performance</small></button>
-      <button onclick="openFeature('tracks')"><span>🛣️</span><strong>Track Hub</strong><small>History by track</small></button>
-      <button onclick="openFeature('teams')"><span>👥</span><strong>Teams</strong><small>Team championship center</small></button>
-      <button onclick="openFeature('spotlight')"><span>🔦</span><strong>Driver Spotlight</strong><small>Featured HLRN driver</small></button>
-      <button onclick="openFeature('recap')"><span>📰</span><strong>Race Recap</strong><small>Sunday • Monday • Hosted</small></button>
-      <button onclick="openFeature('incidents')"><span>🚨</span><strong>Incident Watch</strong><small>Hosted incident leaderboard</small></button>
-      <button onclick="openFeature('achievements')"><span>🎖️</span><strong>Achievements</strong><small>Career milestone board</small></button>
-      <button onclick="openFeature('favorites')"><span>★</span><strong>Favorites</strong><small>Your saved drivers</small></button>
-      <button onclick="openFeature('sharecards')"><span>📣</span><strong>Share Cards</strong><small>Screenshot-ready stats</small></button>
-      <button onclick="openFeature('notifications')"><span>🔔</span><strong>Notifications</strong><small>HLRN news & race updates</small></button>
-      <button onclick="openFeature('rules')"><span>📕</span><strong>Official Rules</strong><small>Full searchable HLRN rulebook</small></button>
-      <button onclick="openFeature('admin')"><span>🎛️</span><strong>Race Control</strong><small>Rules • incidents • operations</small></button>
+    <section class="cc-quick-grid">
+      <button onclick="setView('standings')"><span>🏆</span><strong>Standings</strong><small>Sunday + Monday</small></button>
+      <button onclick="renderResults()"><span>📊</span><strong>Results</strong><small>Full race archive</small></button>
+      <button onclick="setView('drivers')"><span>🏎️</span><strong>Drivers</strong><small>Photos + career cards</small></button>
+      <button onclick="openFeature('racestats')"><span>🧠</span><strong>Intelligence</strong><small>Race analytics</small></button>
+      <button onclick="openFeature('notifications')"><span>🔔</span><strong>Alerts</strong><small>${unread?unread+' unread':'Up to date'}</small></button>
+      <button onclick="openFeature('favorites')"><span>★</span><strong>Favorites</strong><small>Your watch list</small></button>
+      <button onclick="openFeature('teams')"><span>👥</span><strong>Teams</strong><small>Team championship</small></button>
+      <button onclick="openFeature('rules')"><span>📕</span><strong>Rules</strong><small>Official rulebook</small></button>
     </section>
 
-    <div class="section-head"><h3>Season Snapshot</h3><span>Live HLRN numbers</span></div>
+    <div class="section-head"><h3>HLRN Performance Center</h3><span>Analytics + tools</span></div>
+    <section class="feature-launchpad cc-feature-launchpad">
+      <button onclick="openFeature('records')"><span>🏆</span><strong>Records</strong><small>Wins • starts • laps led</small></button>
+      <button onclick="openFeature('headtohead')"><span>⚔️</span><strong>Head-to-Head</strong><small>Compare drivers</small></button>
+      <button onclick="openFeature('power')"><span>⚡</span><strong>Power Rankings</strong><small>Hosted performance</small></button>
+      <button onclick="openFeature('tracks')"><span>🛣️</span><strong>Track Hub</strong><small>History by track</small></button>
+      <button onclick="openFeature('spotlight')"><span>🔦</span><strong>Spotlight</strong><small>Featured driver</small></button>
+      <button onclick="openFeature('recap')"><span>📰</span><strong>Race Recap</strong><small>Sunday • Monday • Hosted</small></button>
+      <button onclick="openFeature('achievements')"><span>🎖️</span><strong>Achievements</strong><small>Career milestones</small></button>
+      <button onclick="openFeature('sharecards')"><span>📣</span><strong>Share Cards</strong><small>Post-ready stats</small></button>
+    </section>
+
+    <div class="section-head"><h3>Season Snapshot</h3><span>Network totals</span></div>
     <section class="season-snapshot">
       <article class="snapshot-card sunday-snap"><small>SUNDAY</small><strong>${sundayDone}<em>/16</em></strong><span>races complete</span><i style="--p:${(sundayDone/16)*100}%"></i></article>
       <article class="snapshot-card monday-snap"><small>MONDAY</small><strong>${mondayDone}<em>/16</em></strong><span>races complete</span><i style="--p:${(mondayDone/16)*100}%"></i></article>
       <article class="snapshot-card hosted-snap"><small>HOSTED</small><strong>${hostedRaces}</strong><span>races archived</span><i style="--p:${Math.min(100,hostedRaces*3)}%"></i></article>
       <article class="snapshot-card driver-snap"><small>DRIVERS</small><strong>${totalHostedDrivers||'--'}</strong><span>hosted profiles</span><i style="--p:${Math.min(100,totalHostedDrivers)}%"></i></article>
     </section>
-    <div class="section-head"><h3>Chase for a Championship</h3><span>Sunday + Monday leaders</span></div>
-    <section class="pulse-grid">
-      <button class="pulse-card league-pulse sunday" onclick="state.league='Sunday'; setView('standings')"><small>SUNDAY POINTS LEADER</small><strong>${escapeHtml(sundayLeader?.name||'Loading…')}</strong><span>${sundayLeader?`${sundayLeader.points} PTS • ${sundayLeader.wins} WINS`:'Live standings'}</span></button>
-      <button class="pulse-card league-pulse monday" onclick="state.league='Monday'; setView('standings')"><small>MONDAY POINTS LEADER</small><strong>${escapeHtml(mondayLeader?.name||'Loading…')}</strong><span>${mondayLeader?`${mondayLeader.points} PTS • ${mondayLeader.wins} WINS`:'Live standings'}</span></button>
+
+    <div class="section-head"><h3>HLRN Newswire</h3><button class="text-link" onclick="openFeature('notifications')">${unread?unread+' New':'View All'}</button></div>
+    ${bulletinHtml}
+
+    <div class="section-head"><h3>Broadcast + Community</h3><span>Watch • Join • Follow</span></div>
+    <section class="cc-community">
+      <button class="youtube" onclick="openSocial('https://www.youtube.com/@High_Line_Racing')"><span>▶</span><strong>YouTube</strong><small>Watch HLRN</small></button>
+      <button class="discord" onclick="openSocial('https://discord.gg/HpDfUQk23P')"><span>◉</span><strong>Discord</strong><small>Join the server</small></button>
+      <button class="facebook" onclick="openSocial('https://www.facebook.com/profile.php?id=61573411079339')"><span>f</span><strong>Facebook</strong><small>Follow HLRN</small></button>
+      <button class="live" onclick="openLiveRaceCenter()"><span>●</span><strong>Live</strong><small>Race Center</small></button>
     </section>
-    <div class="section-head"><h3>Latest Results</h3><button class="text-link" onclick="renderResults()">Open Archive</button></div><section class="results-stack">${resultsHtml}</section>
-    <div class="section-head"><h3>HLRN Updates</h3><span>Newsroom</span></div><section class="announcement-grid">${announcementHtml}</section>
-    <section class="broadcast-banner"><div><span class="overline">LIVE COVERAGE</span><h3>HLRN Broadcast Center</h3><p>Sunday and Monday race broadcasts in one spot.</p></div><button onclick="openBroadcast('${state.homeLeague}')">Open →</button></section>`;
+
+    <section class="cc-broadcast-center">
+      <div><small>HLRN BROADCAST CENTER</small><strong>Sunday + Monday Coverage</strong><span>Open the current league broadcast or jump to live timing.</span></div>
+      <button onclick="openBroadcast('${state.homeLeague}')">WATCH ›</button>
+    </section>
+  `;
+
   startCountdown(race.iso);
+  updateAppBadge();
+  updateTopNetworkPill();
 }
 function switchHomeLeague(name){ state.homeLeague=name; renderHome(); }
 
@@ -667,7 +1007,7 @@ function renderStandings(){
   const complete=seasonCompleted(state.league);
   const podium=top.length?`<section class="podium-grid ${state.league.toLowerCase()}">${top.map((x,i)=>`<article class="podium-card place-${i+1}"><div class="podium-place">${i===0?'1ST':i===1?'2ND':'3RD'}</div>${driverPhotoMarkup(x.name,'podium-driver-photo','podium-driver-fallback')}${driverLink(x.name,'','podium-driver-link')}<span>${x.points} PTS</span><small>${x.wins} wins • ${x.top5} top 5s</small></article>`).join('')}</section>`:'';
   app.innerHTML=`${networkBar()}<div class="page-title-row premium-page-head"><div><span class="page-kicker">CHAMPIONSHIP CENTER</span><h2 class="page-title">Standings</h2><p class="page-sub">The chase for the HLRN title</p></div>${liveBadge()}</div>
-    <div class="tabs premium-tabs"><button class="tab ${state.league==='Sunday'?'active league-sunday':''}" onclick="switchLeague('Sunday')">Sunday</button><button class="tab ${state.league==='Monday'?'active league-monday':''}" onclick="switchLeague('Monday')">Monday</button></div>
+    <div class="standings-actions"><div class="tabs premium-tabs"><button class="tab ${state.league==='Sunday'?'active league-sunday':''}" onclick="switchLeague('Sunday')">Sunday</button><button class="tab ${state.league==='Monday'?'active league-monday':''}" onclick="switchLeague('Monday')">Monday</button></div><button class="standings-share" onclick="shareStandings(state.league)">SHARE ↗</button></div>
     ${podium}
     <section class="championship-meter ${state.league.toLowerCase()}">
       <div><small>CHAMPIONSHIP GAP</small><strong>${gap}<em> PTS</em></strong><span>${leader&&second?`${escapeHtml(leader.name)} over ${escapeHtml(second.name)}`:'Waiting for live standings'}</span></div>
@@ -820,6 +1160,7 @@ function driverDirectoryRowsHtml(list){
         <strong>${escapeHtml(d.name)}</strong>
         <small>${escapeHtml(d.leagues||'HLRN')} • ${d.races} starts • ${d.wins} wins • ${d.top5} T5 • ${d.top10} T10</small>
       </div>
+      <span class="driver-row-favorite ${isFavorite(d.name)?'saved':''}" onclick="event.stopPropagation();toggleFavorite(decodeURIComponent('${encoded}'));refreshHostedDriverDirectoryInPlace()">★</span>
       <div class="driver-chevron">›</div>
     </button>`;
   }).join('');
@@ -1231,6 +1572,10 @@ function openHLRNDriverProfile(name,addHistory=true){
       ${driverPhotoMarkup(name,'driver-card-photo','driver-card-photo-fallback')}
       <div class="driver-card-identity"><small>HLRN DRIVER CARD</small><h2>${escapeHtml(name)}</h2><p>${escapeHtml(team)}</p></div>
       <div class="driver-card-rating"><small>RECENT FORM</small><strong>${escapeHtml(recentForm)}</strong></div>
+      <div class="driver-card-actions">
+        <button class="${isFavorite(name)?'saved':''}" onclick="toggleFavorite(decodeURIComponent('${encodeURIComponent(name)}'));openHLRNDriverProfile(decodeURIComponent('${encodeURIComponent(name)}'),false)">★</button>
+        <button onclick="shareDriverProfile(decodeURIComponent('${encodeURIComponent(name)}'))">↗</button>
+      </div>
     </section>
 
     <section class="dc-intelligence"><span>🔥</span><div><small>RACE INTELLIGENCE</small><strong>${escapeHtml(intel)}</strong></div></section>
@@ -1541,12 +1886,12 @@ function renderResults(addHistory=true){
     if(league==='Hosted'){
       const ordered=[...selected.rows].sort((a,b)=>num(a['Finish Position'])-num(b['Finish Position']));
       const winner=ordered[0]; summary=`${selected.track} • ${selected.date} • ${ordered.length} drivers`;
-      winnerSpotlight=winner?`<section class="winner-spotlight hosted-win">${driverPhotoMarkup(prettyName(String(winner.Driver||'')),'winner-driver-photo','winner-driver-fallback')}<div><small>RACE WINNER</small><strong>${escapeHtml(prettyName(String(winner.Driver||'')))}</strong><span>${escapeHtml(selected.track)} • ${escapeHtml(selected.date)}</span></div><div class="winner-number">#${escapeHtml(winner['Car #']||'--')}</div></section>`:'';
+      winnerSpotlight=winner?`<section class="winner-spotlight hosted-win">${driverPhotoMarkup(prettyName(String(winner.Driver||'')),'winner-driver-photo','winner-driver-fallback')}<div><small>RACE WINNER</small><strong>${escapeHtml(prettyName(String(winner.Driver||'')))}</strong><span>${escapeHtml(selected.track)} • ${escapeHtml(selected.date)}</span></div><div class="winner-number">#${escapeHtml(winner['Car #']||'--')}</div><button class="winner-share" onclick="event.stopPropagation();shareRaceResult('Hosted','${escapeHtml(prettyName(String(winner.Driver||'')).replace(/'/g,'&#039;'))}','${escapeHtml(String(selected.track||'').replace(/'/g,'&#039;'))}','${escapeHtml(String(selected.date||'').replace(/'/g,'&#039;'))}')">↗</button></section>`:'';
       rowsHtml=ordered.map(r=>{const name=prettyName(String(r.Driver||'')); const gain=num(r['Start Position'])-num(r['Finish Position']); return `<button class="archive-result-row" onclick="openHLRNDriverProfile(decodeURIComponent('${encodeURIComponent(name).replace(/'/g,'%27')}'))"><div class="archive-pos">${escapeHtml(r['Finish Position']||'--')}</div>${driverPhotoMarkup(name,'result-driver-photo','result-driver-fallback')}<div class="archive-driver"><strong>${escapeHtml(name)}</strong><small>Start ${escapeHtml(r['Start Position']||'--')} • ${escapeHtml(r['Laps Led']||0)} led • ${escapeHtml(r.Incidents||0)} inc</small></div><div class="archive-gain ${gain>0?'up':gain<0?'down':''}">${gain>0?'+':''}${gain}</div></button>`}).join('');
     }else{
       const ordered=selected.rows; summary=`Race ${selected.raceNo} • ${selected.track} • ${selected.date} • ${ordered.length} drivers`;
       const winner=ordered[0];
-      winnerSpotlight=winner?`<section class="winner-spotlight ${league.toLowerCase()}-win">${driverPhotoMarkup(winner.driver,'winner-driver-photo','winner-driver-fallback')}<div><small>RACE WINNER</small><strong>${escapeHtml(winner.driver)}</strong><span>${escapeHtml(selected.track)} • Race ${selected.raceNo}</span></div><div class="winner-number">P1</div></section>`:'';
+      winnerSpotlight=winner?`<section class="winner-spotlight ${league.toLowerCase()}-win">${driverPhotoMarkup(winner.driver,'winner-driver-photo','winner-driver-fallback')}<div><small>RACE WINNER</small><strong>${escapeHtml(winner.driver)}</strong><span>${escapeHtml(selected.track)} • Race ${selected.raceNo}</span></div><div class="winner-number">P1</div><button class="winner-share" onclick="event.stopPropagation();shareRaceResult('${escapeHtml(league)}','${escapeHtml(String(winner.driver||'').replace(/'/g,'&#039;'))}','${escapeHtml(String(selected.track||'').replace(/'/g,'&#039;'))}','${escapeHtml(String(selected.date||'').replace(/'/g,'&#039;'))}')">↗</button></section>`:'';
       rowsHtml=ordered.map(r=>{const gain=r.start-r.finish; return `<button class="archive-result-row" onclick="openHLRNDriverProfile('${encodeURIComponent(r.driver)}')"><div class="archive-pos">${r.finish}</div>${driverPhotoMarkup(r.driver,'result-driver-photo','result-driver-fallback')}<div class="archive-driver"><strong>${escapeHtml(r.driver)}</strong><small>Start ${r.start} • ${r.lapsLed} led • ${r.points} pts • ${r.incidents} inc</small></div><div class="archive-gain ${gain>0?'up':gain<0?'down':''}">${gain>0?'+':''}${gain}</div></button>`}).join('');
     }
   }
@@ -2394,6 +2739,7 @@ function pushStatusCopy(){
 }
 
 function renderNotifications(){
+  markAnnouncementsRead();
   const nextSun=state.nextRaces.Sunday,nextMon=state.nextRaces.Monday;
   const push=pushStatusCopy();
   const raceItems=[
@@ -2913,6 +3259,7 @@ async function refreshDiscordAnnouncements(){
       avatar:a?.author?.avatar||''
     })).filter(a=>a.text||a.title);
     state.announcementsStatus='LIVE';
+    updateAppBadge();
   }catch(e){
     state.announcementsStatus='OFFLINE';
   }
@@ -3049,6 +3396,57 @@ function startHLRNAutoRefresh(){
   },60000);
 }
 
+let HLRN_PULL_START=0;
+let HLRN_PULL_DISTANCE=0;
+let HLRN_PULL_ACTIVE=false;
+
+function updatePullIndicator(text='',active=false){
+  const el=document.getElementById('pullRefreshIndicator');
+  if(!el)return;
+  el.classList.toggle('active',active);
+  const label=el.querySelector('span');
+  if(label)label.textContent=text||'Pull to refresh';
+}
+
+document.addEventListener('touchstart',e=>{
+  if(window.scrollY>2 || !e.touches?.length)return;
+  HLRN_PULL_START=e.touches[0].clientY;
+  HLRN_PULL_DISTANCE=0;
+  HLRN_PULL_ACTIVE=true;
+},{passive:true});
+
+document.addEventListener('touchmove',e=>{
+  if(!HLRN_PULL_ACTIVE || !e.touches?.length)return;
+  HLRN_PULL_DISTANCE=Math.max(0,e.touches[0].clientY-HLRN_PULL_START);
+  if(HLRN_PULL_DISTANCE>25){
+    updatePullIndicator(HLRN_PULL_DISTANCE>78?'Release to refresh':'Pull to refresh',true);
+  }
+},{passive:true});
+
+document.addEventListener('touchend',()=>{
+  if(!HLRN_PULL_ACTIVE)return;
+  const shouldRefresh=HLRN_PULL_DISTANCE>78;
+  HLRN_PULL_ACTIVE=false;
+  HLRN_PULL_DISTANCE=0;
+  if(shouldRefresh){
+    updatePullIndicator('Refreshing HLRN…',true);
+    refreshNow().finally(()=>setTimeout(()=>updatePullIndicator('',false),450));
+  }else{
+    updatePullIndicator('',false);
+  }
+},{passive:true});
+
+window.addEventListener('online',()=>{
+  state.isOnline=true;
+  updateTopNetworkPill();
+  refreshNow();
+});
+window.addEventListener('offline',()=>{
+  state.isOnline=false;
+  updateTopNetworkPill();
+  if(state.currentView==='home')renderHome();
+});
+
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferredPrompt=e; const btn=document.querySelector('#installBtn'); btn.hidden=false; btn.onclick=async()=>{deferredPrompt.prompt();await deferredPrompt.userChoice;btn.hidden=true;deferredPrompt=null;}; });
 
@@ -3130,6 +3528,9 @@ if(forcedView==='notifications'){
 }
 refreshPushStatus().catch(()=>{});
 buildDrivers();
+updateAppBadge();
+updateTopNetworkPill();
+connectHLRNLiveFeed();
 // The screen is already rendered above. Update data silently so a completed fetch
 // cannot redraw the page and jump the user back to the top while scrolling.
 refreshLiveData(false).finally(()=>{
