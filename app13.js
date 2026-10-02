@@ -1,5 +1,5 @@
 (function(){
-  const DRIVER_OS_VERSION='13.0.0';
+  const DRIVER_OS_VERSION='13.0.1';
   const PROFILE_KEY='hlrn-driver-os-profile';
   const SNAPSHOT_KEY='hlrn-app13-offline-snapshot';
   const ALERT_KEY='hlrn-app13-alerts';
@@ -387,7 +387,7 @@
     }).join('');
     const body='<section class="os-team-hero '+g.league.toLowerCase()+'"><small>'+escapeHtml(g.league.toUpperCase())+' TEAM GARAGE</small><h3>'+escapeHtml(team.name)+'</h3><p>'+names.length+' drivers • '+escapeHtml(team.points)+' points</p><div><b>'+escapeHtml(team.wins||0)+'<span>WINS</span></b><b>'+escapeHtml(team.top5||0)+'<span>TOP 5</span></b><b>'+names.length+'<span>DRIVERS</span></b></div></section>'+
       '<div class="section-head"><h3>Drivers</h3><span>'+names.length+' ROSTERED</span></div><div class="os-team-driver-list">'+cards+'</div>'+
-      '<div class="section-head"><h3>Team Tools</h3><span>DRIVER OS</span></div><div class="os-tool-grid"><button onclick="openFeature(\'simulator\')"><span>∑</span><strong>Championship Simulator</strong><small>Run points scenarios</small></button><button onclick="shareHLRNItem(\'HLRN '+escapeHtml(team.name)+'\',\''+escapeHtml(team.points)+' points • '+escapeHtml(team.wins||0)+' wins\',HLRN_SITE_DATA.website)"><span>↗</span><strong>Share Team</strong><small>Native share sheet</small></button></div>';
+      '<div class="section-head"><h3>Team Tools</h3><span>DRIVER OS</span></div><div class="os-tool-grid"><button onclick="openFeature(\'simulator\')"><span>∑</span><strong>Championship Simulator</strong><small>Run points scenarios</small></button><button onclick="shareTeamGarage(\''+g.league+'\',\''+encodeURIComponent(team.name)+'\')"><span>↗</span><strong>Share Team</strong><small>Native share sheet</small></button></div>';
     featureShell(team.name,'Team Garage • '+g.league+' League',body,'os-team-garage');
   };
 
