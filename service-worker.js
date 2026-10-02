@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v17-0-3-connected-grid';
+const CACHE = 'hlrn-v18-fusion-control';
 const APP_SHELL = [
   './',
   './index.html',
@@ -14,6 +14,8 @@ const APP_SHELL = [
   './app16.css',
   './app17.js',
   './app17.css',
+  './app18.js',
+  './app18.css',
   './rules-data.js',
   './standings-driver-photos.js',
   './manifest.json',
