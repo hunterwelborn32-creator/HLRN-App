@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v17-0-2-connected-grid';
+const CACHE = 'hlrn-v17-0-3-connected-grid';
 const APP_SHELL = [
   './',
   './index.html',
