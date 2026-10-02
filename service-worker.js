@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v12-command-center';
+const CACHE = 'hlrn-v12-0-1-command-photo-fix';
 const APP_SHELL = [
   './',
   './index.html',
