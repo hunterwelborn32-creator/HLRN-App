@@ -1,10 +1,11 @@
-const CACHE = 'hlrn-v11-4-0-shared-website-data';
+const CACHE = 'hlrn-v11-4-1-driver-photos';
 const APP_SHELL = [
   './',
   './index.html',
   './style.css',
   './app.js',
   './rules-data.js',
+  './standings-driver-photos.js',
   './manifest.json',
   './apple-touch-icon.png',
   './icon-192.png',
