@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v15-raceos';
+const CACHE = 'hlrn-v16-hypergrid';
 const APP_SHELL = [
   './',
   './index.html',
@@ -10,6 +10,8 @@ const APP_SHELL = [
   './app14.css',
   './app15.js',
   './app15.css',
+  './app16.js',
+  './app16.css',
   './rules-data.js',
   './standings-driver-photos.js',
   './manifest.json',
