@@ -119,7 +119,7 @@ const state = {
   hostedDataStatus: 'Connecting…',
   hostedCachePartial: false,
   links: {},
-  appVersion: '17.0.2',
+  appVersion: '17.0.3',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
