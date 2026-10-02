@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-4-1-driver-photos';
+const CACHE = 'hlrn-v11-4-2-local-driver-photos';
 const APP_SHELL = [
   './',
   './index.html',
