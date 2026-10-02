@@ -119,7 +119,7 @@ const state = {
   hostedDataStatus: 'Connecting…',
   hostedCachePartial: false,
   links: {},
-  appVersion: '17.0.0',
+  appVersion: '17.0.1',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -3480,7 +3480,14 @@ function applyWebsiteLeague(snapshot,key,leagueName){
       top5:Number(d.top5)||0,
       top10:Number(d.top10)||0,
       avgFinish:Number(d.avgFinish)||0,
-      driverId
+      driverId,
+      team:String(d.team||'').trim(),
+      penalty:Number(d.penalty)||0,
+      stagePoints:Number(d.stagePoints)||0,
+      poles:Number(d.poles)||0,
+      lapsLed:Number(d.lapsLed)||0,
+      incidents:Number(d.incidents)||0,
+      avgRating:Number(d.avgRating)||0
     };
   }).filter(d=>d.name).sort((a,b)=>a.rank-b.rank);
 
@@ -3577,7 +3584,9 @@ function normalizeStandings(rows){
   return rows.filter(r=>r.Driver).map(r=>({
     name:prettyName(String(r.Driver)), rank:Number(r.Rank)||0, change:Number(r.Change)||0, points:Number(r.Points)||0,
     races:Number(r.Races)||0, wins:Number(r.Wins)||0, top5:Number(r['Top 5'])||0, top10:Number(r['Top 10'])||0,
-    avgFinish:Number(r['Avg Finish'])||0, driverId:String(r['Driver ID']||'')
+    avgFinish:Number(r['Avg Finish'])||0, driverId:String(r['Driver ID']||''),
+    team:String(r.Team||r['Team']||'').trim(),
+    penalty:Number(r.Penalty||r['Penalty']||0)||0
   })).sort((a,b)=>a.rank-b.rank);
 }
 function normalizeResults(rows, driverMap){
