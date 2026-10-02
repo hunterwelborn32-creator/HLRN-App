@@ -1,10 +1,10 @@
 {
-  "name": "High Line Racing Network",
+  "name": "HLRN RaceOS",
   "short_name": "HLRN",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#050608",
-  "theme_color": "#050608",
+  "background_color": "#030406",
+  "theme_color": "#030406",
   "description": "HLRN standings, schedule, hosted stats, rules, announcements and push notifications.",
   "icons": [
     {
