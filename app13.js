@@ -1,5 +1,5 @@
 (function(){
-  const DRIVER_OS_VERSION='13.0.1';
+  const DRIVER_OS_VERSION='13.0.2';
   const PROFILE_KEY='hlrn-driver-os-profile';
   const SNAPSHOT_KEY='hlrn-app13-offline-snapshot';
   const ALERT_KEY='hlrn-app13-alerts';
@@ -229,8 +229,6 @@
 
   const renderHomeV12=renderHome;
   renderHome=function(){
-    const p=driverOSProfile();
-    if(p.homeLeague)state.homeLeague=p.homeLeague;
     renderHomeV12();
     const top=app.querySelector('.cc-topline');
     if(top&&!document.querySelector('.os-myhlrn-home')){
@@ -238,6 +236,16 @@
     }
     addRaceDayTakeover();
     updateLiveTracker();
+  };
+
+  // Driver OS 13.0.2: the Sunday/Monday race switch is a real persistent selector.
+  // Do not reset it on every home render; save the user's latest choice instead.
+  switchHomeLeague=function(name){
+    if(name!=='Sunday'&&name!=='Monday')return;
+    state.homeLeague=name;
+    saveDriverOSProfile({homeLeague:name});
+    renderHome();
+    vibrate(8);
   };
 
   function teamOptions(league,selected){
@@ -815,6 +823,8 @@
   }
 
   function boot(){
+    const profile=driverOSProfile();
+    if(profile.homeLeague==='Sunday'||profile.homeLeague==='Monday')state.homeLeague=profile.homeLeague;
     addSearchButton();updateEdition();ensureLiveTracker();updateLiveTracker();
     if(state.currentView==='home')renderHome();
     document.documentElement.dataset.hlrnOs='13';
