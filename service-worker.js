@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v12-1-broadcast-ui';
+const CACHE = 'hlrn-v12-2-native-race-center';
 const APP_SHELL = [
   './',
   './index.html',
