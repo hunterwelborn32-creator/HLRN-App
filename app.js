@@ -97,8 +97,11 @@ const state = {
     sessionName:'',
     leader:'',
     leaderNumber:'',
-    updatedAt:0
+    updatedAt:0,
+    feed:null
   },
+  liveCenterTab:'leaderboard',
+  liveFocusKey:'',
   nextRaces: {
     Sunday: {date:'OCT 4', dateKey:'2026-10-04', iso:'2026-10-04T20:30:00-04:00', track:'iRacing Superspeedway', series:'Sunday League', time:'8:30 PM ET', broadcast:''},
     Monday: {date:'OCT 5', dateKey:'2026-10-05', iso:'2026-10-05T20:30:00-04:00', track:'Auto Club', series:'Monday League', time:'8:30 PM ET', broadcast:''}
@@ -116,7 +119,7 @@ const state = {
   hostedDataStatus: 'Connecting…',
   hostedCachePartial: false,
   links: {},
-  appVersion: '12.1.0',
+  appVersion: '12.2.0',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -190,6 +193,10 @@ function restoreHLRNRoute(route){
       renderResults(false);
     }else if(route.kind==='driver'){
       openHLRNDriverProfile(route.name,false);
+    }else if(route.kind==='live'){
+      if(route.tab) state.liveCenterTab=route.tab;
+      if(route.focus) state.liveFocusKey=route.focus;
+      openLiveRaceCenter(false);
     }else{
       setView(route.view||'home',{history:false});
     }
@@ -382,6 +389,7 @@ function rerenderCurrent(){
   const y=window.scrollY||0;
   if(state.currentView==='results') renderResults(false);
   else if(state.currentView==='feature') renderFeature(state.featureView);
+  else if(state.currentView==='live-center') renderLiveRaceCenter(true,false);
   else setView(state.currentView,{history:false});
   requestAnimationFrame(()=>window.scrollTo(0,y));
 }
@@ -726,6 +734,427 @@ function startCountdown(iso){
 let HLRN_LIVE_SOCKET=null;
 let HLRN_LIVE_RETRY=1200;
 
+function liveNormalizeFlag(flag){
+  return String(flag||'UNKNOWN').trim().toUpperCase();
+}
+
+function liveRaceFinished(feed){
+  if(feed?.raceFrozen)return true;
+  const flag=liveNormalizeFlag(feed?.flag);
+  const session=String(feed?.sessionState||'').trim().toUpperCase().replaceAll('_',' ');
+  return flag==='CHECKERED'||['CHECKERED','COOL DOWN','COOLDOWN','FINISHED','COMPLETE'].includes(session);
+}
+
+function liveLapTime(value){
+  const n=Number(value);
+  if(!Number.isFinite(n)||n<=0)return '—';
+  const m=Math.floor(n/60);
+  const sec=n-m*60;
+  return m>0?`${m}:${sec.toFixed(3).padStart(6,'0')}`:sec.toFixed(3);
+}
+
+function liveGapText(driver){
+  if(Number(driver?.position)===1)return 'LEADER';
+  const gap=Number(driver?.gap);
+  if(Number.isFinite(gap)&&gap>=0)return '+'+gap.toFixed(3);
+  const interval=Number(driver?.interval);
+  return Number.isFinite(interval)&&interval>=0?'+'+interval.toFixed(3):'—';
+}
+
+function liveDriverKey(driver){
+  if(driver?.carIdx!=null)return 'idx:'+driver.carIdx;
+  return 'n:'+String(driver?.number||'')+'|'+String(driver?.name||driver?.driver||'');
+}
+
+function liveDriverStatus(driver,feed=state.liveRace.feed){
+  if(!driver)return '—';
+  if(driver.disqualified||driver.dqFlag)return 'DQ';
+  if(driver.blackFlag)return 'BLACK FLAG';
+  if(driver.repairFlag)return 'MEATBALL';
+
+  const raw=String(driver.status||'').trim().toUpperCase();
+  const track=String(driver.trackStatus||'').trim().toUpperCase();
+
+  if(driver.disconnected||raw.includes('DISCONNECT')||track.includes('DISCONNECT'))return 'DISCONNECTED';
+  if(raw.includes('OUT / DISCONNECTED'))return 'OUT';
+  if(raw==='OUT'||raw.includes('OUT OF CAR')||track.includes('OUT OF CAR'))return 'OUT';
+  if(driver.onPitRoad||raw.includes('PIT ROAD')||track.includes('PIT ROAD'))return 'PIT ROAD';
+
+  const down=Number(driver.lapsDown);
+  if(Number.isFinite(down)&&down>0)return down===1?'1 LAP DOWN':down+' LAPS DOWN';
+  if(liveRaceFinished(feed))return 'FINISHED';
+  if(track==='OFF TRACK'||raw==='OFF TRACK')return 'OFF TRACK';
+  if(['ACTIVE','RUNNING','LEAD LAP','ON TRACK'].includes(raw)||['ACTIVE','RUNNING','LEAD LAP','ON TRACK'].includes(track))return 'ON TRACK';
+  return raw||track||'ON TRACK';
+}
+
+function liveSessionState(phase,feed=state.liveRace.feed){
+  if(feed?.phase===phase)return feed;
+  return feed?.sessionArchive?.[phase]||null;
+}
+
+function liveFindMatchingDriver(snapshot,driver){
+  const list=Array.isArray(snapshot?.drivers)?snapshot.drivers:[];
+  return list.find(x=>x.carIdx===driver.carIdx)
+    ||list.find(x=>String(x.number||'')===String(driver.number||'')&&String(x.name||'')===String(driver.name||''))
+    ||list.find(x=>String(x.name||'')===String(driver.name||''))
+    ||null;
+}
+
+function livePositionDelta(driver,feed=state.liveRace.feed){
+  if(driver?.position==null)return {value:0,text:'—',cls:'same'};
+  let start=null;
+  if(String(feed?.phase||'').toLowerCase()==='race'){
+    const qualifying=liveSessionState('qualifying',feed);
+    const q=liveFindMatchingDriver(qualifying,driver);
+    if(q?.position!=null)start=Number(q.position);
+  }
+  if(start==null&&driver?.liveStats?.startPosition!=null)start=Number(driver.liveStats.startPosition);
+  if(start==null||!Number.isFinite(start))return {value:0,text:'—',cls:'same'};
+  const delta=start-Number(driver.position);
+  return {value:delta,text:delta>0?'▲ '+delta:delta<0?'▼ '+Math.abs(delta):'—',cls:delta>0?'up':delta<0?'down':'same'};
+}
+
+function liveDrivers(feed=state.liveRace.feed){
+  return (Array.isArray(feed?.drivers)?[...feed.drivers]:[])
+    .filter(d=>d&&d.position!=null)
+    .sort((a,b)=>Number(a.position??9999)-Number(b.position??9999));
+}
+
+function liveFastestDrivers(feed=state.liveRace.feed){
+  return liveDrivers(feed)
+    .filter(d=>Number(d.bestLapTime)>0)
+    .sort((a,b)=>Number(a.bestLapTime)-Number(b.bestLapTime));
+}
+
+function liveBattles(feed=state.liveRace.feed){
+  if(String(feed?.phase||'').toLowerCase()!=='race'||liveRaceFinished(feed)||liveNormalizeFlag(feed?.flag)!=='GREEN')return [];
+  const drivers=liveDrivers(feed)
+    .filter(d=>Number(d.position)>=1&&Number(d.position)<=10)
+    .filter(d=>!d.onPitRoad&&!d.disqualified&&!d.dqFlag)
+    .filter(d=>{
+      const status=String(d.status||'').toUpperCase();
+      return !status.includes('DISCONNECTED')&&!status.includes('OUT')&&status!=='DQ';
+    });
+
+  const out=[];
+  for(let i=1;i<drivers.length;i++){
+    const ahead=drivers[i-1],behind=drivers[i];
+    if(Number(behind.position)-Number(ahead.position)!==1)continue;
+    const al=Number(ahead.lapsCompleted),bl=Number(behind.lapsCompleted);
+    if(Number.isFinite(al)&&Number.isFinite(bl)&&al!==bl)continue;
+    let interval=Number(behind.interval);
+    if(!Number.isFinite(interval)||interval<0){
+      const bg=Number(behind.gap),ag=Number(ahead.position)===1?0:Number(ahead.gap);
+      if(Number.isFinite(bg)&&Number.isFinite(ag))interval=bg-ag;
+    }
+    if(!Number.isFinite(interval)||interval<0||interval>1.5)continue;
+    out.push({ahead,behind,interval});
+  }
+  return out.sort((a,b)=>a.interval-b.interval);
+}
+
+function liveEvents(feed=state.liveRace.feed){
+  const raw=Array.isArray(feed?.events)?feed.events:[];
+  const recorded=Array.isArray(feed?.recorderTimeline)?feed.recorderTimeline:[];
+  const hidden=new Set(['lead','incident','possible_incident','possible_contact','possible_spin','possible_wreck','offtrack','pit']);
+  const source=[...raw.filter(e=>!hidden.has(String(e?.type||'').toLowerCase())),...recorded];
+  const seen=new Set();
+  return source.filter(e=>{
+    if(!e)return false;
+    const key=[
+      String(e.type||'session').toLowerCase(),
+      e.lap??'',
+      String(e.title||'').toUpperCase().replace(/CAUTION\s*#?\d*/g,'CAUTION'),
+      String(e.text||'')
+    ].join('|');
+    if(seen.has(key))return false;
+    seen.add(key);
+    return true;
+  }).sort((a,b)=>{
+    const al=Number.isFinite(Number(a?.lap))?Number(a.lap):-1;
+    const bl=Number.isFinite(Number(b?.lap))?Number(b.lap):-1;
+    if(al!==bl)return al-bl;
+    return Number(a?.capturedAt||a?.createdAt||0)-Number(b?.capturedAt||b?.createdAt||0);
+  });
+}
+
+function liveRaceControl(feed=state.liveRace.feed){
+  return feed?.raceControl||liveSessionState('race',feed)?.raceControl||{};
+}
+
+function liveRaceStats(feed=state.liveRace.feed){
+  return feed?.raceStats||liveSessionState('race',feed)?.raceStats||{};
+}
+
+function liveFocusDriver(feed=state.liveRace.feed){
+  const drivers=liveDrivers(feed);
+  if(!drivers.length)return null;
+  let driver=drivers.find(d=>liveDriverKey(d)===state.liveFocusKey);
+  if(!driver){
+    const fav=(state.favorites||[]).map(x=>String(x).toLowerCase());
+    driver=drivers.find(d=>fav.includes(prettyName(String(d.name||d.driver||'')).toLowerCase()))||drivers[0];
+    state.liveFocusKey=liveDriverKey(driver);
+  }
+  return driver;
+}
+
+function livePhaseFlow(feed=state.liveRace.feed){
+  const phase=String(feed?.phase||'standby').toLowerCase();
+  const finished=liveRaceFinished(feed);
+  const rank={standby:0,practice:1,qualifying:2,race:3};
+  const current=finished?4:(rank[phase]||0);
+  const steps=[['PRACTICE',1],['QUALIFYING',2],['RACE',3],['FINAL',4]];
+  return steps.map(([label,n])=>`<div class="${n<current?'done':n===current?'active':''}"><i></i><span>${label}</span></div>`).join('');
+}
+
+function liveLeaderboardHtml(feed=state.liveRace.feed){
+  const drivers=liveDrivers(feed);
+  if(!drivers.length){
+    return `<section class="native-live-empty"><span>🏁</span><strong>${state.liveRace.connected?'Connected — waiting for scored cars':'Race feed standing by'}</strong><p>Start the HLRN iRacing bridge and the leaderboard will populate automatically.</p></section>`;
+  }
+  const hot=new Set();
+  liveBattles(feed).filter(b=>b.interval<=.75).forEach(b=>{hot.add(liveDriverKey(b.ahead));hot.add(liveDriverKey(b.behind));});
+  return `<section class="native-live-board">${drivers.map(d=>{
+    const name=prettyName(String(d.name||d.driver||'Unknown'));
+    const key=liveDriverKey(d);
+    const delta=livePositionDelta(d,feed);
+    const status=liveDriverStatus(d,feed);
+    const encoded=encodeURIComponent(key).replace(/'/g,'%27');
+    const fav=isFavorite(name);
+    return `<button class="native-live-row ${Number(d.position)===1?'leader':''} ${hot.has(key)?'battle':''} ${fav?'favorite':''}" onclick="selectLiveDriver(decodeURIComponent('${encoded}'))">
+      <div class="nl-pos"><strong>P${escapeHtml(d.position??'—')}</strong><span class="${delta.cls}">${escapeHtml(delta.text)}</span></div>
+      ${driverPhotoMarkup(name,'nl-driver-photo','nl-driver-fallback')}
+      <div class="nl-driver"><small>#${escapeHtml(d.number||d.carNumber||'—')} ${hot.has(key)?'• BATTLE':''}</small><strong>${escapeHtml(name)}</strong><span>${escapeHtml(d.team||d.car||'HLRN Competitor')}</span></div>
+      <div class="nl-gap"><strong>${escapeHtml(liveGapText(d))}</strong><span>${Number(d.position)===1?'RACE LEADER':'BEHIND'}</span></div>
+      <div class="nl-laps"><strong>${escapeHtml(liveLapTime(d.lastLapTime))}</strong><span>LAST</span></div>
+      <div class="nl-status ${status.toLowerCase().replace(/[^a-z0-9]+/g,'-')}"><strong>${escapeHtml(status)}</strong><span>${escapeHtml(d.lapsCompleted??'—')} LAPS</span></div>
+    </button>`;
+  }).join('')}</section>`;
+}
+
+function liveFocusHtml(feed=state.liveRace.feed){
+  const d=liveFocusDriver(feed);
+  if(!d)return `<section class="native-live-empty"><span>👤</span><strong>No driver to follow yet</strong><p>Driver Focus will activate when cars are scored.</p></section>`;
+  const name=prettyName(String(d.name||d.driver||'Unknown'));
+  const status=liveDriverStatus(d,feed);
+  const delta=livePositionDelta(d,feed);
+  const favorite=isFavorite(name);
+  const liveStats=d.liveStats||{};
+  const stat=(label,value)=>`<div><small>${label}</small><strong>${escapeHtml(value??'—')}</strong></div>`;
+  return `
+    <section class="native-focus-hero">
+      ${driverPhotoMarkup(name,'native-focus-photo','native-focus-fallback')}
+      <div class="native-focus-copy"><small>DRIVER FOCUS • #${escapeHtml(d.number||'—')}</small><h2>${escapeHtml(name)}</h2><p>${escapeHtml(d.team||d.car||'HLRN Competitor')}</p><span class="native-focus-status">${escapeHtml(status)}</span></div>
+      <div class="native-focus-position"><small>RUNNING</small><strong>P${escapeHtml(d.position??'—')}</strong><span class="${delta.cls}">${escapeHtml(delta.text)} FROM START</span></div>
+      <div class="native-focus-actions"><button class="${favorite?'saved':''}" onclick="toggleFavorite('${escapeHtml(name).replace(/'/g,"&#039;")}');renderLiveRaceCenter(true,false)">★</button><button onclick="openHLRNDriverProfile('${encodeURIComponent(name)}')">PROFILE</button></div>
+    </section>
+    <section class="native-focus-stats">
+      ${stat('GAP',liveGapText(d))}
+      ${stat('LAST LAP',liveLapTime(d.lastLapTime))}
+      ${stat('BEST LAP',liveLapTime(d.bestLapTime))}
+      ${stat('LAPS',d.lapsCompleted??'—')}
+      ${stat('LAPS LED',liveStats.lapsLed??d.lapsLed??0)}
+      ${stat('INCIDENTS',d.incidents??d.incidentPoints??'—')}
+      ${stat('SPEED',Number.isFinite(Number(d.speedMph))?Math.round(Number(d.speedMph))+' MPH':'—')}
+      ${stat('GEAR',d.gear??'—')}
+      ${stat('RPM',Number.isFinite(Number(d.rpm))?Math.round(Number(d.rpm)).toLocaleString():'—')}
+      ${stat('iRATING',d.irating??d.iRating??'—')}
+    </section>
+  `;
+}
+
+function liveBattlesHtml(feed=state.liveRace.feed){
+  const battles=liveBattles(feed);
+  if(!battles.length){
+    const reason=String(feed?.phase||'').toLowerCase()!=='race'?'Battle tracking activates during the race.':liveNormalizeFlag(feed?.flag)!=='GREEN'?'Battle tracking pauses under non-green conditions.':'No top-10 cars are within 1.5 seconds right now.';
+    return `<section class="native-live-empty"><span>⚔️</span><strong>Battle Center standing by</strong><p>${escapeHtml(reason)}</p></section>`;
+  }
+  return `<section class="native-battle-list">${battles.slice(0,8).map(b=>{
+    const behind=prettyName(String(b.behind.name||'Unknown')),ahead=prettyName(String(b.ahead.name||'Unknown'));
+    return `<button class="native-battle-card ${b.interval<=.35?'hot':b.interval<=.75?'close':''}" onclick="selectLiveDriver('${encodeURIComponent(liveDriverKey(b.behind))}')">
+      <div class="native-battle-pos"><strong>P${escapeHtml(b.behind.position)}</strong><span>CHASING P${escapeHtml(b.ahead.position)}</span></div>
+      ${driverPhotoMarkup(behind,'native-battle-photo','native-battle-fallback')}
+      <div><small>#${escapeHtml(b.behind.number||'—')} ${escapeHtml(behind)}</small><strong>${b.interval.toFixed(3)}s</strong><span>to #${escapeHtml(b.ahead.number||'—')} ${escapeHtml(ahead)}</span></div>
+    </button>`;
+  }).join('')}</section>`;
+}
+
+function liveFastestHtml(feed=state.liveRace.feed){
+  const drivers=liveFastestDrivers(feed);
+  if(!drivers.length)return `<section class="native-live-empty"><span>⚡</span><strong>No timed laps yet</strong><p>Fastest laps will appear as soon as drivers complete timed laps.</p></section>`;
+  const best=Number(drivers[0].bestLapTime);
+  return `<section class="native-fast-list">${drivers.slice(0,15).map((d,i)=>{
+    const name=prettyName(String(d.name||'Unknown'));
+    const delta=Number(d.bestLapTime)-best;
+    return `<button class="native-fast-row" onclick="selectLiveDriver('${encodeURIComponent(liveDriverKey(d))}')">
+      <b>${i+1}</b>${driverPhotoMarkup(name,'native-fast-photo','native-fast-fallback')}
+      <div><strong>#${escapeHtml(d.number||'—')} ${escapeHtml(name)}</strong><span>P${escapeHtml(d.position??'—')} • ${escapeHtml(d.lapsCompleted??'—')} laps</span></div>
+      <em>${escapeHtml(liveLapTime(d.bestLapTime))}</em><small>${i===0?'FASTEST':'+'+delta.toFixed(3)}</small>
+    </button>`;
+  }).join('')}</section>`;
+}
+
+function liveTimelineHtml(feed=state.liveRace.feed){
+  const events=liveEvents(feed).slice(-40).reverse();
+  if(!events.length)return `<section class="native-live-empty"><span>◉</span><strong>No verified race events yet</strong><p>Cautions, penalties, fastest laps and session events will appear here automatically.</p></section>`;
+  return `<section class="native-timeline">${events.map(e=>{
+    const type=String(e.type||'session').toLowerCase();
+    const lap=e.lap!=null&&Number.isFinite(Number(e.lap))?'LAP '+Number(e.lap):'SESSION';
+    return `<article class="${escapeHtml(type)}"><div><small>${escapeHtml(lap)}</small><i></i></div><div><strong>${escapeHtml(e.title||'Race Event')}</strong><p>${escapeHtml(e.text||'')}</p></div></article>`;
+  }).join('')}</section>`;
+}
+
+function liveRaceControlHtml(feed=state.liveRace.feed){
+  const rc=liveRaceControl(feed);
+  const drivers=liveDrivers(feed);
+  let order=[];
+  if(Array.isArray(rc.restartOrder)&&rc.restartOrder.length)order=rc.restartOrder;
+  else if(Array.isArray(rc.currentOrder)&&rc.currentOrder.length)order=rc.currentOrder;
+  else order=drivers;
+
+  const alerts=drivers.filter(d=>{
+    const s=liveDriverStatus(d,feed);
+    return d.blackFlag||d.repairFlag||d.disqualified||d.dqFlag||['DISCONNECTED','OUT','BLACK FLAG','MEATBALL','DQ'].includes(s);
+  });
+
+  const history=Array.isArray(rc.history)?[...rc.history].reverse().slice(0,8):[];
+  const oneToGreen=!!rc.oneToGreen;
+  const active=!!rc.active;
+  const banner=oneToGreen
+    ? `ONE TO GREEN • CAUTION #${rc.cautionCount||'—'} • Restart order is set.`
+    : active
+      ? `CAUTION #${rc.cautionCount||'—'} • Started lap ${rc.cautionStartLap??'—'} • Yellow lap ${rc.currentCautionLaps??'—'}.`
+      : Number(rc.lastRestartLap)>0
+        ? `GREEN • Restarted lap ${rc.lastRestartLap} • Current green run ${rc.currentGreenRun||0} laps.`
+        : `${liveNormalizeFlag(feed?.flag)} • Race Control is monitoring the session.`;
+
+  return `
+    <section class="native-control-banner ${oneToGreen?'restart':active?'caution':liveNormalizeFlag(feed?.flag).toLowerCase()}"><small>RACE CONTROL</small><strong>${escapeHtml(banner)}</strong></section>
+    <section class="native-control-metrics">
+      <div><small>CAUTION</small><strong>${Number(rc.cautionCount)>0?'#'+rc.cautionCount:'—'}</strong></div>
+      <div><small>YELLOW LAPS</small><strong>${Number(rc.totalCautionLaps||0)}</strong></div>
+      <div><small>GREEN RUN</small><strong>${Number(rc.currentGreenRun||0)}</strong></div>
+      <div><small>LONGEST GREEN</small><strong>${Number(rc.longestGreenRun||0)}</strong></div>
+    </section>
+    <div class="section-head"><h3>${oneToGreen?'Restart Order':active?'Caution Order':'Running Order'}</h3><span>TOP 10</span></div>
+    <section class="native-restart-order">${order.slice(0,10).map((d,i)=>{
+      const live=drivers.find(x=>x.carIdx!=null&&x.carIdx===d.carIdx)||drivers.find(x=>String(x.name||'')===String(d.name||''))||d;
+      const name=prettyName(String(live.name||'Unknown'));
+      return `<button onclick="selectLiveDriver('${encodeURIComponent(liveDriverKey(live))}')"><b>P${escapeHtml(live.position??d.position??i+1)}</b>${driverPhotoMarkup(name,'native-order-photo','native-order-fallback')}<div><strong>#${escapeHtml(live.number||'—')} ${escapeHtml(name)}</strong><span>${escapeHtml(live.team||live.car||'HLRN')}</span></div><em>${escapeHtml(liveDriverStatus(live,feed))}</em></button>`;
+    }).join('')||'<div class="empty">Waiting for running order.</div>'}</section>
+    <div class="section-head"><h3>Race Control Alerts</h3><span>${alerts.length} ACTIVE</span></div>
+    <section class="native-control-alerts">${alerts.length?alerts.map(d=>`<article><strong>#${escapeHtml(d.number||'—')} ${escapeHtml(prettyName(String(d.name||'Unknown')))}</strong><span>${escapeHtml(liveDriverStatus(d,feed))}</span><p>${escapeHtml(d.penaltyReason||d.statusDetail||'Race control status active.')}</p></article>`).join(''):'<div class="empty">No active penalties, DQs, disconnects or cars out.</div>'}</section>
+    <div class="section-head"><h3>Caution History</h3><span>${history.length}</span></div>
+    <section class="native-caution-history">${history.length?history.map(c=>`<article><strong>CAUTION #${escapeHtml(c.number??'—')} • LAP ${escapeHtml(c.startLap??'—')}</strong><span>${c.restartLap!=null?'Restarted lap '+escapeHtml(c.restartLap):'Restart pending'}</span><p>${escapeHtml(c.reason||'Reason not supplied by iRacing telemetry')}</p></article>`).join(''):'<div class="empty">No completed cautions yet.</div>'}</section>
+  `;
+}
+
+function liveCenterPanelHtml(feed=state.liveRace.feed){
+  if(state.liveCenterTab==='focus')return liveFocusHtml(feed);
+  if(state.liveCenterTab==='battles')return liveBattlesHtml(feed);
+  if(state.liveCenterTab==='fastest')return liveFastestHtml(feed);
+  if(state.liveCenterTab==='timeline')return liveTimelineHtml(feed);
+  if(state.liveCenterTab==='control')return liveRaceControlHtml(feed);
+  return liveLeaderboardHtml(feed);
+}
+
+function setLiveCenterTab(tab){
+  state.liveCenterTab=tab;
+  renderLiveRaceCenter(true,false);
+  try{history.replaceState({hlrn:true,route:{kind:'live',tab,focus:state.liveFocusKey}},'',location.href);}catch(e){}
+}
+
+function selectLiveDriver(key){
+  try{key=decodeURIComponent(String(key||''));}catch(e){}
+  state.liveFocusKey=key;
+  state.liveCenterTab='focus';
+  renderLiveRaceCenter(true,false);
+  try{history.replaceState({hlrn:true,route:{kind:'live',tab:'focus',focus:key}},'',location.href);}catch(e){}
+}
+
+function renderLiveRaceCenter(preserveScroll=false,addHistory=false){
+  clearInterval(countdownTimer);
+  const y=preserveScroll?(window.scrollY||0):0;
+  state.currentView='live-center';
+  document.body.dataset.view='live-center';
+  nav.forEach(n=>n.classList.remove('active'));
+
+  const feed=state.liveRace.feed;
+  const drivers=liveDrivers(feed);
+  const leader=drivers.find(d=>Number(d.position)===1)||drivers[0]||null;
+  const rc=liveRaceControl(feed);
+  const stats=liveRaceStats(feed);
+  const finished=liveRaceFinished(feed);
+  const phase=String(feed?.phase||state.liveRace.phase||'standby').toLowerCase();
+  const connected=state.liveRace.connected;
+  const flag=liveNormalizeFlag(feed?.flag||state.liveRace.flag||'OFF AIR');
+  const fastest=liveFastestDrivers(feed)[0]||null;
+  const cautions=Number(rc.cautionCount||0);
+  const leadChanges=Number(stats.leadChanges||0);
+  const battles=liveBattles(feed);
+  const sessionTitle=finished?'FINAL RESULTS':phase==='practice'?'PRACTICE':phase==='qualifying'?'QUALIFYING':phase==='race'?'LIVE RACE':'RACE CENTER';
+
+  const tabs=[
+    ['leaderboard',finished?'Final':'Leaderboard'],
+    ['focus','Driver Focus'],
+    ['battles','Battles'],
+    ['fastest','Fastest'],
+    ['timeline','Timeline'],
+    ['control','Race Control']
+  ];
+
+  app.innerHTML=`${networkBar()}
+    <section class="native-live-head ${finished?'finished':connected?'connected':'standby'}">
+      <div class="native-live-head-top">
+        <button class="profile-back native-live-back" onclick="hlrnBack('home')">← COMMAND CENTER</button>
+        <div class="native-live-signal"><i></i><span>${finished?'FINAL':connected?'LIVE FEED':'STANDBY'}</span></div>
+      </div>
+      <div class="native-live-title"><small>HLRN NATIVE RACE CENTER</small><h2>${escapeHtml(feed?.track||state.liveRace.track||'Waiting for race night')}</h2><p>${escapeHtml(feed?.series||state.liveRace.series||'High Line Racing Network')} • ${escapeHtml(sessionTitle)}</p></div>
+      <div class="native-session-flow">${livePhaseFlow(feed)}</div>
+    </section>
+
+    <section class="native-live-scoreboard">
+      <div class="native-score-flag ${flag.toLowerCase().replace(/[^a-z0-9]+/g,'-')}"><small>FLAG</small><strong>${escapeHtml(flag)}</strong></div>
+      <div><small>LAP</small><strong>${escapeHtml(feed?.lap??state.liveRace.lap??'—')}${Number(feed?.totalLaps||state.liveRace.totalLaps)>0?'<em>/'+escapeHtml(feed?.totalLaps||state.liveRace.totalLaps)+'</em>':''}</strong></div>
+      <div><small>LEADER</small><strong>${leader?'#'+escapeHtml(leader.number||'—')+' '+escapeHtml(prettyName(String(leader.name||'Unknown'))):'—'}</strong></div>
+      <div><small>CAUTIONS</small><strong>${cautions}</strong></div>
+      <div><small>LEAD CHANGES</small><strong>${leadChanges}</strong></div>
+      <div><small>CARS</small><strong>${drivers.length||state.liveRace.driverCount||0}</strong></div>
+    </section>
+
+    ${finished&&leader?`<section class="native-final-winner">${driverPhotoMarkup(prettyName(String(leader.name||'Unknown')),'native-winner-photo','native-winner-fallback')}<div><small>CHECKERED FLAG • RACE WINNER</small><strong>#${escapeHtml(leader.number||'—')} ${escapeHtml(prettyName(String(leader.name||'Unknown')))}</strong><span>${escapeHtml(feed?.track||'HLRN Race')} • Final results frozen</span></div><button onclick="shareRaceResult('HLRN','${escapeHtml(prettyName(String(leader.name||'Unknown')).replace(/'/g,'&#039;'))}','${escapeHtml(String(feed?.track||'').replace(/'/g,'&#039;'))}')">SHARE ↗</button></section>`:''}
+
+    <section class="native-live-pulse">
+      <div><small>FASTEST</small><strong>${fastest?escapeHtml(prettyName(String(fastest.name||'Unknown'))):'—'}</strong><span>${fastest?escapeHtml(liveLapTime(fastest.bestLapTime)):'Waiting for timed lap'}</span></div>
+      <div><small>CLOSE BATTLES</small><strong>${battles.length}</strong><span>Top 10 within 1.5s</span></div>
+      <div><small>RACE CONTROL</small><strong>${rc.oneToGreen?'1 TO GREEN':rc.active?'CAUTION':flag}</strong><span>${rc.active?'Caution #'+(rc.cautionCount||'—'):'Current session status'}</span></div>
+    </section>
+
+    <nav class="native-live-tabs">
+      ${tabs.map(([key,label])=>`<button class="${state.liveCenterTab===key?'active':''}" onclick="setLiveCenterTab('${key}')">${label}</button>`).join('')}
+    </nav>
+
+    <section id="nativeLivePanel" class="native-live-panel">${liveCenterPanelHtml(feed)}</section>
+
+    <section class="native-live-footer">
+      <div><i></i><span>${connected?'LIVE WEBSOCKET CONNECTED':'Waiting for HLRN live bridge'}${state.liveRace.updatedAt?' • '+new Date(state.liveRace.updatedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit',second:'2-digit'}):''}</span></div>
+      <button onclick="openSocial(HLRN_ENDPOINTS.livePage)">OPEN WEB RACE CENTER ↗</button>
+    </section>
+  `;
+
+  updateTopNetworkPill();
+  if(addHistory)hlrnRouteState({kind:'live',tab:state.liveCenterTab,focus:state.liveFocusKey});
+  if(!preserveScroll){
+    window.scrollTo({top:0,behavior:'auto'});
+    addPageMotion();
+  }else{
+    requestAnimationFrame(()=>window.scrollTo(0,y));
+  }
+}
+
+let HLRN_LIVE_RENDER_TIMER=null;
+
 function applyLiveRaceState(feed){
   const drivers=Array.isArray(feed?.drivers)?feed.drivers:[];
   const leader=drivers.find(d=>Number(d.position)===1)||drivers[0]||null;
@@ -741,33 +1170,44 @@ function applyLiveRaceState(feed){
     sessionName:String(feed?.sessionName||''),
     leader:prettyName(String(leader?.name||leader?.driver||'')),
     leaderNumber:String(leader?.number||leader?.carNumber||''),
-    updatedAt:Date.now()
+    updatedAt:Date.now(),
+    feed
   };
   updateTopNetworkPill();
 
-  if(state.currentView==='home' && !inputIsActive()){
-    const y=window.scrollY||0;
-    renderHome();
-    requestAnimationFrame(()=>window.scrollTo(0,y));
+  if(state.currentView==='home'&&!inputIsActive()){
+    clearTimeout(HLRN_LIVE_RENDER_TIMER);
+    HLRN_LIVE_RENDER_TIMER=setTimeout(()=>{
+      if(state.currentView!=='home'||inputIsActive())return;
+      const y=window.scrollY||0;
+      renderHome();
+      requestAnimationFrame(()=>window.scrollTo(0,y));
+    },850);
+  }else if(state.currentView==='live-center'&&!inputIsActive()){
+    clearTimeout(HLRN_LIVE_RENDER_TIMER);
+    HLRN_LIVE_RENDER_TIMER=setTimeout(()=>{
+      if(state.currentView==='live-center'&&!inputIsActive())renderLiveRaceCenter(true,false);
+    },700);
   }
 }
 
 function connectHLRNLiveFeed(){
   if(!('WebSocket' in window))return;
   try{
-    if(HLRN_LIVE_SOCKET && [WebSocket.OPEN,WebSocket.CONNECTING].includes(HLRN_LIVE_SOCKET.readyState))return;
+    if(HLRN_LIVE_SOCKET&&[WebSocket.OPEN,WebSocket.CONNECTING].includes(HLRN_LIVE_SOCKET.readyState))return;
     HLRN_LIVE_SOCKET=new WebSocket(HLRN_ENDPOINTS.liveFeed);
 
     HLRN_LIVE_SOCKET.onopen=()=>{
       state.liveRace.connected=true;
       HLRN_LIVE_RETRY=1200;
       updateTopNetworkPill();
+      if(state.currentView==='live-center')renderLiveRaceCenter(true,false);
     };
 
     HLRN_LIVE_SOCKET.onmessage=event=>{
       try{
         const msg=JSON.parse(event.data);
-        if(msg?.type==='state' && msg.data)applyLiveRaceState(msg.data);
+        if(msg?.type==='state'&&msg.data)applyLiveRaceState(msg.data);
       }catch(e){}
     };
 
@@ -775,6 +1215,7 @@ function connectHLRNLiveFeed(){
       state.liveRace.connected=false;
       state.liveRace.driverCount=0;
       updateTopNetworkPill();
+      if(state.currentView==='live-center')renderLiveRaceCenter(true,false);
       setTimeout(connectHLRNLiveFeed,HLRN_LIVE_RETRY);
       HLRN_LIVE_RETRY=Math.min(15000,Math.round(HLRN_LIVE_RETRY*1.6));
     };
@@ -786,8 +1227,8 @@ function connectHLRNLiveFeed(){
   }
 }
 
-function openLiveRaceCenter(){
-  openSocial(HLRN_ENDPOINTS.livePage);
+function openLiveRaceCenter(addHistory=true){
+  renderLiveRaceCenter(false,addHistory);
 }
 
 function renderHome(){
@@ -3502,7 +3943,10 @@ try{
 
 const forcedView=startParams.get('view');
 
-if(forcedView==='notifications'){
+if(forcedView==='live'){
+  openLiveRaceCenter(false);
+  hlrnRouteState({kind:'live',tab:state.liveCenterTab,focus:state.liveFocusKey},true);
+}else if(forcedView==='notifications'){
   openFeature('notifications',false);
   hlrnRouteState({kind:'feature',name:'notifications'},true);
 }else if(forcedView==='recap'){
