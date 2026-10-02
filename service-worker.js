@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v16-hypergrid';
+const CACHE = 'hlrn-v17-connected-grid';
 const APP_SHELL = [
   './',
   './index.html',
@@ -12,6 +12,8 @@ const APP_SHELL = [
   './app15.css',
   './app16.js',
   './app16.css',
+  './app17.js',
+  './app17.css',
   './rules-data.js',
   './standings-driver-photos.js',
   './manifest.json',
