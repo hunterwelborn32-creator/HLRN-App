@@ -1,9 +1,11 @@
-const CACHE = 'hlrn-v12-2-native-race-center';
+const CACHE = 'hlrn-v13-driver-os';
 const APP_SHELL = [
   './',
   './index.html',
   './style.css',
   './app.js',
+  './app13.js',
+  './app13.css',
   './rules-data.js',
   './standings-driver-photos.js',
   './manifest.json',
