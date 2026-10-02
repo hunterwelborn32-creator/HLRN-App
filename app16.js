@@ -205,37 +205,125 @@
     document.body.classList.remove('hg-palette-open');
   };
 
-  function tickerContent(){
+  function tickerItems(){
     const feed=liveFeed();
-    const n=nextRaceInfo();
-    const live=isLive();
-    const leader=live&&Array.isArray(feed?.drivers)
-      ?[...feed.drivers].filter(function(d){return d&&d.position!=null;}).sort(function(a,b){return Number(a.position)-Number(b.position);})[0]
-      :null;
-    const bits=[];
-    if(live){
-      bits.push('<b class="live">LIVE</b>');
-      bits.push('<span>'+esc(currentFlag())+'</span>');
-      bits.push('<strong>'+esc(feed?.track||state.liveRace.track||'HLRN Race')+'</strong>');
-      bits.push('<span>'+esc(sessionLabel())+'</span>');
-      if(feed?.lap!=null)bits.push('<span>LAP '+esc(feed.lap)+(feed.totalLaps?' / '+esc(feed.totalLaps):'')+'</span>');
-      if(leader)bits.push('<span>LEADER #'+esc(leader.number||'—')+' '+esc(prettyName(String(leader.name||leader.driver||'')))+'</span>');
-    }else{
-      bits.push('<b>'+esc(String(n.league).toUpperCase())+'</b>');
-      bits.push('<strong>'+esc(n.race.track||'Next HLRN Event')+'</strong>');
-      if(n.race.date)bits.push('<span>'+esc(n.race.date)+'</span>');
-      if(n.race.time)bits.push('<span>'+esc(n.race.time)+'</span>');
-      bits.push('<span>RACEOS HYPERGRID</span>');
+    const items=[];
+
+    function add(label,value,cls){
+      if(value==null||String(value).trim()==='')return;
+      items.push({label:String(label||''),value:String(value),cls:cls||''});
     }
-    return bits.join('<i></i>');
+
+    if(isLive()){
+      const drivers=Array.isArray(feed?.drivers)
+        ?[...feed.drivers].filter(function(d){return d&&d.position!=null;}).sort(function(a,b){return Number(a.position)-Number(b.position);})
+        :[];
+      const leader=drivers[0]||null;
+      const second=drivers[1]||null;
+      const third=drivers[2]||null;
+      const rc=feed?.raceControl||{};
+
+      add('LIVE',currentFlag(),'live');
+      add('TRACK',feed?.track||state.liveRace.track||'HLRN Race');
+      add('SESSION',sessionLabel());
+      if(feed?.lap!=null)add('LAP',String(feed.lap)+(feed.totalLaps?' / '+feed.totalLaps:''));
+      if(leader)add('LEADER','#'+String(leader.number||'—')+' '+prettyName(String(leader.name||leader.driver||'')));
+      if(second)add('P2','#'+String(second.number||'—')+' '+prettyName(String(second.name||second.driver||'')));
+      if(third)add('P3','#'+String(third.number||'—')+' '+prettyName(String(third.name||third.driver||'')));
+      if(Number(rc.cautionCount)>0)add('CAUTIONS',String(rc.cautionCount));
+      if(Number(rc.currentGreenRun)>0)add('GREEN RUN',String(rc.currentGreenRun)+' LAPS');
+
+      try{
+        if(typeof liveFastestDrivers==='function'){
+          const fastest=liveFastestDrivers(feed)?.[0];
+          if(fastest){
+            const t=typeof liveLapTime==='function'?liveLapTime(fastest.bestLapTime):String(fastest.bestLapTime||'');
+            add('FASTEST',prettyName(String(fastest.name||fastest.driver||''))+' • '+t);
+          }
+        }
+      }catch(e){}
+      add('FIELD',String(drivers.length||state.liveRace.driverCount||0)+' CARS');
+    }else{
+      ['Sunday','Monday'].forEach(function(l){
+        const race=(state.nextRaces||{})[l]||{};
+        if(race.track){
+          add(l.toUpperCase()+' NEXT',race.track);
+          if(race.date)add(l.toUpperCase()+' DATE',race.date);
+          if(race.time)add(l.toUpperCase()+' GREEN',race.time);
+        }
+      });
+
+      ['Sunday','Monday'].forEach(function(l){
+        const leader=(state.standings?.[l]||[])[0];
+        if(leader)add(l.toUpperCase()+' POINTS','P1 '+prettyName(String(leader.name||''))+' • '+String(leader.points||0)+' PTS');
+      });
+
+      (state.latestResults||[]).slice(0,2).forEach(function(r){
+        if(r?.winner)add(String(r.league||'HLRN').toUpperCase()+' WINNER',prettyName(String(r.winner))+(r.track?' • '+r.track:''));
+      });
+
+      if(state.hostedLatest?.winner){
+        add('HOSTED WINNER',prettyName(String(state.hostedLatest.winner))+(state.hostedLatest.track?' • '+state.hostedLatest.track:''));
+      }
+
+      const bulletin=(state.announcements||[])[0];
+      if(bulletin){
+        const text=String(bulletin.text||bulletin.title||'').replace(/\s+/g,' ').trim();
+        if(text)add('HLRN NEWS',text.length>110?text.slice(0,107)+'…':text);
+      }
+
+      if(state.lastUpdated){
+        try{
+          add('DATA UPDATED',new Date(state.lastUpdated).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}));
+        }catch(e){}
+      }
+
+      add('NETWORK','HLRN CONNECTED GRID 17');
+    }
+
+    return items;
+  }
+
+  function tickerContent(){
+    return tickerItems().map(function(item){
+      return '<span class="hg-ticker-item '+esc(item.cls)+'"><b>'+esc(item.label)+'</b><strong>'+esc(item.value)+'</strong></span>';
+    }).join('<i class="hg-ticker-sep"></i>');
   }
 
   function renderTicker(){
     const ticker=document.getElementById('hyperGridTicker');
     if(!ticker)return;
+
     const html=tickerContent();
+    const signature=(isLive()?'live|':'standby|')+html;
+
     ticker.classList.toggle('live',isLive());
-    ticker.innerHTML='<div class="hg-ticker-track">'+html+'</div><div class="hg-ticker-track clone" aria-hidden="true">'+html+'</div>';
+
+    // Critical: do NOT rebuild the moving belt every second.
+    // Replacing the DOM resets the animation, which made the old ticker look frozen.
+    if(ticker.dataset.signature===signature&&ticker.querySelector('.hg-ticker-belt'))return;
+    ticker.dataset.signature=signature;
+
+    ticker.innerHTML=
+      '<div class="hg-ticker-belt">'+
+        '<div class="hg-ticker-copy">'+html+'</div>'+
+        '<div class="hg-ticker-copy" aria-hidden="true">'+html+'</div>'+
+      '</div>';
+
+    const belt=ticker.querySelector('.hg-ticker-belt');
+    const copy=ticker.querySelector('.hg-ticker-copy');
+    if(!belt||!copy)return;
+
+    requestAnimationFrame(function(){
+      const distance=Math.max(1,copy.getBoundingClientRect().width);
+      // About 42 px/sec keeps it readable on desktop and mobile.
+      const duration=Math.max(22,distance/42);
+      ticker.style.setProperty('--hg-ticker-distance',distance+'px');
+      ticker.style.setProperty('--hg-ticker-duration',duration+'s');
+      belt.classList.remove('run');
+      void belt.offsetWidth;
+      belt.classList.add('run');
+    });
   }
 
   function updateBodyState(){
