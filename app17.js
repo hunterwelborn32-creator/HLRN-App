@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const CONNECTED_GRID_VERSION='17.0.0';
+  const CONNECTED_GRID_VERSION='17.0.1';
   const AUTH_APP_URL='https://script.google.com/macros/s/AKfycbyX5H27GP1LS7lFvCw_m9PirJlCCpMYRQkU8ovkYJOlmhyWcCy8qFvSKeBL_-SXiNT8/exec';
   const LOGIN_KEY='hlrn_driver_login_device_v1';
   const DEVICE_KEY_STORAGE='hlrn_driver_permanent_device_key_v2';
@@ -300,7 +300,7 @@
       name:name,
       standings:standings,
       primary:primary,
-      number:driverNumberFor?driverNumberFor(name):'',
+      number:(rows.slice().reverse().find(function(r){return r.carNumber;})||{}).carNumber||'',
       team:primary?.team||standings.find(function(x){return x.row.team;})?.row?.team||'',
       starts:rows.length,
       wins:rows.filter(function(r){return Number(r.finish)===1;}).length,
