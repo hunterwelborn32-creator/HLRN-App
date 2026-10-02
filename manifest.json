@@ -1,11 +1,11 @@
 {
-  "name": "HLRN HyperGrid",
+  "name": "HLRN Connected Grid",
   "short_name": "HLRN",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#010205",
   "theme_color": "#010205",
-  "description": "HLRN standings, schedule, hosted stats, rules, announcements and push notifications.",
+  "description": "HLRN Connected Grid: live racing, driver accounts, race control, championship, media and driver intelligence.",
   "icons": [
     {
       "src": "icon-192.png",
