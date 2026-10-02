@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v13-0-2-home-league-fix';
+const CACHE = 'hlrn-v14-race-night-pro';
 const APP_SHELL = [
   './',
   './index.html',
@@ -6,6 +6,8 @@ const APP_SHELL = [
   './app.js',
   './app13.js',
   './app13.css',
+  './app14.js',
+  './app14.css',
   './rules-data.js',
   './standings-driver-photos.js',
   './manifest.json',
