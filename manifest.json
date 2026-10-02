@@ -1,11 +1,11 @@
 {
-  "name": "HLRN Connected Grid",
+  "name": "HLRN Fusion Control",
   "short_name": "HLRN",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#010205",
   "theme_color": "#010205",
-  "description": "HLRN Connected Grid: live racing, driver accounts, race control, championship, media and driver intelligence.",
+  "description": "HLRN Fusion Control: adaptive race command, live scoring, driver intelligence, race control and championship tools.",
   "icons": [
     {
       "src": "icon-192.png",
