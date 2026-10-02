@@ -1,5 +1,13 @@
 const HOSTED_SHEET = '1YfY22x2dnI9T6Fi69pT3L91NAkmVQWdvL0IWbWhB-tM';
 
+// HLRN App + Website now share the same published racing data.
+// Raw GitHub is used here because it supports cross-origin app requests reliably.
+const HLRN_SITE_DATA = {
+  snapshot: 'https://raw.githubusercontent.com/hunterwelborn32-creator/HLRN-Website/main/data/hlrn.json',
+  schedule: 'https://raw.githubusercontent.com/hunterwelborn32-creator/HLRN-Website/main/data/schedules-2026.json',
+  website: 'https://highlineracingnetwork.com/'
+};
+
 const HLRN_PUSH = {
   worker: 'https://hlrn-push.hunterwelborn32.workers.dev',
   publicKey: 'BGqE3R4fp3FmoakzhQtYU9PzWHiM7NkGbop8CSnC7nr921m-x47JafontNA7Eg5a95ROaOhek2TvNNDtifJdwxk'
@@ -75,8 +83,8 @@ const state = {
   liveStatus: 'Connecting…',
   lastUpdated: null,
   nextRaces: {
-    Sunday: {date:'SEP 13', iso:'2026-09-13T20:30:00-04:00', track:'Homestead Miami', series:'Sunday League', time:'8:30 PM EST', broadcast:''},
-    Monday: {date:'SEP 14', iso:'2026-09-14T20:30:00-04:00', track:'Echo Park', series:'Monday League', time:'8:30 PM EST', broadcast:''}
+    Sunday: {date:'OCT 4', dateKey:'2026-10-04', iso:'2026-10-04T20:30:00-04:00', track:'iRacing Superspeedway', series:'Sunday League', time:'8:30 PM ET', broadcast:''},
+    Monday: {date:'OCT 5', dateKey:'2026-10-05', iso:'2026-10-05T20:30:00-04:00', track:'Auto Club', series:'Monday League', time:'8:30 PM ET', broadcast:''}
   },
   standings: { Sunday: [], Monday: [] },
   schedule: [],
@@ -87,10 +95,11 @@ const state = {
   hostedDrivers: [],
   hostedRaceRows: [],
   hostedLatest: null,
+  hostedSessionCount: 0,
   hostedDataStatus: 'Connecting…',
   hostedCachePartial: false,
   links: {},
-  appVersion: '11.3.4',
+  appVersion: '11.4.0',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -568,12 +577,12 @@ function startCountdown(iso){
 function renderHome(){
   state.currentView='home';
   const race = state.nextRaces[state.homeLeague];
-  const scheduleRace = FULL_SCHEDULE[state.homeLeague].find(r=>r.date===race.iso?.slice(0,10)) || FULL_SCHEDULE[state.homeLeague].find(r=>r.track===race.track) || {};
+  const scheduleRace = FULL_SCHEDULE[state.homeLeague].find(r=>r.date===(race.dateKey||race.iso?.slice(0,10))) || FULL_SCHEDULE[state.homeLeague].find(r=>r.track===race.track) || {};
   const sundayLeader = state.standings.Sunday?.[0];
   const mondayLeader = state.standings.Monday?.[0];
   const sundayDone=seasonCompleted('Sunday');
   const mondayDone=seasonCompleted('Monday');
-  const hostedRaces=hostedRaceGroups().length;
+  const hostedRaces=state.hostedSessionCount||hostedRaceGroups().length;
   const totalHostedDrivers=state.hostedDrivers.length;
   const announcementHtml = state.announcements.slice(0,4).map(a=>`
     <article class="announcement-card"><div class="announcement-top"><span class="mini-tag">${escapeHtml(a.tag||'NEWS')}</span><time>${escapeHtml(a.time||'')}</time></div>
@@ -1748,7 +1757,7 @@ function renderHeadToHead(){
   }
 }
 function renderRaceStats(){
-  const body=`<div class="intelligence-launch"><div><small>HLRN ANALYTICS ENGINE</small><strong>Sunday + Monday Race Intelligence</strong><p>Full live intelligence dashboard with league switching, command-center metrics, stories and deeper race analysis.</p></div><div class="auto-sync-note compact"><i></i>AUTO SYNC</div></div><iframe id="raceIntelFrame" class="race-intelligence-frame" src="race-intelligence.html?v=11.3.4&app=1" title="HLRN Race Intelligence"></iframe>`;
+  const body=`<div class="intelligence-launch"><div><small>HLRN ANALYTICS ENGINE</small><strong>Sunday + Monday Race Intelligence</strong><p>Full live intelligence dashboard with league switching, command-center metrics, stories and deeper race analysis.</p></div><div class="auto-sync-note compact"><i></i>AUTO SYNC</div></div><iframe id="raceIntelFrame" class="race-intelligence-frame" src="race-intelligence.html?v=11.4.0&app=1" title="HLRN Race Intelligence"></iframe>`;
   featureShell('Race Intelligence','Full HLRN Sunday and Monday analytics dashboard.',body,'race-intelligence-page');
 }
 function recentRowsFor(name,n=5){
@@ -2501,9 +2510,9 @@ function renderSocials(){
     </div>
     <div class="section-head socials-section-head community-head"><h3>Join the Community</h3><span>CONNECT</span></div>
     <div class="social-grid">
-      <button class="social-card facebook-card" onclick="openSocial('https://www.facebook.com/share/1F8o3B6HV2/?mibextid=wwXIfr')"><span class="social-platform-icon">${facebookLogo}</span><span class="social-card-copy"><small>FACEBOOK</small><strong>HLRNZone</strong><em>News • Discussions • Community</em></span><span class="social-go">›</span></button>
-      <button class="social-card discord-card" onclick="openSocial('https://discord.gg/cJhxrChaV')"><span class="social-platform-icon">${discordLogo}</span><span class="social-card-copy"><small>DISCORD</small><strong>HLRN Hangout</strong><em>Chat • Race talk • HLRN community</em></span><span class="social-go">›</span></button>
-      <button class="social-card website-card" onclick="openSocial(state.links['HLRN Website'] || 'https://sites.google.com/view/highlineracingnetwork/home')"><span class="social-platform-icon">${globeLogo}</span><span class="social-card-copy"><small>OFFICIAL WEBSITE</small><strong>High Line Racing Network</strong><em>Schedules • Results • Driver profiles • More</em></span><span class="social-go">›</span></button>
+      <button class="social-card facebook-card" onclick="openSocial('https://www.facebook.com/profile.php?id=61573411079339')"><span class="social-platform-icon">${facebookLogo}</span><span class="social-card-copy"><small>FACEBOOK</small><strong>HLRNZone</strong><em>News • Discussions • Community</em></span><span class="social-go">›</span></button>
+      <button class="social-card discord-card" onclick="openSocial('https://discord.gg/HpDfUQk23P')"><span class="social-platform-icon">${discordLogo}</span><span class="social-card-copy"><small>DISCORD</small><strong>HLRN Hangout</strong><em>Chat • Race talk • HLRN community</em></span><span class="social-go">›</span></button>
+      <button class="social-card website-card" onclick="openSocial(state.links['HLRN Website'] || 'https://highlineracingnetwork.com/')"><span class="social-platform-icon">${globeLogo}</span><span class="social-card-copy"><small>OFFICIAL WEBSITE</small><strong>High Line Racing Network</strong><em>Schedules • Results • Driver profiles • More</em></span><span class="social-go">›</span></button>
     </div>
     <div class="socials-footer-line"><span></span>RACING BRINGS US TOGETHER<span></span></div>`;
 }
@@ -2541,6 +2550,188 @@ function tableRows(table){
   return (table.rows||[]).map(r=>{ const o={}; headers.forEach((h,i)=>{ if(!h) return; const cell=r.c&&r.c[i]; o[h]=cell?(cell.f ?? cell.v ?? ''):''; }); return o; });
 }
 
+async function fetchHLRNSiteJson(source){
+  const response=await fetch(source,{cache:'no-store'});
+  if(!response.ok) throw new Error('HLRN website data HTTP '+response.status);
+  return response.json();
+}
+
+function siteRaceDate(value){
+  const raw=String(value||'').trim();
+  if(!raw) return '';
+  const d=new Date(raw);
+  if(Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('en-US',{
+    timeZone:'America/New_York',
+    month:'short',
+    day:'numeric',
+    year:'numeric'
+  }).toUpperCase();
+}
+
+function easternRaceIso(date,hour=20,minute=30){
+  const m=String(date||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return String(date||'');
+  const y=Number(m[1]),mo=Number(m[2]),day=Number(m[3]);
+  let utc=Date.UTC(y,mo-1,day,hour,minute,0,0);
+  for(let i=0;i<2;i++){
+    const zone=new Intl.DateTimeFormat('en-US',{
+      timeZone:'America/New_York',
+      timeZoneName:'shortOffset',
+      hour:'2-digit'
+    }).formatToParts(new Date(utc)).find(p=>p.type==='timeZoneName')?.value||'GMT-4';
+    const z=zone.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/i);
+    let offset=-240;
+    if(z){
+      const mins=Number(z[2])*60+Number(z[3]||0);
+      offset=z[1]==='+'?mins:-mins;
+    }
+    utc=Date.UTC(y,mo-1,day,hour,minute,0,0)-offset*60000;
+  }
+  return new Date(utc).toISOString();
+}
+
+function applyWebsiteSchedule(payload){
+  [['sunday','Sunday'],['monday','Monday']].forEach(([key,league])=>{
+    const rows=Array.isArray(payload?.leagues?.[key])?payload.leagues[key]:[];
+    const mapped=rows
+      .filter(r=>!r?.off && Number(r?.week)>0 && r?.date)
+      .map(r=>({
+        race:Number(r.week),
+        date:String(r.date),
+        track:String(r.track||''),
+        car:String(r.car||''),
+        laps:Number(r.laps)||0,
+        setup:league==='Sunday'?'HLRN':'Fixed',
+        tires:String(r.tires||''),
+        miles:String(r.miles||''),
+        banking:String(r.banking||''),
+        location:String(r.location||''),
+        type:String(r.type||''),
+        description:String(r.description||'')
+      }))
+      .sort((a,b)=>a.race-b.race);
+    if(mapped.length){
+      FULL_SCHEDULE[league].splice(0,FULL_SCHEDULE[league].length,...mapped);
+    }
+  });
+  applySchedule([]);
+}
+
+function applyWebsiteLeague(snapshot,key,leagueName){
+  const league=snapshot?.leagues?.[key];
+  if(!league) throw new Error('Missing '+leagueName+' website league data');
+
+  const drivers=Array.isArray(league.drivers)?league.drivers:[];
+  const driverMap={};
+
+  state.standings[leagueName]=drivers.map(d=>{
+    const name=prettyName(String(d.driver||d.name||''));
+    const driverId=String(d.driverId||d.id||'');
+    if(driverId) driverMap[driverId]=name;
+    return {
+      name,
+      rank:Number(d.rank)||0,
+      change:Number(d.change)||0,
+      points:Number(d.points)||0,
+      races:Number(d.races)||Number(d.starts)||0,
+      wins:Number(d.wins)||0,
+      top5:Number(d.top5)||0,
+      top10:Number(d.top10)||0,
+      avgFinish:Number(d.avgFinish)||0,
+      driverId
+    };
+  }).filter(d=>d.name).sort((a,b)=>a.rank-b.rank);
+
+  state.results[leagueName]=(Array.isArray(league.results)?league.results:[]).map(r=>({
+    raceNo:Number(r.raceNumber)||0,
+    driverId:String(r.driverId||''),
+    driver:driverMap[String(r.driverId||'')]||prettyName(String(r.driver||''))||('Driver '+String(r.driverId||'')),
+    finish:Number(r.finish)||0,
+    start:Number(r.start)||0,
+    points:Number(r.points)||0,
+    track:String(r.track||''),
+    date:siteRaceDate(r.date),
+    incidents:Number(r.incidents)||0,
+    lapsLed:Number(r.lapsLed)||0,
+    status:String(r.status||'')
+  })).filter(r=>r.raceNo>0).sort((a,b)=>b.raceNo-a.raceNo||a.finish-b.finish);
+
+  const rosterByTeam=new Map();
+  drivers.forEach(d=>{
+    const team=String(d.team||'').trim();
+    if(!team)return;
+    if(!rosterByTeam.has(team))rosterByTeam.set(team,[]);
+    rosterByTeam.get(team).push(prettyName(String(d.driver||d.name||'')));
+  });
+
+  state.teamStandings[leagueName]=(Array.isArray(league.teams)?league.teams:[]).map(t=>({
+    name:String(t.team||t.name||''),
+    points:Number(t.points)||0,
+    wins:Number(t.wins)||0,
+    top5:Number(t.top5)||0,
+    drivers:(rosterByTeam.get(String(t.team||t.name||''))||[]).join(', ')
+  })).filter(t=>t.name).sort((a,b)=>b.points-a.points);
+}
+
+function applyWebsiteHosted(snapshot){
+  const hosted=snapshot?.hosted||{};
+  const latest=hosted.latest||null;
+  if(latest?.winner){
+    state.hostedLatest={
+      winner:prettyName(String(latest.winner||'')),
+      track:String(latest.track||'HLRN Hosted Race'),
+      date:String(latest.date||''),
+      car:String(latest.winnerCar||''),
+      carNumber:String(latest.winnerCarNumber||''),
+      totalLaps:Number(latest.totalLaps)||0,
+      cautions:Number(latest.cautions)||0
+    };
+  }
+  if(Array.isArray(hosted.sessions)){
+    state.hostedSessionCount=hosted.sessions.length;
+  }
+}
+
+function rebuildWebsiteLatestResults(){
+  state.latestResults=['Sunday','Monday'].map(league=>{
+    const latest=latestLeagueRace(league);
+    const r=latest[0];
+    return r?{league,track:r.track,winner:r.driver,date:r.date,raceNo:r.raceNo}:null;
+  }).filter(Boolean);
+}
+
+async function refreshWebsiteRacingData(){
+  const [snapshot,schedule]=await Promise.all([
+    fetchHLRNSiteJson(HLRN_SITE_DATA.snapshot),
+    fetchHLRNSiteJson(HLRN_SITE_DATA.schedule)
+  ]);
+
+  applyWebsiteLeague(snapshot,'sunday','Sunday');
+  applyWebsiteLeague(snapshot,'monday','Monday');
+  applyWebsiteSchedule(schedule);
+  applyWebsiteHosted(snapshot);
+  rebuildWebsiteLatestResults();
+  buildDrivers();
+
+  state.links['HLRN Website']=HLRN_SITE_DATA.website;
+  state.lastUpdated=Number.isFinite(Date.parse(snapshot?.generatedAt||''))
+    ? Date.parse(snapshot.generatedAt)
+    : Date.now();
+  return snapshot;
+}
+
+async function refreshAppLinks(){
+  try{
+    const linksT=await loadGviz(LIVE.configSheet,'Links','A1:B100');
+    const rows=tableRows(linksT);
+    rows.forEach(r=>{
+      if(r.Name) state.links[String(r.Name)]=String(r.URL||'');
+    });
+  }catch(e){}
+  state.links['HLRN Website']=HLRN_SITE_DATA.website;
+}
+
 function normalizeStandings(rows){
   return rows.filter(r=>r.Driver).map(r=>({
     name:prettyName(String(r.Driver)), rank:Number(r.Rank)||0, change:Number(r.Change)||0, points:Number(r.Points)||0,
@@ -2573,16 +2764,22 @@ function buildDrivers(){
   state.drivers=[...map.values()].map(d=>({...d,leagues:d.leagues.join(' + ')})).sort((a,b)=>a.name.localeCompare(b.name));
 }
 function applySchedule(rows){
-  // The full league schedules are built into the app from the official HLRN schedule.
-  // The Config sheet can still supply times/links without replacing the 16-race schedules.
   ['Sunday','Monday'].forEach(league=>{
     const now=new Date(); now.setHours(0,0,0,0);
     const upcoming=FULL_SCHEDULE[league].find(r=>new Date(`${r.date}T12:00:00`)>=now);
     if(upcoming){
       const timeRow=(rows||[]).find(r=>String(r.League||'')===league && String(r.Date||'')===upcoming.date);
-      const time=String(timeRow?.Time||'8:30 PM EST');
-      const d=new Date(`${upcoming.date}T20:30:00-04:00`);
-      state.nextRaces[league]={date:d.toLocaleString('en-US',{month:'short',day:'numeric'}).toUpperCase(),iso:d.toISOString(),track:upcoming.track,series:`${league} League`,time,broadcast:state.links[`${league} Broadcast`]||''};
+      const time=String(timeRow?.Time||'8:30 PM ET');
+      const d=new Date(`${upcoming.date}T12:00:00`);
+      state.nextRaces[league]={
+        date:d.toLocaleString('en-US',{month:'short',day:'numeric'}).toUpperCase(),
+        dateKey:upcoming.date,
+        iso:easternRaceIso(upcoming.date),
+        track:upcoming.track,
+        series:`${league} League`,
+        time,
+        broadcast:state.links[`${league} Broadcast`]||''
+      };
     }
   });
 }
@@ -2669,32 +2866,79 @@ async function refreshDiscordAnnouncements(){
 
 async function refreshLiveData(rerender=true){
   state.liveStatus='Connecting…';
+  let websiteSynced=false;
+
   try{
-    const [sunT,monT,sunRT,monRT,newsT,scheduleT,configT,linksT]=await Promise.all([
-      loadGviz(LIVE.standingsSheet,'Sunday Drivers','A1:J250'), loadGviz(LIVE.standingsSheet,'Monday Drivers','A1:J250'),
-      loadGviz(LIVE.standingsSheet,'Sunday Results','A1:K1000'), loadGviz(LIVE.standingsSheet,'Monday Results','A1:K1000'),
-      loadGviz(LIVE.newsroomSheet,'News','A4:J250'), loadGviz(LIVE.configSheet,'Schedule','A1:E250'),
-      loadGviz(LIVE.configSheet,'Config','A1:B100'), loadGviz(LIVE.configSheet,'Links','A1:B100')
-    ]);
-    state.standings.Sunday=normalizeStandings(tableRows(sunT));
-    state.standings.Monday=normalizeStandings(tableRows(monT));
-    const idMap={}; [...state.standings.Sunday,...state.standings.Monday].forEach(d=>{if(d.driverId) idMap[d.driverId]=d.name;});
-    state.results.Sunday=normalizeResults(tableRows(sunRT),idMap); state.results.Monday=normalizeResults(tableRows(monRT),idMap);
-    state.latestResults=['Sunday','Monday'].map(league=>{const latest=latestLeagueRace(league); const r=latest[0]; return r?{league,track:r.track,winner:r.driver,date:r.date,raceNo:r.raceNo}:null;}).filter(Boolean);
-    const newsRows=tableRows(newsT);
-    state.announcements=newsRows.filter(r=>String(r.Publish).toUpperCase()==='TRUE').map(r=>({tag:r.Category||'NEWS',title:r.Title||'HLRN Update',text:r.Summary||'',time:r.Date||''})).reverse();
-    if(!state.announcements.length) state.announcements=JSON.parse(JSON.stringify(fallback.announcements));
-    const linkRows=tableRows(linksT); state.links={}; linkRows.forEach(r=>{ if(r.Name) state.links[String(r.Name)]=String(r.URL||''); });
-    const cfg=tableRows(configT); cfg.forEach(r=>{ if(r.Key==='App Version' && r.Value) state.appVersion=String(r.Value); });
-    applySchedule(tableRows(scheduleT)); buildDrivers();
-    state.liveStatus='LIVE'; state.lastUpdated=Date.now();
+    await refreshWebsiteRacingData();
+    websiteSynced=true;
+    state.liveStatus='LIVE';
   }catch(err){
-    console.warn('HLRN live data connection failed:',err);
-    state.liveStatus='OFFLINE DATA';
-    // Keep the built-in fallback so the app remains usable.
-    buildDrivers();
+    console.warn('HLRN website data connection failed; using legacy fallback:',err);
+
+    try{
+      const [sunT,monT,sunRT,monRT,newsT,scheduleT,linksT]=await Promise.all([
+        loadGviz(LIVE.standingsSheet,'Sunday Drivers','A1:J250'),
+        loadGviz(LIVE.standingsSheet,'Monday Drivers','A1:J250'),
+        loadGviz(LIVE.standingsSheet,'Sunday Results','A1:K1000'),
+        loadGviz(LIVE.standingsSheet,'Monday Results','A1:K1000'),
+        loadGviz(LIVE.newsroomSheet,'News','A4:J250'),
+        loadGviz(LIVE.configSheet,'Schedule','A1:E250'),
+        loadGviz(LIVE.configSheet,'Links','A1:B100')
+      ]);
+
+      state.standings.Sunday=normalizeStandings(tableRows(sunT));
+      state.standings.Monday=normalizeStandings(tableRows(monT));
+
+      const idMap={};
+      [...state.standings.Sunday,...state.standings.Monday].forEach(d=>{
+        if(d.driverId) idMap[d.driverId]=d.name;
+      });
+
+      state.results.Sunday=normalizeResults(tableRows(sunRT),idMap);
+      state.results.Monday=normalizeResults(tableRows(monRT),idMap);
+      rebuildWebsiteLatestResults();
+
+      const newsRows=tableRows(newsT);
+      state.announcements=newsRows
+        .filter(r=>String(r.Publish).toUpperCase()==='TRUE')
+        .map(r=>({
+          tag:r.Category||'NEWS',
+          title:r.Title||'HLRN Update',
+          text:r.Summary||'',
+          time:r.Date||''
+        }))
+        .reverse();
+
+      if(!state.announcements.length){
+        state.announcements=JSON.parse(JSON.stringify(fallback.announcements));
+      }
+
+      const linkRows=tableRows(linksT);
+      state.links={};
+      linkRows.forEach(r=>{
+        if(r.Name) state.links[String(r.Name)]=String(r.URL||'');
+      });
+      state.links['HLRN Website']=HLRN_SITE_DATA.website;
+
+      applySchedule(tableRows(scheduleT));
+      buildDrivers();
+      await refreshTeamStandings();
+      state.liveStatus='LIVE';
+      state.lastUpdated=Date.now();
+    }catch(fallbackErr){
+      console.warn('HLRN legacy data fallback failed:',fallbackErr);
+      state.liveStatus='OFFLINE DATA';
+      buildDrivers();
+    }
   }
-  await Promise.allSettled([refreshDiscordAnnouncements(),refreshTeamStandings()]);
+
+  const extras=[refreshDiscordAnnouncements(),refreshAppLinks()];
+  if(!websiteSynced) extras.push(refreshTeamStandings());
+  await Promise.allSettled(extras);
+
+  // Broadcast links may have arrived after the schedule was built.
+  applySchedule([]);
+
   if(rerender) rerenderCurrent();
 }
 
@@ -2836,6 +3080,9 @@ buildDrivers();
 // cannot redraw the page and jump the user back to the top while scrolling.
 refreshLiveData(false).finally(()=>{
   HLRN_AUTO_REFRESH.lastLive=Date.now();
+  if(document.visibilityState==='visible' && !inputIsActive()){
+    rerenderCurrent();
+  }
   startHLRNAutoRefresh();
 });
 // Hosted database loads only when a Hosted/Drivers screen is opened and then refreshes automatically.
