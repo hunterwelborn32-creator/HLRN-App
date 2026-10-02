@@ -8,6 +8,8 @@
   const APPEAL_KEY='hlrn_connected_grid_appeals_v1';
   const PIT_KEY='hlrn_connected_grid_last_pit_v1';
   const PUSH_PROFILE_KEY='hlrn_connected_grid_push_profile_v1';
+  const DRIVER_NUMBER_URL='https://raw.githubusercontent.com/hunterwelborn32-creator/HLRN-Website/main/data/driver-numbers.json';
+  const driverNumbers=new Map();
 
   let connectedLogin=null;
   let loginVerified=false;
@@ -55,6 +57,22 @@
   function vibrate(pattern){
     try{if(navigator.vibrate)navigator.vibrate(pattern||8);}catch(e){}
   }
+  function driverNumber(name){
+    return driverNumbers.get(normalize(name))||'';
+  }
+  async function loadDriverNumbers(){
+    try{
+      const r=await fetch(DRIVER_NUMBER_URL,{cache:'no-store'});
+      if(!r.ok)return;
+      const data=await r.json();
+      Object.entries(data?.numbers||{}).forEach(function(pair){
+        driverNumbers.set(String(pair[0]||''),String(pair[1]||''));
+      });
+      if(state.currentView==='feature'&&state.featureView==='driverid')renderDriverId();
+      if(state.currentView==='feature'&&state.featureView==='account')renderConnectedAccount();
+    }catch(e){}
+  }
+
   function liveFeed(){
     return state.liveRace&&state.liveRace.feed?state.liveRace.feed:null;
   }
@@ -300,7 +318,7 @@
       name:name,
       standings:standings,
       primary:primary,
-      number:(rows.slice().reverse().find(function(r){return r.carNumber;})||{}).carNumber||'',
+      number:driverNumber(name)||(rows.slice().reverse().find(function(r){return r.carNumber;})||{}).carNumber||'',
       team:primary?.team||standings.find(function(x){return x.row.team;})?.row?.team||'',
       starts:rows.length,
       wins:rows.filter(function(r){return Number(r.finish)===1;}).length,
@@ -819,7 +837,7 @@
     const primary=standings[0]?.row||null;
     return {
       name:prettyName(name),
-      number:typeof driverNumberFor==='function'?driverNumberFor(name):'',
+      number:driverNumber(name)||(rows.slice().reverse().find(function(r){return r.carNumber;})||{}).carNumber||'',
       team:primary?.team||standings.find(function(x){return x.row.team;})?.row?.team||'',
       driverId:primary?.driverId||standings.find(function(x){return x.row.driverId;})?.row?.driverId||'',
       starts:rows.length,
@@ -1022,6 +1040,7 @@
     document.addEventListener('visibilitychange',function(){if(!document.hidden)restoreAccount(false);});
     window.addEventListener('focus',function(){restoreAccount(false);});
     syncConnectedPushTopics().catch(function(){});
+    loadDriverNumbers();
     if(state.currentView==='home'){
       injectConnectedHome();
       injectWorkflow();
