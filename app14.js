@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const RNP_VERSION='14.0.0';
+  const RNP_VERSION='14.0.1';
   const PROFILE_KEY='hlrn-driver-os-profile';
   const SPOTTER_KEY='hlrn-rnp-spotter';
   const UPDATE_KEY='hlrn-rnp-update-seen';
@@ -507,6 +507,10 @@
   }
   function watchUpdates(){
     if(!('serviceWorker' in navigator))return;
+    const controllerAtBoot=navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange',function(){
+      if(controllerAtBoot)showUpdateBanner();
+    });
     navigator.serviceWorker.getRegistration().then(function(reg){
       if(!reg)return;
       if(reg.waiting)showUpdateBanner();
