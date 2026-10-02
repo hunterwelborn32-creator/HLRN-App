@@ -99,7 +99,7 @@ const state = {
   hostedDataStatus: 'Connecting…',
   hostedCachePartial: false,
   links: {},
-  appVersion: '11.4.0',
+  appVersion: '11.4.1',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -660,12 +660,12 @@ function openBroadcast(league){
 function renderStandings(){
   state.currentView='standings';
   const data=state.standings[state.league]||[];
-  const rows = data.map((x)=>`<tr class="standing-row rank-${x.rank}"><td class="rank"><span>${x.rank}</span></td><td>${driverLink(x.name)}<small class="table-sub">${x.wins} W • ${x.top5} T5 • ${x.top10} T10</small></td><td><strong class="points-value">${x.points}</strong></td></tr>`).join('');
+  const rows = data.map((x)=>`<tr class="standing-row rank-${x.rank}"><td class="rank"><span>${x.rank}</span></td><td><div class="standings-driver-cell">${driverPhotoMarkup(x.name,'standings-driver-photo','standings-driver-fallback')}<div>${driverLink(x.name)}<small class="table-sub">${x.wins} W • ${x.top5} T5 • ${x.top10} T10</small></div></div></td><td><strong class="points-value">${x.points}</strong></td></tr>`).join('');
   const top=data.slice(0,3);
   const leader=data[0], second=data[1];
   const gap=leader&&second?Math.max(0,(leader.points||0)-(second.points||0)):0;
   const complete=seasonCompleted(state.league);
-  const podium=top.length?`<section class="podium-grid ${state.league.toLowerCase()}">${top.map((x,i)=>`<article class="podium-card place-${i+1}"><div class="podium-place">${i===0?'1ST':i===1?'2ND':'3RD'}</div><div class="podium-avatar">${escapeHtml(x.name.split(' ').filter(Boolean).map(n=>n[0]).slice(0,2).join('').toUpperCase())}</div>${driverLink(x.name,'','podium-driver-link')}<span>${x.points} PTS</span><small>${x.wins} wins • ${x.top5} top 5s</small></article>`).join('')}</section>`:'';
+  const podium=top.length?`<section class="podium-grid ${state.league.toLowerCase()}">${top.map((x,i)=>`<article class="podium-card place-${i+1}"><div class="podium-place">${i===0?'1ST':i===1?'2ND':'3RD'}</div>${driverPhotoMarkup(x.name,'podium-driver-photo','podium-driver-fallback')}${driverLink(x.name,'','podium-driver-link')}<span>${x.points} PTS</span><small>${x.wins} wins • ${x.top5} top 5s</small></article>`).join('')}</section>`:'';
   app.innerHTML=`${networkBar()}<div class="page-title-row premium-page-head"><div><span class="page-kicker">CHAMPIONSHIP CENTER</span><h2 class="page-title">Standings</h2><p class="page-sub">The chase for the HLRN title</p></div>${liveBadge()}</div>
     <div class="tabs premium-tabs"><button class="tab ${state.league==='Sunday'?'active league-sunday':''}" onclick="switchLeague('Sunday')">Sunday</button><button class="tab ${state.league==='Monday'?'active league-monday':''}" onclick="switchLeague('Monday')">Monday</button></div>
     ${podium}
@@ -815,7 +815,7 @@ function driverDirectoryRowsHtml(list){
     const initialsText=d.name.split(' ').filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase();
     const encoded=encodeURIComponent(d.name).replace(/'/g,'%27');
     return `<button class="driver-row driver-click" data-search-name="${escapeHtml(d.name.toLowerCase())}" onclick="openHLRNDriverProfile(decodeURIComponent('${encoded}'))">
-      <div class="avatar">${escapeHtml(initialsText)}</div>
+      ${driverPhotoMarkup(d.name,'driver-row-photo','driver-row-photo-fallback')}
       <div class="driver-meta">
         <strong>${escapeHtml(d.name)}</strong>
         <small>${escapeHtml(d.leagues||'HLRN')} • ${d.races} starts • ${d.wins} wins • ${d.top5} T5 • ${d.top10} T10</small>
@@ -1013,6 +1013,16 @@ function renderDrivers(filter=''){
       input.setSelectionRange(filter.length,filter.length);
     }
   }
+}
+
+function driverPhotoMarkup(name,cls='driver-photo',fallbackClass='driver-photo-fallback'){
+  const raw=prettyName(String(name||'').trim());
+  const safe=escapeHtml(raw);
+  const src=window.hLrnDriverPhotoUrl?.(raw)||'';
+  if(src){
+    return `<span class="${cls}-wrap"><img class="${cls}" src="${escapeHtml(src)}" alt="${safe} driver photo" loading="lazy" decoding="async" onerror="this.parentElement?.classList.add('photo-missing');this.remove()"><span class="${fallbackClass}">${escapeHtml(initials(raw))}</span></span>`;
+  }
+  return `<span class="${cls}-wrap photo-missing"><span class="${fallbackClass}">${escapeHtml(initials(raw))}</span></span>`;
 }
 
 function driverLink(name,label='',cls=''){
@@ -1296,8 +1306,8 @@ function openHostedDriverProfile(encodedName){
 
     app.innerHTML=`${networkBar()}
       <button class="profile-back" onclick="hlrnBack('drivers')">← Drivers</button>
-      <section class="driver-profile-hero">
-        <div class="driver-profile-avatar">${escapeHtml(initials(name))}</div>
+      <section class="driver-profile-hero driver-profile-with-photo">
+        ${driverPhotoMarkup(name,'profile-driver-photo','profile-driver-fallback')}
         <div><small>HLRN HOSTED DRIVER</small><h2>${escapeHtml(name)}</h2><p>${races} career starts • ${wins} wins</p></div>
       </section>
 
@@ -1391,7 +1401,7 @@ function renderHostedDriverProfileFromRows(driver,rows){
   });
   const tracks=[...tm.values()].sort((a,b)=>b.races-a.races);
   const trackHtml=tracks.map(t=>`<div class="track-history-row"><div><strong>${escapeHtml(t.name)}</strong><small>${t.races} races • ${t.wins} wins • ${t.top5} Top 5s • ${t.top10} Top 10s • ${t.led} laps led</small></div><b>Avg ${t.finishCount?(t.finish/t.finishCount).toFixed(1):'--'}</b></div>`).join('');
-  app.innerHTML=`${networkBar()}<button class="profile-back" onclick="hlrnBack('drivers')">← Drivers</button><section class="driver-profile-hero"><div class="driver-profile-kicker">HLRN HOSTED CAREER • ALL IMPORTED RACES</div><h2>${escapeHtml(driver)}</h2><p>${races} races • ${wins} wins • ${top10Rate.toFixed(1)}% Top-10 rate${latestIR!=='--'?` • Latest iRating ${escapeHtml(latestIR)}`:''}</p></section><section class="career-stats-grid">${stat('RACES',races)}${stat('WINS',wins)}${stat('TOP 5',top5)}${stat('TOP 10',top10)}${stat('AVG START',fmt1(avgStart))}${stat('AVG FINISH',fmt1(avgFinish))}${stat('WIN RATE',winRate.toFixed(1)+'%')}${stat('TOP-5 RATE',top5Rate.toFixed(1)+'%')}${stat('LAPS LED',lapsLed)}${stat('INCIDENTS',incidents)}${stat('INC / RACE',fmt1(avgInc))}${stat('TOP-10 RATE',top10Rate.toFixed(1)+'%')}${stat('BEST FINISH',ordinal(bestFinish))}${stat('BEST START',ordinal(bestStart))}${stat('CLEAN RATE',cleanRate.toFixed(1)+'%')}</section><div class="profile-section-title"><h3>Career Badges</h3><span>Milestones</span></div><section class="badge-grid">${careerBadges(races,wins,top5,top10,lapsLed).map(b=>`<div class="career-badge ${b.earned?'earned':''}"><span>${b.icon}</span><strong>${b.label}</strong><small>${b.earned?'EARNED':b.need}</small></div>`).join('')}</section><div class="profile-section-title"><h3>Recent Hosted Races</h3><span>Latest 10</span></div><section class="card profile-races">${recentHtml}</section><div class="profile-section-title"><h3>Track History</h3><span>Career breakdown</span></div><section class="card">${trackHtml}</section>`;
+  app.innerHTML=`${networkBar()}<button class="profile-back" onclick="hlrnBack('drivers')">← Drivers</button><section class="driver-profile-hero driver-profile-with-photo">${driverPhotoMarkup(driver,'profile-driver-photo','profile-driver-fallback')}<div><div class="driver-profile-kicker">HLRN HOSTED CAREER • ALL IMPORTED RACES</div><h2>${escapeHtml(driver)}</h2><p>${races} races • ${wins} wins • ${top10Rate.toFixed(1)}% Top-10 rate${latestIR!=='--'?` • Latest iRating ${escapeHtml(latestIR)}`:''}</p></div></section><section class="career-stats-grid">${stat('RACES',races)}${stat('WINS',wins)}${stat('TOP 5',top5)}${stat('TOP 10',top10)}${stat('AVG START',fmt1(avgStart))}${stat('AVG FINISH',fmt1(avgFinish))}${stat('WIN RATE',winRate.toFixed(1)+'%')}${stat('TOP-5 RATE',top5Rate.toFixed(1)+'%')}${stat('LAPS LED',lapsLed)}${stat('INCIDENTS',incidents)}${stat('INC / RACE',fmt1(avgInc))}${stat('TOP-10 RATE',top10Rate.toFixed(1)+'%')}${stat('BEST FINISH',ordinal(bestFinish))}${stat('BEST START',ordinal(bestStart))}${stat('CLEAN RATE',cleanRate.toFixed(1)+'%')}</section><div class="profile-section-title"><h3>Career Badges</h3><span>Milestones</span></div><section class="badge-grid">${careerBadges(races,wins,top5,top10,lapsLed).map(b=>`<div class="career-badge ${b.earned?'earned':''}"><span>${b.icon}</span><strong>${b.label}</strong><small>${b.earned?'EARNED':b.need}</small></div>`).join('')}</section><div class="profile-section-title"><h3>Recent Hosted Races</h3><span>Latest 10</span></div><section class="card profile-races">${recentHtml}</section><div class="profile-section-title"><h3>Track History</h3><span>Career breakdown</span></div><section class="card">${trackHtml}</section>`;
 }
 
 async function refreshHostedData(rerender=true){
@@ -1487,13 +1497,13 @@ function renderResults(addHistory=true){
     if(league==='Hosted'){
       const ordered=[...selected.rows].sort((a,b)=>num(a['Finish Position'])-num(b['Finish Position']));
       const winner=ordered[0]; summary=`${selected.track} • ${selected.date} • ${ordered.length} drivers`;
-      winnerSpotlight=winner?`<section class="winner-spotlight hosted-win"><div class="winner-crown">🏆</div><div><small>RACE WINNER</small><strong>${escapeHtml(prettyName(String(winner.Driver||'')))}</strong><span>${escapeHtml(selected.track)} • ${escapeHtml(selected.date)}</span></div><div class="winner-number">#${escapeHtml(winner['Car #']||'--')}</div></section>`:'';
-      rowsHtml=ordered.map(r=>{const name=prettyName(String(r.Driver||'')); const gain=num(r['Start Position'])-num(r['Finish Position']); return `<button class="archive-result-row" onclick="openHLRNDriverProfile(decodeURIComponent('${encodeURIComponent(name).replace(/'/g,'%27')}'))"><div class="archive-pos">${escapeHtml(r['Finish Position']||'--')}</div><div class="archive-driver"><strong>${escapeHtml(name)}</strong><small>Start ${escapeHtml(r['Start Position']||'--')} • ${escapeHtml(r['Laps Led']||0)} led • ${escapeHtml(r.Incidents||0)} inc</small></div><div class="archive-gain ${gain>0?'up':gain<0?'down':''}">${gain>0?'+':''}${gain}</div></button>`}).join('');
+      winnerSpotlight=winner?`<section class="winner-spotlight hosted-win">${driverPhotoMarkup(prettyName(String(winner.Driver||'')),'winner-driver-photo','winner-driver-fallback')}<div><small>RACE WINNER</small><strong>${escapeHtml(prettyName(String(winner.Driver||'')))}</strong><span>${escapeHtml(selected.track)} • ${escapeHtml(selected.date)}</span></div><div class="winner-number">#${escapeHtml(winner['Car #']||'--')}</div></section>`:'';
+      rowsHtml=ordered.map(r=>{const name=prettyName(String(r.Driver||'')); const gain=num(r['Start Position'])-num(r['Finish Position']); return `<button class="archive-result-row" onclick="openHLRNDriverProfile(decodeURIComponent('${encodeURIComponent(name).replace(/'/g,'%27')}'))"><div class="archive-pos">${escapeHtml(r['Finish Position']||'--')}</div>${driverPhotoMarkup(name,'result-driver-photo','result-driver-fallback')}<div class="archive-driver"><strong>${escapeHtml(name)}</strong><small>Start ${escapeHtml(r['Start Position']||'--')} • ${escapeHtml(r['Laps Led']||0)} led • ${escapeHtml(r.Incidents||0)} inc</small></div><div class="archive-gain ${gain>0?'up':gain<0?'down':''}">${gain>0?'+':''}${gain}</div></button>`}).join('');
     }else{
       const ordered=selected.rows; summary=`Race ${selected.raceNo} • ${selected.track} • ${selected.date} • ${ordered.length} drivers`;
       const winner=ordered[0];
-      winnerSpotlight=winner?`<section class="winner-spotlight ${league.toLowerCase()}-win"><div class="winner-crown">🏆</div><div><small>RACE WINNER</small><strong>${escapeHtml(winner.driver)}</strong><span>${escapeHtml(selected.track)} • Race ${selected.raceNo}</span></div><div class="winner-number">P1</div></section>`:'';
-      rowsHtml=ordered.map(r=>{const gain=r.start-r.finish; return `<button class="archive-result-row" onclick="openHLRNDriverProfile('${encodeURIComponent(r.driver)}')"><div class="archive-pos">${r.finish}</div><div class="archive-driver"><strong>${escapeHtml(r.driver)}</strong><small>Start ${r.start} • ${r.lapsLed} led • ${r.points} pts • ${r.incidents} inc</small></div><div class="archive-gain ${gain>0?'up':gain<0?'down':''}">${gain>0?'+':''}${gain}</div></button>`}).join('');
+      winnerSpotlight=winner?`<section class="winner-spotlight ${league.toLowerCase()}-win">${driverPhotoMarkup(winner.driver,'winner-driver-photo','winner-driver-fallback')}<div><small>RACE WINNER</small><strong>${escapeHtml(winner.driver)}</strong><span>${escapeHtml(selected.track)} • Race ${selected.raceNo}</span></div><div class="winner-number">P1</div></section>`:'';
+      rowsHtml=ordered.map(r=>{const gain=r.start-r.finish; return `<button class="archive-result-row" onclick="openHLRNDriverProfile('${encodeURIComponent(r.driver)}')"><div class="archive-pos">${r.finish}</div>${driverPhotoMarkup(r.driver,'result-driver-photo','result-driver-fallback')}<div class="archive-driver"><strong>${escapeHtml(r.driver)}</strong><small>Start ${r.start} • ${r.lapsLed} led • ${r.points} pts • ${r.incidents} inc</small></div><div class="archive-gain ${gain>0?'up':gain<0?'down':''}">${gain>0?'+':''}${gain}</div></button>`}).join('');
     }
   }
   app.innerHTML=`${networkBar()}<div class="page-title-row premium-page-head"><div><span class="page-kicker">OFFICIAL RESULTS</span><h2 class="page-title">Race Archive</h2><p class="page-sub">Every loaded HLRN race, one place</p></div>${liveBadge()}</div>
