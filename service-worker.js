@@ -1,4 +1,4 @@
-const CACHE = 'hlrn-v11-3-4-race-intelligence-finish-logic';
+const CACHE = 'hlrn-v11-4-0-shared-website-data';
 const APP_SHELL = [
   './',
   './index.html',
