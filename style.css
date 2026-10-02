@@ -2119,3 +2119,92 @@ body{
   .driver-profile-with-photo{grid-template-columns:88px minmax(0,1fr);gap:10px}
   .profile-driver-photo-wrap{width:88px;height:112px}
 }
+
+
+/* HLRN 11.4.3 — DRIVER CARD PHOTOS */
+.driver-card-photo-wrap{
+  position:relative;
+  width:88px;
+  height:112px;
+  align-self:end;
+  display:grid;
+  place-items:end center;
+  overflow:hidden;
+  border:0;
+  border-radius:16px 16px 8px 8px;
+  background:radial-gradient(circle at 50% 90%,rgba(255,212,0,.10),transparent 60%);
+}
+.driver-card-photo{
+  position:relative;
+  z-index:2;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  object-position:center bottom;
+  filter:drop-shadow(0 8px 14px rgba(0,0,0,.38));
+}
+.driver-card-photo-fallback{
+  position:absolute;
+  inset:auto 12px 16px;
+  z-index:1;
+  height:64px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  background:#242b35;
+  border:1px solid rgba(255,255,255,.08);
+  color:#fff;
+  font-size:20px;
+  font-weight:1000;
+}
+.driver-card-photo-wrap.photo-missing .driver-card-photo-fallback{z-index:3}
+.driver-card-has-photo{
+  grid-template-columns:72px 92px minmax(0,1fr) auto;
+  min-height:132px;
+  align-items:end;
+  padding-bottom:0;
+}
+.driver-card-has-photo .driver-card-number{
+  align-self:center;
+  padding-bottom:18px;
+}
+.driver-card-has-photo .driver-card-identity,
+.driver-card-has-photo .driver-card-rating{
+  align-self:center;
+  padding-bottom:18px;
+  position:relative;
+  z-index:3;
+}
+@media(max-width:650px){
+  .driver-card-has-photo{
+    grid-template-columns:48px 76px minmax(0,1fr);
+    gap:8px;
+    min-height:112px;
+    padding:12px 10px 0;
+  }
+  .driver-card-photo-wrap{
+    width:74px;
+    height:96px;
+  }
+  .driver-card-photo-fallback{
+    inset:auto 8px 13px;
+    height:54px;
+    font-size:16px;
+  }
+  .driver-card-has-photo .driver-card-number{
+    font-size:19px;
+    padding-bottom:16px;
+  }
+  .driver-card-has-photo .driver-card-identity{
+    padding-bottom:16px;
+  }
+  .driver-card-has-photo .driver-card-identity h2{
+    font-size:19px;
+  }
+  .driver-card-has-photo .driver-card-rating{
+    grid-column:1/-1;
+    align-self:stretch;
+    padding:8px 2px 11px;
+    border-top:1px solid rgba(255,255,255,.05);
+  }
+}
