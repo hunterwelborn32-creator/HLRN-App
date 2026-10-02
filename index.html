@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0b0d" />
+  <meta name="theme-color" content="#050608" />
   <meta name="description" content="High Line Racing Network league app" />
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="HLRN" />
-  <link rel="stylesheet" href="style.css?v=12.0.1" />
+  <link rel="stylesheet" href="style.css?v=12.1.0" />
   <title>HLRN</title>
 </head>
 <body><div class="ambient-checkers" aria-hidden="true"></div>
   <div class="app-shell">
     <header class="topbar"><div class="topbar-glow" aria-hidden="true"></div>
-      <div class="top-brand"><img src="hlrn-logo-4k.png" alt="HLRN"><div><div class="eyebrow">HIGH LINE RACING NETWORK</div><h1>HLRN</h1></div></div>
+      <div class="top-brand"><img src="hlrn-logo-4k.png" alt="HLRN"><div><div class="eyebrow">HIGH LINE RACING NETWORK</div><h1>HLRN <em>RACE APP</em></h1></div><span class="top-edition">12</span></div>
       <div class="top-actions"><div class="top-network-pill"><span class="top-live-dot" aria-hidden="true"></span><b>NETWORK READY</b></div><button class="icon-btn notification-quick" id="notificationQuickBtn" onclick="openFeature('notifications')" aria-label="Open notifications">🔔<i id="notificationQuickBadge" hidden></i></button><button class="icon-btn sound-toggle" id="soundToggleBtn" onclick="toggleHLRNSound()" aria-label="Turn sound effects off">🔊</button><button class="icon-btn" id="installBtn" hidden aria-label="Install app">＋</button></div>
     </header>
 
@@ -24,16 +24,26 @@
     <main id="app"></main>
 
     <nav class="bottom-nav" aria-label="Primary"><div class="nav-glow" aria-hidden="true"></div>
-      <button type="button" class="nav-item active" data-view="home" onclick="hlrnNav('home')"><span class="nav-icon">⌂</span><small>Home</small></button>
-      <button type="button" class="nav-item" data-view="standings" onclick="hlrnNav('standings')"><span class="nav-icon">🏆</span><small>Standings</small></button>
-      <button type="button" class="nav-item" data-view="schedule" onclick="hlrnNav('schedule')"><span class="nav-icon">🏁</span><small>Schedule</small></button>
-      <button type="button" class="nav-item" data-view="drivers" onclick="hlrnNav('drivers')"><span class="nav-icon">👤</span><small>Drivers</small></button>
-      <button type="button" class="nav-item" data-view="socials" onclick="hlrnNav('socials')"><span class="nav-icon">🔗</span><small>Socials</small></button>
+      <button type="button" class="nav-item active" data-view="home" onclick="hlrnNav('home')" aria-label="Home">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.8 12 3l9 7.8v9.7h-6.1v-6.2H9.1v6.2H3z"/></svg></span><small>Home</small>
+      </button>
+      <button type="button" class="nav-item" data-view="standings" onclick="hlrnNav('standings')" aria-label="Standings">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8v3h3v3.2c0 3.1-1.9 5.6-4.7 6.5V18H18v3H6v-3h3.7v-2.3C6.9 14.8 5 12.3 5 9.2V6h3zm-1 5v1.2c0 1.6.8 3 2.1 3.8A8.7 8.7 0 0 1 8 8zm10 0a8.7 8.7 0 0 1-1.1 5A4.4 4.4 0 0 0 18 9.2V8z"/></svg></span><small>Standings</small>
+      </button>
+      <button type="button" class="nav-item" data-view="schedule" onclick="hlrnNav('schedule')" aria-label="Schedule">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h2v2h8V2h2v2h3v18H3V4h3zm13 8H5v10h14zm-9 2h3v3h-3zm5 0h2v3h-2zm-5 5h3v2h-3z"/></svg></span><small>Schedule</small>
+      </button>
+      <button type="button" class="nav-item" data-view="drivers" onclick="hlrnNav('drivers')" aria-label="Drivers">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9Zm-8 9c.7-4 3.7-6.5 8-6.5s7.3 2.5 8 6.5z"/></svg></span><small>Drivers</small>
+      </button>
+      <button type="button" class="nav-item" data-view="socials" onclick="hlrnNav('socials')" aria-label="Socials">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.5 3a3.5 3.5 0 1 1-2.8 5.6L9.3 12l5.4 3.4a3.5 3.5 0 1 1-1 1.7L8.4 13.7a3.5 3.5 0 1 1 0-3.4l5.3-3.4A3.5 3.5 0 0 1 17.5 3Z"/></svg></span><small>Socials</small>
+      </button>
     </nav>
   </div>
 
-  <script src="rules-data.js?v=12.0.1"></script>
-<script src="standings-driver-photos.js?v=12.0.1"></script>
-<script src="app.js?v=12.0.1"></script>
+  <script src="rules-data.js?v=12.1.0"></script>
+<script src="standings-driver-photos.js?v=12.1.0"></script>
+<script src="app.js?v=12.1.0"></script>
 </body>
 </html>
