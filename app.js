@@ -99,7 +99,7 @@ const state = {
   hostedDataStatus: 'Connecting…',
   hostedCachePartial: false,
   links: {},
-  appVersion: '11.4.1',
+  appVersion: '11.4.2',
   featureView: 'records',
   favorites: safeStoredArray('hlrn-favorites'),
   teamStandings: {Sunday: [], Monday: []},
@@ -1015,14 +1015,58 @@ function renderDrivers(filter=''){
   }
 }
 
+const HLRN_DRIVER_PHOTO_ALIASES={
+  'sebastian-micheals':'sebastian-michaels',
+  'eric-pedley-hayden':'eric-hayden',
+  'randy-schweitzer-rsi':'randy-schweitzer',
+  'dyaln-jones':'dylan-jones',
+  'dylan-c-jones':'dylan-jones',
+  'nicholas-baumann2':'nicholas-baumann',
+  'ethan-fonseca-moreno':'ethan-moreno',
+  'joshua-mckinney':'josh-mckinney',
+  'joshua-mckinney2':'josh-mckinney',
+  'jeremy-s-jeffries':'jeremy-jeffries',
+  'vicente-guerrero2':'vincente-guerrero',
+  'vicente-guerrero':'vincente-guerrero',
+  'brian-hebbard2':'brian-hebbard',
+  'brian-hayes4':'brian-hayes',
+  'ryan-wilson21':'ryan-wilson',
+  'timothy-tyler3':'timothy-tyler',
+  'matthew-brown49':'matthew-brown',
+  'matthew-graham20':'matthew-graham'
+};
+
+function driverPhotoSlug(name){
+  let raw=prettyName(String(name||'').trim())
+    .toLowerCase()
+    .replace(/&/g,'and')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'');
+
+  const exact=HLRN_DRIVER_PHOTO_ALIASES[raw];
+  if(exact) return exact;
+
+  const noTrailingNumber=raw.replace(/\d+$/,'');
+  if(HLRN_DRIVER_PHOTO_ALIASES[noTrailingNumber]) return HLRN_DRIVER_PHOTO_ALIASES[noTrailingNumber];
+
+  return noTrailingNumber;
+}
+
+function driverPhotoUrl(name){
+  const slug=driverPhotoSlug(name);
+  return slug ? './driver-photos/cutout/'+encodeURIComponent(slug)+'.webp' : '';
+}
+
 function driverPhotoMarkup(name,cls='driver-photo',fallbackClass='driver-photo-fallback'){
   const raw=prettyName(String(name||'').trim());
   const safe=escapeHtml(raw);
-  const src=window.hLrnDriverPhotoUrl?.(raw)||'';
-  if(src){
-    return `<span class="${cls}-wrap"><img class="${cls}" src="${escapeHtml(src)}" alt="${safe} driver photo" loading="lazy" decoding="async" onerror="this.parentElement?.classList.add('photo-missing');this.remove()"><span class="${fallbackClass}">${escapeHtml(initials(raw))}</span></span>`;
-  }
-  return `<span class="${cls}-wrap photo-missing"><span class="${fallbackClass}">${escapeHtml(initials(raw))}</span></span>`;
+  const src=driverPhotoUrl(raw);
+
+  return `<span class="${cls}-wrap">
+    <img class="${cls}" src="${escapeHtml(src)}" alt="${safe} driver photo" loading="lazy" decoding="async"
+      onerror="this.parentElement?.classList.add('photo-missing');this.remove()">
+    <span class="${fallbackClass}">${escapeHtml(initials(raw))}</span>
+  </span>`;
 }
 
 function driverLink(name,label='',cls=''){
