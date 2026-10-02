@@ -2415,3 +2415,134 @@ body{
   .cc-race-actions{grid-template-columns:1fr 1fr}.cc-race-actions .btn:last-child{grid-column:1/-1}
   .winner-spotlight{grid-template-columns:54px 1fr auto 32px!important}
 }
+
+
+/* =========================================================
+   HLRN APP 12.0.1 — COMMAND CENTER PHOTO FIX
+   Hide initials fallback when a real transparent cutout loads.
+   ========================================================= */
+
+/* Default: never paint the fallback behind a transparent driver PNG/WebP. */
+.cc-leader-fallback,
+.cc-winner-fallback,
+.cc-hosted-fallback,
+.cc-favorite-fallback,
+.driver-card-photo-fallback,
+.driver-row-photo-fallback,
+.standings-driver-fallback,
+.podium-driver-fallback,
+.result-driver-fallback,
+.winner-driver-fallback,
+.profile-driver-fallback{
+  display:none!important;
+}
+
+/* Only show initials if the image actually failed and the wrapper is flagged. */
+.cc-leader-photo-wrap.photo-missing .cc-leader-fallback,
+.cc-winner-photo-wrap.photo-missing .cc-winner-fallback,
+.cc-hosted-photo-wrap.photo-missing .cc-hosted-fallback,
+.cc-favorite-photo-wrap.photo-missing .cc-favorite-fallback,
+.driver-card-photo-wrap.photo-missing .driver-card-photo-fallback,
+.driver-row-photo-wrap.photo-missing .driver-row-photo-fallback,
+.standings-driver-photo-wrap.photo-missing .standings-driver-fallback,
+.podium-driver-photo-wrap.photo-missing .podium-driver-fallback,
+.result-driver-photo-wrap.photo-missing .result-driver-fallback,
+.winner-driver-photo-wrap.photo-missing .winner-driver-fallback,
+.profile-driver-photo-wrap.photo-missing .profile-driver-fallback{
+  display:grid!important;
+}
+
+/* Championship cards — cleaner NASCAR-style cutout placement. */
+.cc-championship-card{
+  grid-template-columns:86px minmax(0,1fr)!important;
+  min-height:122px!important;
+  padding:8px 12px 0!important;
+  align-items:end!important;
+}
+.cc-leader-photo-wrap{
+  width:84px!important;
+  height:112px!important;
+  align-self:end!important;
+  overflow:visible!important;
+}
+.cc-leader-photo{
+  width:100%!important;
+  height:100%!important;
+  object-fit:contain!important;
+  object-position:center bottom!important;
+  filter:drop-shadow(0 8px 14px rgba(0,0,0,.34))!important;
+}
+.cc-championship-card>div:last-child{
+  align-self:center!important;
+  padding:0 0 10px!important;
+}
+.cc-championship-card strong{
+  font-size:13px!important;
+}
+
+/* Latest winner rows — larger clean cutout, no card-shaped silhouette. */
+.cc-winner-main{
+  grid-template-columns:76px minmax(0,1fr)!important;
+  min-height:88px!important;
+  padding:8px 12px 0!important;
+}
+.cc-winner-photo-wrap{
+  width:74px!important;
+  height:86px!important;
+  align-self:end!important;
+  overflow:visible!important;
+}
+.cc-winner-photo{
+  width:100%!important;
+  height:100%!important;
+  object-fit:contain!important;
+  object-position:center bottom!important;
+  filter:drop-shadow(0 7px 12px rgba(0,0,0,.30))!important;
+}
+.cc-winner-main strong{
+  font-size:14px!important;
+}
+.cc-winner-main span{
+  font-size:7px!important;
+}
+
+/* Hosted Center cutout matches the same treatment. */
+.cc-hosted-photo-wrap{
+  overflow:visible!important;
+}
+.cc-hosted-photo{
+  filter:drop-shadow(0 7px 12px rgba(0,0,0,.30))!important;
+}
+
+/* Keep photo columns from clipping against rounded card edges. */
+.cc-championship-card,
+.cc-winner-card,
+.cc-hosted{
+  isolation:isolate;
+}
+.cc-leader-photo-wrap,
+.cc-winner-photo-wrap,
+.cc-hosted-photo-wrap{
+  z-index:2;
+}
+
+@media(max-width:650px){
+  .cc-championship-card{
+    grid-template-columns:68px minmax(0,1fr)!important;
+    min-height:110px!important;
+    padding:7px 9px 0!important;
+  }
+  .cc-leader-photo-wrap{
+    width:66px!important;
+    height:100px!important;
+  }
+  .cc-winner-main{
+    grid-template-columns:66px minmax(0,1fr)!important;
+    min-height:82px!important;
+    padding:7px 9px 0!important;
+  }
+  .cc-winner-photo-wrap{
+    width:64px!important;
+    height:80px!important;
+  }
+}
